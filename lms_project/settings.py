@@ -77,7 +77,20 @@ WSGI_APPLICATION = 'lms_project.wsgi.application'
 # Database
 # ---------------------------------------------------------------------------
 # SQLite for development. PostgreSQL for production (Railway)
-if os.environ.get('RAILWAY_ENVIRONMENT') or os.environ.get('POSTGRES_HOST'):
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    # Railway provides PostgreSQL connection variables
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('RAILWAY_POSTGRES_DB_NAME') or os.environ.get('POSTGRES_DB') or os.environ.get('DB_NAME'),
+            'USER': os.environ.get('RAILWAY_POSTGRES_USER') or os.environ.get('POSTGRES_USER') or os.environ.get('DB_USER'),
+            'PASSWORD': os.environ.get('RAILWAY_POSTGRES_PASSWORD') or os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DB_PASSWORD'),
+            'HOST': os.environ.get('RAILWAY_POSTGRES_HOST') or os.environ.get('POSTGRES_HOST') or os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('RAILWAY_POSTGRES_PORT') or os.environ.get('POSTGRES_PORT') or os.environ.get('DB_PORT', '5432'),
+        }
+    }
+elif os.environ.get('POSTGRES_HOST'):
+    # Manual PostgreSQL configuration
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
