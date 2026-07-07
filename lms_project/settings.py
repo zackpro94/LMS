@@ -19,6 +19,8 @@ ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').sp
 if os.environ.get('RAILWAY_ENVIRONMENT'):
     ALLOWED_HOSTS.append('.railway.app')
     ALLOWED_HOSTS.append('.railway.internal')
+    # Add Railway domain to CSRF trusted origins
+    CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
 
 # ---------------------------------------------------------------------------
 # Application definition
