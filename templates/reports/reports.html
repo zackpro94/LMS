@@ -1,0 +1,246 @@
+{% extends 'base.html' %}
+
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block extra_css %}
+<style>
+  .chart-card { min-height: 380px; }
+  .chart-card canvas { max-height: 320px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Date Range Filter -->
+<div class="card card-glass mb-4">
+  <div class="card-body">
+    <form method="get" id="date-filter-form" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label small text-muted">From Date</label>
+        <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="form-control">
+      </div>
+      <div class="col-md-4">
+        <label class="form-label small text-muted">To Date</label>
+        <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="form-control">
+      </div>
+      <div class="col-md-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-funnel"></i> Apply Filter
+        </button>
+        <a href="{% url 'letters:reports' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-circle"></i> Clear
+        </a>
+        <div class="btn-group">
+          <a href="?export=excel{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline-success" title="Export to Excel">
+            <i class="bi bi-file-earmark-excel"></i>
+          </a>
+          <a href="?export=pdf{% if request.GET.date_from %}&date_from={{ request.GET.date_from }}{% endif %}{% if request.GET.date_to %}&date_to={{ request.GET.date_to }}{% endif %}" class="btn btn-outline-danger" title="Export to PDF">
+            <i class="bi bi-file-earmark-pdf"></i>
+          </a>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Monthly Volume -->
+  <div class="col-lg-8">
+    <div class="card card-glass chart-card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-bar-chart me-2"></i>Monthly Letter Volume (Last 12 Months)</h6>
+      </div>
+      <div class="card-body">
+        <canvas id="monthlyChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- By Status -->
+  <div class="col-lg-4">
+    <div class="card card-glass chart-card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>By Status</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="statusChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- By Department -->
+  <div class="col-lg-4">
+    <div class="card card-glass chart-card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-building me-2"></i>By Department</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="deptChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- By Category -->
+  <div class="col-lg-4">
+    <div class="card card-glass chart-card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-tags me-2"></i>By Category</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="categoryChart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <!-- By Priority -->
+  <div class="col-lg-4">
+    <div class="card card-glass chart-card">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>By Priority</h6>
+      </div>
+      <div class="card-body d-flex align-items-center justify-content-center">
+        <canvas id="priorityChart"></canvas>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const PALETTE = [
+    '#6366f1','#f59e0b','#10b981','#ef4444','#8b5cf6',
+    '#06b6d4','#f97316','#ec4899','#14b8a6','#64748b'
+  ];
+
+  function loadCharts() {
+    const params = new URLSearchParams(window.location.search);
+    const url = "{% url 'letters:reports_data' %}?" + params.toString();
+    
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        // Monthly volume chart
+        new Chart(document.getElementById('monthlyChart'), {
+          type: 'bar',
+          data: {
+            labels: data.monthly.map(d => d.month),
+            datasets: [
+              {
+                label: 'Incoming',
+                data: data.monthly.map(d => d.incoming),
+                backgroundColor: 'rgba(99,102,241,0.7)',
+                borderRadius: 6,
+              },
+              {
+                label: 'Outgoing',
+                data: data.monthly.map(d => d.outgoing),
+                backgroundColor: 'rgba(16,185,129,0.7)',
+                borderRadius: 6,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { position: 'top' } },
+            scales: {
+              y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+
+        // Status doughnut
+        new Chart(document.getElementById('statusChart'), {
+          type: 'doughnut',
+          data: {
+            labels: data.by_status.map(d => d.status),
+            datasets: [{
+              data: data.by_status.map(d => d.count),
+              backgroundColor: PALETTE,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        });
+
+        // Department pie
+        new Chart(document.getElementById('deptChart'), {
+          type: 'pie',
+          data: {
+            labels: data.by_department.map(d => d.assigned_department__name || 'Unassigned'),
+            datasets: [{
+              data: data.by_department.map(d => d.count),
+              backgroundColor: PALETTE,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        });
+
+        // Category horizontal bar
+        new Chart(document.getElementById('categoryChart'), {
+          type: 'bar',
+          data: {
+            labels: data.by_category.map(d => d.category),
+            datasets: [{
+              label: 'Letters',
+              data: data.by_category.map(d => d.count),
+              backgroundColor: PALETTE,
+              borderRadius: 6,
+            }]
+          },
+          options: {
+            indexAxis: 'y',
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              x: { beginAtZero: true, ticks: { stepSize: 1 } }
+            }
+          }
+        });
+
+        // Priority doughnut
+        new Chart(document.getElementById('priorityChart'), {
+          type: 'doughnut',
+          data: {
+            labels: data.by_priority.map(d => d.priority),
+            datasets: [{
+              data: data.by_priority.map(d => d.count),
+              backgroundColor: PALETTE,
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { position: 'bottom' } }
+          }
+        });
+      });
+  }
+
+  loadCharts();
+  
+  // Reload charts when date filter is applied
+  document.getElementById('date-filter-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const params = new URLSearchParams(new FormData(this));
+    window.history.replaceState({}, '', '?' + params.toString());
+    
+    // Destroy existing charts
+    Chart.getChart('monthlyChart')?.destroy();
+    Chart.getChart('statusChart')?.destroy();
+    Chart.getChart('deptChart')?.destroy();
+    Chart.getChart('categoryChart')?.destroy();
+    Chart.getChart('priorityChart')?.destroy();
+    
+    loadCharts();
+  });
+});
+</script>
+{% endblock %}

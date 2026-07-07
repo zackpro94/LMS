@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ title|default:"Staff Member" }}{% endblock %}
+{% block page_title %}{{ title|default:"Staff Member" }}{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'letters:admin_dashboard' %}" class="text-decoration-none">Admin</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'letters:admin_staff_list' %}" class="text-decoration-none">Staff</a></li>
+      <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card card-glass shadow-sm">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="bi bi-person-gear me-2"></i>{{ title|default:"Staff Member" }}
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% crispy form %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

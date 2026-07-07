@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ form_title|default:"New Letter" }}{% endblock %}
+{% block page_title %}{{ form_title|default:"New Letter" }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-10">
+    <div class="card card-glass">
+      <div class="card-header">
+        <h5 class="mb-0">
+          <i class="bi bi-envelope-plus me-2"></i>{{ form_title|default:"Register New Letter" }}
+        </h5>
+      </div>
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          {% crispy form %}
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Show/hide sender/recipient based on direction
+  document.addEventListener('DOMContentLoaded', function() {
+    const directionField = document.getElementById('id_direction');
+    const senderGroup = document.getElementById('id_sender')?.closest('.col-md-6');
+    const recipientGroup = document.getElementById('id_recipient')?.closest('.col-md-6');
+
+    function toggleFields() {
+      if (!directionField || !senderGroup || !recipientGroup) return;
+      const val = directionField.value;
+      if (val === 'INCOMING') {
+        senderGroup.style.opacity = '1';
+        recipientGroup.style.opacity = '0.4';
+      } else if (val === 'OUTGOING') {
+        senderGroup.style.opacity = '0.4';
+        recipientGroup.style.opacity = '1';
+      } else {
+        senderGroup.style.opacity = '1';
+        recipientGroup.style.opacity = '1';
+      }
+    }
+
+    if (directionField) {
+      directionField.addEventListener('change', toggleFields);
+      toggleFields();
+    }
+  });
+</script>
+{% endblock %}

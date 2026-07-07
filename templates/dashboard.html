@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1">Welcome back, {{ user.get_full_name|default:user.username }}</p>
+{% endblock %}
+
+{% block content %}
+<div class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'letters:letter_list' %}" class="text-decoration-none">
+      <div class="stat-card stat-card--total stat-card--link">
+        <div class="stat-card__icon"><i class="bi bi-envelope-paper"></i></div>
+        <div class="stat-card__body">
+          <div class="stat-card__value">{{ total_letters }}</div>
+          <div class="stat-card__label">Total Letters</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'letters:letter_list' %}?status=RECEIVED" class="text-decoration-none">
+      <div class="stat-card stat-card--pending stat-card--link">
+        <div class="stat-card__icon"><i class="bi bi-hourglass-split"></i></div>
+        <div class="stat-card__body">
+          <div class="stat-card__value">{{ pending_count }}</div>
+          <div class="stat-card__label">Pending Review</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'letters:overdue_letters' %}" class="text-decoration-none">
+      <div class="stat-card stat-card--overdue stat-card--link">
+        <div class="stat-card__icon"><i class="bi bi-exclamation-triangle"></i></div>
+        <div class="stat-card__body">
+          <div class="stat-card__value">{{ overdue_count }}</div>
+          <div class="stat-card__label">Overdue</div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <a href="{% url 'letters:letter_list' %}?priority=URGENT" class="text-decoration-none">
+      <div class="stat-card stat-card--urgent stat-card--link">
+        <div class="stat-card__icon"><i class="bi bi-lightning-charge"></i></div>
+        <div class="stat-card__body">
+          <div class="stat-card__value">{{ urgent_count }}</div>
+          <div class="stat-card__label">Urgent Active</div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-6">
+    <a href="{% url 'letters:incoming_letter_list' %}" class="text-decoration-none">
+      <div class="card card-glass card-glass--interactive h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <span class="badge-direction badge-direction--incoming"><i class="bi bi-envelope-arrow-down fs-4"></i></span>
+          <div>
+            <h3 class="mb-0">{{ incoming_count }}</h3>
+            <small class="text-muted">Incoming Letters</small>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+  <div class="col-md-6">
+    <a href="{% url 'letters:outgoing_letter_list' %}" class="text-decoration-none">
+      <div class="card card-glass card-glass--interactive h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <span class="badge-direction badge-direction--outgoing"><i class="bi bi-envelope-arrow-up fs-4"></i></span>
+          <div>
+            <h3 class="mb-0">{{ outgoing_count }}</h3>
+            <small class="text-muted">Outgoing Letters</small>
+          </div>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <div class="card card-glass">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Letters</h6>
+        <a href="{% url 'letters:letter_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+      </div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-clean mb-0">
+            <thead>
+              <tr>
+                <th>Ref #</th>
+                <th>Subject</th>
+                <th>Direction</th>
+                <th>Status</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for letter in recent_letters %}
+              <tr class="cursor-pointer" onclick="window.location='{{ letter.get_absolute_url }}'">
+                <td><code>{{ letter.reference_no|default:"—" }}</code></td>
+                <td>{{ letter.subject|truncatechars:40 }}</td>
+                <td>{% include 'includes/badge_direction.html' with direction=letter.direction %}</td>
+                <td>{% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}</td>
+                <td><small>{{ letter.date|date:"d M Y" }}</small></td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="5" class="empty-state">
+                  <i class="bi bi-inbox"></i>
+                  <p class="mb-0">No letters yet. Register your first letter to get started.</p>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-5">
+    <div class="card card-glass">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-activity me-2"></i>Recent Activity</h6>
+      </div>
+      <div class="card-body">
+        <div class="activity-feed">
+          {% for log in recent_actions %}
+          <div class="activity-item">
+            <div class="activity-icon"><i class="bi bi-circle-fill"></i></div>
+            <div class="activity-content">
+              <p class="mb-1"><strong>{{ log.action }}</strong></p>
+              <small class="text-muted">
+                {{ log.action_by.get_full_name|default:log.action_by.username }} ·
+                {{ log.action_date|timesince }} ago ·
+                <a href="{{ log.letter.get_absolute_url }}">{{ log.letter.reference_no|default:"Draft" }}</a>
+              </small>
+            </div>
+          </div>
+          {% empty %}
+          <div class="empty-state py-3">
+            <i class="bi bi-clock"></i>
+            <p class="mb-0">No activity recorded yet.</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

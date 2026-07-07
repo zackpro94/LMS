@@ -1,0 +1,290 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ list_title|default:"All Letters" }}{% endblock %}
+{% block page_title %}{{ list_title|default:"All Letters" }}{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1">
+  {% if is_paginated %}{{ paginator.count }}{% else %}{{ letters|length }}{% endif %}
+  letter{{ letters|length|pluralize }} found
+</p>
+{% endblock %}
+
+{% block content %}
+<div class="card card-glass mb-4">
+  <div class="card-body">
+    <form method="get" id="filter-form">
+      <div class="row g-3 align-items-end">
+        <div class="col-lg-7">
+          <label for="search-input" class="form-label small text-muted mb-1">Search</label>
+          <div class="input-group">
+            <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+            <input type="text" id="search-input" name="search" value="{{ request.GET.search }}"
+                   class="form-control" placeholder="Subject, sender, recipient, or reference number…">
+          </div>
+        </div>
+        <div class="col-lg-5 d-flex gap-2">
+          <button type="submit" class="btn btn-primary flex-fill">
+            <i class="bi bi-funnel"></i> Apply Filters
+          </button>
+          <a href="{{ list_clear_url|default:request.path }}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Clear
+          </a>
+          <div class="btn-group">
+            <a href="?export=excel{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="btn btn-outline-success" title="Export to Excel">
+              <i class="bi bi-file-earmark-excel"></i>
+            </a>
+            <a href="?export=pdf{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="btn btn-outline-danger" title="Export to PDF">
+              <i class="bi bi-file-earmark-pdf"></i>
+            </a>
+          </div>
+          <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#saveSearchModal" title="Save Search">
+            <i class="bi bi-bookmark"></i>
+          </button>
+        </div>
+      </div>
+
+      <button class="btn btn-link btn-sm px-0 mt-3 text-decoration-none" type="button"
+              data-bs-toggle="collapse" data-bs-target="#advanced-filters" aria-expanded="false">
+        <i class="bi bi-sliders"></i> Advanced filters
+      </button>
+
+      {% if saved_searches %}
+      <div class="mt-3">
+        <small class="text-muted">Saved searches:</small>
+        <div class="d-flex flex-wrap gap-2 mt-1">
+          {% for search in saved_searches %}
+          <a href="?{{ search.query_string }}" class="badge bg-light text-dark text-decoration-none">
+            <i class="bi bi-bookmark-fill"></i> {{ search.name }}
+            <a href="{% url 'letters:delete_search' search.pk %}" class="ms-1 text-danger" onclick="return confirm('Delete this saved search?');">&times;</a>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="collapse {% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.date_from or request.GET.date_to %}show{% endif %}" id="advanced-filters">
+        <div class="row g-3 pt-2">
+          {% if not is_outgoing_view and not is_incoming_view %}
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Direction</label>
+            <select name="direction" class="form-select form-select-sm">
+              <option value="">All Directions</option>
+              {% for val, label in filter.filters.direction.extra.choices %}
+                {% if val %}
+                <option value="{{ val }}" {% if request.GET.direction == val %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          {% endif %}
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Type</label>
+            <select name="letter_type" class="form-select form-select-sm">
+              <option value="">All Types</option>
+              {% for val, label in filter.filters.letter_type.extra.choices %}
+                {% if val %}
+                <option value="{{ val }}" {% if request.GET.letter_type == val %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Status</label>
+            <select name="status" class="form-select form-select-sm">
+              <option value="">All Statuses</option>
+              {% for val, label in filter.filters.status.extra.choices %}
+                {% if val %}
+                <option value="{{ val }}" {% if request.GET.status == val %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Category</label>
+            <select name="category" class="form-select form-select-sm">
+              <option value="">All Categories</option>
+              {% for val, label in filter.filters.category.extra.choices %}
+                {% if val %}
+                <option value="{{ val }}" {% if request.GET.category == val %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Priority</label>
+            <select name="priority" class="form-select form-select-sm">
+              <option value="">All Priorities</option>
+              {% for val, label in filter.filters.priority.extra.choices %}
+                {% if val %}
+                <option value="{{ val }}" {% if request.GET.priority == val %}selected{% endif %}>{{ label }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">From</label>
+            <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">To</label>
+            <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="form-control form-control-sm">
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div class="card card-glass">
+  <div class="card-body p-0">
+    <form method="post" action="{% url 'letters:bulk_action' %}" id="bulk-action-form">
+      {% csrf_token %}
+      <div class="table-responsive">
+        <table class="table table-hover table-clean align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="select-all"></th>
+              <th>Ref #</th>
+              <th>Direction</th>
+              <th>Type</th>
+              <th>Subject</th>
+              <th>From / To</th>
+              <th>Category</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Dept</th>
+              <th>Date</th>
+              <th>Due</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for letter in letters %}
+            <tr class="cursor-pointer" onclick="window.location='{{ letter.get_absolute_url }}'">
+              <td onclick="event.stopPropagation()"><input type="checkbox" class="form-check-input letter-checkbox" name="letter_ids" value="{{ letter.pk }}"></td>
+              <td><code class="text-nowrap">{{ letter.reference_no|default:"—" }}</code></td>
+              <td>{% include 'includes/badge_direction.html' with direction=letter.direction %}</td>
+              <td>{% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type %}</td>
+              <td>{{ letter.subject|truncatechars:50 }}</td>
+              <td>
+                {% if letter.direction == 'INCOMING' %}
+                  {{ letter.sender|truncatechars:25|default:"—" }}
+                {% else %}
+                  {{ letter.recipient|truncatechars:25|default:"—" }}
+                {% endif %}
+              </td>
+              <td><span class="badge bg-light text-dark">{{ letter.category.name|default:"—" }}</span></td>
+              <td>{% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}</td>
+              <td>{% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}</td>
+              <td>{{ letter.assigned_department.code|default:"—" }}</td>
+              <td><small>{{ letter.date|date:"d M Y" }}</small></td>
+              <td>
+                {% if letter.is_overdue %}
+                  <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> {{ letter.due_date|date:"d M" }}</span>
+                {% elif letter.due_date %}
+                  <small>{{ letter.due_date|date:"d M Y" }}</small>
+                {% else %}
+                  —
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="12" class="empty-state">
+                <i class="bi bi-inbox"></i>
+                <p class="mb-0">No letters match your search criteria.</p>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="bulk-actions-bar p-3 border-top d-none" id="bulk-actions-bar">
+        <div class="d-flex align-items-center gap-3">
+          <span class="text-muted small"><span id="selected-count">0</span> letter(s) selected</span>
+          <select name="action" class="form-select form-select-sm" style="width: auto;">
+            <option value="">Choose action...</option>
+            <option value="close">Close Selected</option>
+            <option value="archive">Archive Selected</option>
+            <option value="reopen">Reopen Selected</option>
+            <option value="delete" class="text-danger">Delete Selected</option>
+          </select>
+          <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+          <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-selection">Clear Selection</button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% include 'includes/pagination.html' %}
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const selectAll = document.getElementById('select-all');
+  const checkboxes = document.querySelectorAll('.letter-checkbox');
+  const bulkActionsBar = document.getElementById('bulk-actions-bar');
+  const selectedCount = document.getElementById('selected-count');
+  const clearSelection = document.getElementById('clear-selection');
+  
+  function updateBulkActionsBar() {
+    const checked = document.querySelectorAll('.letter-checkbox:checked');
+    const count = checked.length;
+    
+    selectedCount.textContent = count;
+    
+    if (count > 0) {
+      bulkActionsBar.classList.remove('d-none');
+    } else {
+      bulkActionsBar.classList.add('d-none');
+    }
+  }
+  
+  if (selectAll) {
+    selectAll.addEventListener('change', function() {
+      checkboxes.forEach(cb => cb.checked = this.checked);
+      updateBulkActionsBar();
+    });
+  }
+  
+  checkboxes.forEach(cb => {
+    cb.addEventListener('change', function() {
+      updateBulkActionsBar();
+    });
+  });
+  
+  if (clearSelection) {
+    clearSelection.addEventListener('click', function() {
+      checkboxes.forEach(cb => cb.checked = false);
+      if (selectAll) selectAll.checked = false;
+      updateBulkActionsBar();
+    });
+  }
+});
+</script>
+
+<!-- Save Search Modal -->
+<div class="modal fade" id="saveSearchModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'letters:save_search' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title">Save Search</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="search-name" class="form-label">Search Name</label>
+            <input type="text" class="form-control" id="search-name" name="name" required placeholder="e.g., Urgent HR Letters">
+          </div>
+          <p class="text-muted small">This will save your current filter settings for quick access later.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Search</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

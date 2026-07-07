@@ -1,0 +1,536 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}{{ letter.reference_no|default:"Letter Detail" }}{% endblock %}
+{% block page_title %}{{ letter.reference_no|default:"Letter Detail" }}{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1 text-truncate" style="max-width: 60vw;">{{ letter.subject }}</p>
+{% endblock %}
+
+{% block content %}
+<!-- Back navigation -->
+<nav class="letter-breadcrumb mb-3" aria-label="Breadcrumb">
+  <a href="{{ back_url }}" class="letter-breadcrumb__link">
+    <i class="bi bi-arrow-left"></i> {{ back_label }}
+  </a>
+  <span class="letter-breadcrumb__sep">/</span>
+  <span class="letter-breadcrumb__current">{{ letter.reference_no|default:"DRAFT" }}</span>
+</nav>
+
+{% if letter.is_overdue %}
+<div class="alert alert-danger d-flex align-items-center gap-2 mb-4" role="alert">
+  <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+  <div>
+    <strong>This letter is overdue.</strong>
+    Due date was {{ letter.due_date|date:"d M Y" }}
+    ({{ letter.days_until_due|floatformat:0|cut:"-" }} day{{ letter.days_until_due|floatformat:0|cut:"-"|pluralize }} past due).
+  </div>
+</div>
+{% endif %}
+
+<!-- Quick stats strip -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="letter-stat">
+      <div class="letter-stat__icon letter-stat__icon--direction">
+        {% if letter.direction == 'INCOMING' %}
+          <i class="bi bi-arrow-down-left-circle"></i>
+        {% else %}
+          <i class="bi bi-arrow-up-right-circle"></i>
+        {% endif %}
+      </div>
+      <div>
+        <div class="letter-stat__value">{{ letter.get_direction_display }}</div>
+        <div class="letter-stat__label">Direction</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="letter-stat">
+      <div class="letter-stat__icon letter-stat__icon--status">
+        <i class="bi bi-flag"></i>
+      </div>
+      <div>
+        <div class="letter-stat__value">{{ letter.get_status_display }}</div>
+        <div class="letter-stat__label">Status</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="letter-stat">
+      <div class="letter-stat__icon letter-stat__icon--attachments">
+        <i class="bi bi-paperclip"></i>
+      </div>
+      <div>
+        <div class="letter-stat__value">{{ attachments|length }}</div>
+        <div class="letter-stat__label">Attachment{{ attachments|length|pluralize }}</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="letter-stat">
+      <div class="letter-stat__icon letter-stat__icon--actions">
+        <i class="bi bi-clock-history"></i>
+      </div>
+      <div>
+        <div class="letter-stat__value">{{ action_count }}</div>
+        <div class="letter-stat__label">Action{{ action_count|pluralize }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Left column -->
+  <div class="col-lg-8">
+
+    <!-- Status workflow -->
+    <div class="card card-glass mb-4">
+      <div class="card-body py-3">
+        <div class="status-pipeline" role="list" aria-label="Letter status workflow">
+          {% for val, label in status_flow %}
+          <div class="status-pipeline__step{% if letter.status == val %} status-pipeline__step--active{% endif %}"
+               role="listitem"
+               data-status="{{ val }}"
+               aria-current="{% if letter.status == val %}step{% else %}false{% endif %}">
+            <div class="status-pipeline__dot">
+              {% if letter.status == val %}
+                <i class="bi bi-circle-fill"></i>
+              {% else %}
+                <i class="bi bi-circle"></i>
+              {% endif %}
+            </div>
+            <span class="status-pipeline__label">{{ label }}</span>
+          </div>
+          {% if not forloop.last %}
+          <div class="status-pipeline__connector" aria-hidden="true"></div>
+          {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Header card -->
+    <div class="card card-glass letter-header mb-4 letter-header--{{ letter.direction|lower }}">
+      <div class="card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div class="flex-grow-1 min-w-0">
+          <h5 class="mb-2">{{ letter.subject }}</h5>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <code class="letter-ref" id="letter-ref">{{ letter.reference_no|default:"DRAFT" }}</code>
+            <button type="button" class="btn btn-sm btn-outline-secondary letter-copy-btn"
+                    data-copy-target="letter-ref" title="Copy reference number">
+              <i class="bi bi-clipboard"></i>
+            </button>
+          </div>
+        </div>
+        <div class="d-flex flex-wrap gap-2 align-items-start">
+          {% include 'includes/badge_direction.html' with direction=letter.direction size='fs-6' %}
+          {% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type size='fs-6' %}
+          {% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display size='fs-6' %}
+          {% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display size='fs-6' %}
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          {% if letter.sender %}
+          <div class="col-md-6">
+            <div class="detail-field">
+              <label><i class="bi bi-person"></i> Sender</label>
+              <p>{{ letter.sender }}</p>
+            </div>
+          </div>
+          {% endif %}
+          {% if letter.recipient %}
+          <div class="col-md-6">
+            <div class="detail-field">
+              <label><i class="bi bi-person-check"></i> Recipient</label>
+              <p>{{ letter.recipient }}</p>
+            </div>
+          </div>
+          {% endif %}
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-calendar3"></i> Date</label>
+              <p>{{ letter.date|date:"d M Y" }}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-tag"></i> Category</label>
+              <p>{{ letter.category.name|default:"—" }}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-building"></i> Department</label>
+              <p>{{ letter.assigned_department|default:"—" }}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-person-badge"></i> Assigned To</label>
+              <p>{{ letter.assigned_person.get_full_name|default:letter.assigned_person.username|default:"—" }}</p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-calendar-event"></i> Due Date</label>
+              <p>
+                {% if letter.is_overdue %}
+                  <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> {{ letter.due_date|date:"d M Y" }} (OVERDUE)</span>
+                {% elif letter.due_date %}
+                  {{ letter.due_date|date:"d M Y" }}
+                  {% if letter.days_until_due is not None %}
+                    <small class="text-muted">({{ letter.days_until_due }} day{{ letter.days_until_due|pluralize }} left)</small>
+                  {% endif %}
+                {% else %}
+                  —
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="col-md-4">
+            <div class="detail-field">
+              <label><i class="bi bi-link-45deg"></i> Related Letter</label>
+              <p>
+                {% if letter.related_letter %}
+                  <a href="{{ letter.related_letter.get_absolute_url }}">{{ letter.related_letter.reference_no }}</a>
+                  <small class="text-muted d-block">{{ letter.related_letter.subject|truncatechars:50 }}</small>
+                {% else %}
+                  —
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          {% if letter.remarks %}
+          <div class="col-12">
+            <div class="detail-field">
+              <label><i class="bi bi-chat-left-text"></i> Remarks</label>
+              <div class="letter-remarks">{{ letter.remarks|linebreaksbr }}</div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <hr>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <small class="text-muted">
+            Created by {{ letter.created_by.get_full_name|default:letter.created_by.username }}
+            on {{ letter.created_at|date:"d M Y H:i" }}
+            {% if letter.updated_at != letter.created_at %}
+              · Updated {{ letter.updated_at|date:"d M Y H:i" }}
+            {% endif %}
+          </small>
+          <div class="d-flex gap-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="window.print()">
+              <i class="bi bi-printer"></i> Print
+            </button>
+            <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil-square"></i> Edit Letter
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related replies -->
+    {% if related_replies %}
+    <div class="card card-glass mb-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-reply-all me-2"></i>Related Replies ({{ related_replies|length }})</h6>
+      </div>
+      <div class="list-group list-group-flush">
+        {% for reply in related_replies %}
+        <a href="{{ reply.get_absolute_url }}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+          <div class="min-w-0">
+            <strong>{{ reply.reference_no }}</strong>
+            <span class="text-muted ms-2">{{ reply.subject|truncatechars:60 }}</span>
+          </div>
+          <div class="d-flex gap-2 align-items-center flex-shrink-0 ms-3">
+            {% include 'includes/badge_status.html' with status=reply.status label=reply.get_status_display %}
+            <i class="bi bi-chevron-right text-muted"></i>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Attachments -->
+    <div class="card card-glass mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-paperclip me-2"></i>Attachments ({{ attachments|length }})</h6>
+      </div>
+      <div class="card-body">
+        {% if attachments %}
+        <div class="attachment-list">
+          {% for att in attachments %}
+          <div class="attachment-item">
+            {% include 'includes/attachment_icon.html' with filename=att.filename %}
+            <div class="attachment-item__info flex-grow-1 min-w-0">
+              <strong class="d-block text-truncate">{{ att.filename }}</strong>
+              <small class="text-muted">
+                {{ att.file_size_display }}
+                · {{ att.uploaded_by.get_full_name|default:att.uploaded_by.username|default:"—" }}
+                · {{ att.uploaded_at|timesince }} ago
+              </small>
+            </div>
+            <div class="attachment-item__actions d-flex gap-2 flex-shrink-0">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}">
+                <i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">Preview</span>
+              </button>
+              <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary" download>
+                <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Download</span>
+              </a>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state py-4">
+          <i class="bi bi-inbox"></i>
+          <p class="mb-0">No attachments yet</p>
+        </div>
+        {% endif %}
+
+        <hr>
+        <h6 class="mb-3"><i class="bi bi-cloud-upload me-1"></i> Upload Attachment</h6>
+        <form method="post" action="{% url 'letters:add_attachment' letter.pk %}" enctype="multipart/form-data"
+              id="attachment-form">
+          {% csrf_token %}
+          <div class="upload-dropzone" id="upload-dropzone">
+            <i class="bi bi-cloud-arrow-up upload-dropzone__icon"></i>
+            <p class="mb-1">Drag &amp; drop a file here, or click to browse</p>
+            <small class="text-muted">Max 10 MB per file</small>
+            <input type="file" name="file" id="attachment-file" class="upload-dropzone__input" required>
+          </div>
+          <div id="upload-filename" class="upload-filename d-none">
+            <i class="bi bi-file-earmark-check text-success"></i>
+            <span id="upload-filename-text"></span>
+            <button type="button" class="btn btn-sm btn-link text-danger p-0 ms-2" id="upload-clear">Remove</button>
+          </div>
+          <button type="submit" class="btn btn-success mt-3" id="upload-submit" disabled>
+            <i class="bi bi-upload"></i> Upload File
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div class="col-lg-4">
+    <!-- Log Action -->
+    <div class="card card-glass mb-4">
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Log Action</h6>
+      </div>
+      <div class="card-body">
+        {% if not can_close %}
+        <p class="text-muted small mb-3">
+          <i class="bi bi-info-circle"></i>
+          Only the assigned person or an admin can close or archive this letter.
+        </p>
+        {% endif %}
+        <form method="post" action="{% url 'letters:add_action' letter.pk %}">
+          {% csrf_token %}
+          {% crispy action_form %}
+        </form>
+      </div>
+    </div>
+
+    <!-- Action Timeline -->
+    <div class="card card-glass">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>Action Timeline</h6>
+        <div class="d-flex gap-2 align-items-center">
+          <span class="badge bg-secondary-subtle text-secondary">{{ action_count }}</span>
+          <a href="{% url 'letters:export_actions' letter.pk %}?export=excel" class="btn btn-sm btn-outline-success" title="Export actions">
+            <i class="bi bi-download"></i>
+          </a>
+        </div>
+      </div>
+      <div class="card-body">
+        <!-- Action Filter -->
+        <div class="mb-3">
+          <input type="text" id="action-filter" class="form-control form-control-sm" placeholder="Filter actions...">
+        </div>
+        <div class="timeline" id="action-timeline">
+          {% for log in action_logs %}
+          <div class="timeline-item {% if 'Status changed' in log.action %}timeline-item--status{% endif %}">
+            <div class="timeline-marker"></div>
+            <div class="timeline-content">
+              <p class="fw-semibold mb-1">{{ log.action }}</p>
+              {% if log.notes %}
+              <p class="text-muted small mb-1">{{ log.notes }}</p>
+              {% endif %}
+              <small class="text-muted">
+                <i class="bi bi-person"></i>
+                {{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}
+                · {{ log.action_date|date:"d M Y H:i" }}
+              </small>
+            </div>
+          </div>
+          {% empty %}
+          <div class="empty-state py-3">
+            <i class="bi bi-journal-text"></i>
+            <p class="mb-0">No actions recorded yet</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  // Copy reference number
+  document.querySelectorAll('[data-copy-target]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var target = document.getElementById(btn.dataset.copyTarget);
+      if (!target) return;
+      navigator.clipboard.writeText(target.textContent.trim()).then(function () {
+        var icon = btn.querySelector('i');
+        btn.classList.add('letter-copy-btn--success');
+        icon.className = 'bi bi-check2';
+        setTimeout(function () {
+          btn.classList.remove('letter-copy-btn--success');
+          icon.className = 'bi bi-clipboard';
+        }, 1500);
+      });
+    });
+  });
+
+  // Drag-and-drop upload
+  var dropzone = document.getElementById('upload-dropzone');
+  var fileInput = document.getElementById('attachment-file');
+  var filenameEl = document.getElementById('upload-filename');
+  var filenameText = document.getElementById('upload-filename-text');
+  var submitBtn = document.getElementById('upload-submit');
+  var clearBtn = document.getElementById('upload-clear');
+
+  if (dropzone && fileInput) {
+    function showFile(file) {
+      filenameText.textContent = file.name;
+      filenameEl.classList.remove('d-none');
+      dropzone.classList.add('upload-dropzone--has-file');
+      submitBtn.disabled = false;
+    }
+
+    function clearFile() {
+      fileInput.value = '';
+      filenameEl.classList.add('d-none');
+      dropzone.classList.remove('upload-dropzone--has-file');
+      submitBtn.disabled = true;
+    }
+
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files.length) showFile(fileInput.files[0]);
+    });
+
+    if (clearBtn) clearBtn.addEventListener('click', clearFile);
+
+    ['dragenter', 'dragover'].forEach(function (evt) {
+      dropzone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        dropzone.classList.add('upload-dropzone--active');
+      });
+    });
+
+    ['dragleave', 'drop'].forEach(function (evt) {
+      dropzone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        dropzone.classList.remove('upload-dropzone--active');
+      });
+    });
+
+    dropzone.addEventListener('drop', function (e) {
+      if (e.dataTransfer.files.length) {
+        fileInput.files = e.dataTransfer.files;
+        showFile(e.dataTransfer.files[0]);
+      }
+    });
+  }
+
+  // Status pipeline: mark completed steps
+  var currentStatus = '{{ letter.status }}';
+  var steps = document.querySelectorAll('.status-pipeline__step');
+  var found = false;
+  steps.forEach(function (step) {
+    if (found) return;
+    step.classList.add('status-pipeline__step--completed');
+    if (step.classList.contains('status-pipeline__step--active')) {
+      found = true;
+      step.classList.remove('status-pipeline__step--completed');
+      step.classList.add('status-pipeline__step--active');
+    }
+  });
+
+  // Action timeline filter
+  var actionFilter = document.getElementById('action-filter');
+  var actionTimeline = document.getElementById('action-timeline');
+  
+  if (actionFilter && actionTimeline) {
+    actionFilter.addEventListener('input', function() {
+      var filterText = this.value.toLowerCase();
+      var items = actionTimeline.querySelectorAll('.timeline-item');
+      
+      items.forEach(function(item) {
+        var text = item.textContent.toLowerCase();
+        if (text.includes(filterText)) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    });
+  }
+});
+</script>
+
+<!-- Document Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="previewModalTitle">Document Preview</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-0" style="min-height: 500px;">
+        <iframe id="previewFrame" src="" style="width: 100%; height: 500px; border: none;"></iframe>
+      </div>
+      <div class="modal-footer">
+        <a id="previewDownload" href="" class="btn btn-primary" download>
+          <i class="bi bi-download"></i> Download
+        </a>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const previewModal = document.getElementById('previewModal');
+  const previewFrame = document.getElementById('previewFrame');
+  const previewTitle = document.getElementById('previewModalTitle');
+  const previewDownload = document.getElementById('previewDownload');
+  
+  previewModal.addEventListener('show.bs.modal', function(event) {
+    const button = event.relatedTarget;
+    const url = button.getAttribute('data-preview-url');
+    const name = button.getAttribute('data-preview-name');
+    
+    previewFrame.src = url;
+    previewTitle.textContent = name;
+    previewDownload.href = url;
+  });
+  
+  previewModal.addEventListener('hidden.bs.modal', function() {
+    previewFrame.src = '';
+  });
+});
+</script>
+{% endblock %}

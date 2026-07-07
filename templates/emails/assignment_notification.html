@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Letter Assignment</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: #4f46e5; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+        .content { background: #f9fafb; padding: 30px; border: 1px solid #e5e7eb; border-radius: 0 0 8px 8px; }
+        .button { display: inline-block; background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+        .footer { text-align: center; margin-top: 30px; color: #6b7280; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📬 New Letter Assignment</h1>
+    </div>
+    <div class="content">
+        <p>Hello {{ assigned_person.get_full_name|default:assigned_person.username }},</p>
+        
+        <p>You have been assigned to the following letter:</p>
+        
+        <div style="background: white; padding: 20px; border-radius: 6px; margin: 20px 0; border-left: 4px solid #4f46e5;">
+            <p style="margin: 0 0 10px 0;"><strong>Reference No:</strong> {{ letter.reference_no }}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Subject:</strong> {{ letter.subject }}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Direction:</strong> {{ letter.get_direction_display }}</p>
+            <p style="margin: 0 0 10px 0;"><strong>Priority:</strong> {{ letter.get_priority_display }}</p>
+            <p style="margin: 0;"><strong>Due Date:</strong> {% if letter.due_date %}{{ letter.due_date|date:"F d, Y" }}{% else %}Not set{% endif %}</p>
+        </div>
+        
+        <p>Please review and take appropriate action.</p>
+        
+        <a href="{{ site_url }}{{ letter.get_absolute_url }}" class="button">View Letter</a>
+        
+        <div class="footer">
+            <p>This is an automated notification from Auction Ethiopia Letter Management System.</p>
+        </div>
+    </div>
+</body>
+</html>

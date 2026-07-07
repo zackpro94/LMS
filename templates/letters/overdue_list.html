@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Overdue Letters{% endblock %}
+{% block page_title %}Overdue Letters{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1">{{ letters|length }} letter{{ letters|length|pluralize }} require attention</p>
+{% endblock %}
+
+{% block content %}
+{% if letters %}
+<div class="alert alert-danger d-flex align-items-center mb-4" role="alert">
+  <i class="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+  <div>
+    <strong>{{ letters|length }} letter{{ letters|length|pluralize }} past due date</strong>
+    — These letters require immediate attention.
+  </div>
+</div>
+{% endif %}
+
+<div class="card card-glass">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-clean align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Ref #</th>
+            <th>Subject</th>
+            <th>Direction</th>
+            <th>Due Date</th>
+            <th>Days Overdue</th>
+            <th>Status</th>
+            <th>Priority</th>
+            <th>Department</th>
+            <th>Assigned To</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for letter in letters %}
+          <tr class="cursor-pointer table-danger-subtle" onclick="window.location='{{ letter.get_absolute_url }}'">
+            <td><code>{{ letter.reference_no|default:"—" }}</code></td>
+            <td>{{ letter.subject|truncatechars:40 }}</td>
+            <td>{% include 'includes/badge_direction.html' with direction=letter.direction %}</td>
+            <td><span class="text-danger fw-bold">{{ letter.due_date|date:"d M Y" }}</span></td>
+            <td>
+              {% if letter.days_until_due is not None %}
+                <span class="badge bg-danger">{{ letter.days_until_due|cut:"-" }} days</span>
+              {% endif %}
+            </td>
+            <td>{% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}</td>
+            <td>{% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}</td>
+            <td>{{ letter.assigned_department.code|default:"—" }}</td>
+            <td>{{ letter.assigned_person.get_full_name|default:"—" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="9" class="empty-state">
+              <i class="bi bi-check-circle text-success"></i>
+              <p class="mb-0">No overdue letters — great job!</p>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

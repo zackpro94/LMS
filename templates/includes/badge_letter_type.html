@@ -1,0 +1,5 @@
+{% if letter_type == 'HARDCOPY' %}
+  <span class="badge bg-warning-subtle text-warning{% if size %} {{ size }}{% endif %}"><i class="bi bi-envelope"></i> Hardcopy</span>
+{% else %}
+  <span class="badge bg-primary-subtle text-primary{% if size %} {{ size }}{% endif %}"><i class="bi bi-laptop"></i> Digital</span>
+{% endif %}

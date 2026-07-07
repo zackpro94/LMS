@@ -1,0 +1,15 @@
+{% with lower=filename|lower %}
+  {% if ".pdf" in lower %}
+    <span class="attachment-icon attachment-icon--pdf"><i class="bi bi-file-earmark-pdf"></i></span>
+  {% elif ".doc" in lower %}
+    <span class="attachment-icon attachment-icon--doc"><i class="bi bi-file-earmark-word"></i></span>
+  {% elif ".xls" in lower %}
+    <span class="attachment-icon attachment-icon--xls"><i class="bi bi-file-earmark-excel"></i></span>
+  {% elif ".png" in lower or ".jpg" in lower or ".jpeg" in lower or ".gif" in lower or ".webp" in lower %}
+    <span class="attachment-icon attachment-icon--img"><i class="bi bi-file-earmark-image"></i></span>
+  {% elif ".zip" in lower or ".rar" in lower or ".7z" in lower %}
+    <span class="attachment-icon attachment-icon--zip"><i class="bi bi-file-earmark-zip"></i></span>
+  {% else %}
+    <span class="attachment-icon attachment-icon--default"><i class="bi bi-file-earmark"></i></span>
+  {% endif %}
+{% endwith %}

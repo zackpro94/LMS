@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Delete Staff Account{% endblock %}
+{% block page_title %}Delete Staff Account{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+  <nav aria-label="breadcrumb">
+    <ol class="breadcrumb mb-0">
+      <li class="breadcrumb-item"><a href="{% url 'letters:admin_dashboard' %}" class="text-decoration-none">Admin</a></li>
+      <li class="breadcrumb-item"><a href="{% url 'letters:admin_staff_list' %}" class="text-decoration-none">Staff</a></li>
+      <li class="breadcrumb-item active" aria-current="page">Delete</li>
+    </ol>
+  </nav>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card card-glass shadow-sm border-danger">
+      <div class="card-header bg-danger bg-opacity-10">
+        <h5 class="mb-0 text-danger">
+          <i class="bi bi-exclamation-triangle me-2"></i>Confirm Deletion
+        </h5>
+      </div>
+      <div class="card-body">
+        <p class="mb-1">You are about to permanently delete the staff account:</p>
+        <div class="alert alert-light border d-flex align-items-center gap-3 mt-3 mb-3">
+          <div style="background: rgba(239, 68, 68, 0.12); color: var(--danger); width: 42px; height: 42px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
+            <i class="bi bi-person-x"></i>
+          </div>
+          <div>
+            <strong>{{ object.username }}</strong>
+            <div class="text-muted" style="font-size: 0.85rem;">{{ object.get_full_name|default:"—" }} · {{ object.email|default:"No email" }}</div>
+          </div>
+        </div>
+        {% if object.created_letters.exists or object.assigned_letters.exists %}
+        <div class="alert alert-danger py-2 mb-3" style="font-size: 0.85rem;">
+          <i class="bi bi-shield-exclamation me-1"></i>
+          <strong>Warning:</strong> This user has created or been assigned letters. Deleting this account may affect audit trails. Consider <strong>deactivating</strong> the account instead.
+        </div>
+        {% endif %}
+        <div class="alert alert-warning py-2 mb-3" style="font-size: 0.85rem;">
+          <i class="bi bi-info-circle me-1"></i>
+          This action cannot be undone. If you only want to revoke access, edit the user and uncheck "Active" instead.
+        </div>
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-trash me-1"></i> Yes, Delete
+            </button>
+            <a href="{% url 'letters:admin_staff_list' %}" class="btn btn-outline-secondary">Cancel</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

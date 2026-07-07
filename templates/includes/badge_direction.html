@@ -1,0 +1,5 @@
+{% if direction == 'INCOMING' %}
+  <span class="badge bg-info-subtle text-info{% if size %} {{ size }}{% endif %}"><i class="bi bi-arrow-down-circle"></i> In</span>
+{% else %}
+  <span class="badge bg-success-subtle text-success{% if size %} {{ size }}{% endif %}"><i class="bi bi-arrow-up-circle"></i> Out</span>
+{% endif %}
