@@ -201,7 +201,7 @@ class LetterDetailView(LoginRequiredMixin, CanViewLetterMixin, DetailView):
         ctx['action_form'] = ActionLogForm(can_close=can_close, letter=letter)
         ctx['attachment_form'] = AttachmentForm()
         ctx['can_close'] = can_close
-        ctx['is_admin'] = request.user.is_superuser or request.user.groups.filter(name='Admin').exists()
+        ctx['is_admin'] = self.request.user.is_superuser or self.request.user.groups.filter(name='Admin').exists()
         ctx['related_replies'] = letter.replies.select_related(
             'assigned_department', 'assigned_person',
         )
