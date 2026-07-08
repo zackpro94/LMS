@@ -434,6 +434,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (dropzone && fileInput) {
     function showFile(file) {
+      var maxSize = 2 * 1024 * 1024; // 2MB in bytes
+      
+      if (file.size > maxSize) {
+        var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
+        alert('File size must be under 2 MB. Your file is ' + sizeMB + ' MB.');
+        clearFile();
+        return;
+      }
+      
       filenameText.textContent = file.name;
       filenameEl.classList.remove('d-none');
       dropzone.classList.add('upload-dropzone--has-file');
