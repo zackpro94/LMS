@@ -11,7 +11,7 @@ class LetterForm(forms.ModelForm):
     class Meta:
         model = Letter
         fields = [
-            'direction', 'letter_type', 'date', 'sender', 'recipient', 'subject',
+            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'recipient', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
             'status', 'related_letter', 'due_date', 'remarks',
         ]
@@ -25,6 +25,19 @@ class LetterForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
 
+        # Make reference_no required for incoming letters
+        if self.instance and self.instance.direction == Letter.INCOMING:
+            self.fields['reference_no'].required = True
+            self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+        elif self.data and self.data.get('direction') == Letter.INCOMING:
+            self.fields['reference_no'].required = True
+            self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+        else:
+            # For outgoing letters, reference_no is auto-generated
+            self.fields['reference_no'].required = False
+            self.fields['reference_no'].widget.attrs['readonly'] = True
+            self.fields['reference_no'].help_text = 'Auto-generated for outgoing letters'
+
         self.helper = FormHelper()
         self.helper.form_method = 'post'
         self.helper.layout = Layout(
@@ -34,6 +47,7 @@ class LetterForm(forms.ModelForm):
                 Column('date', css_class='col-md-3'),
                 Column('priority', css_class='col-md-3'),
             ),
+            'reference_no',
             Row(
                 Column('sender', css_class='col-md-6'),
                 Column('recipient', css_class='col-md-6'),
@@ -76,9 +90,16 @@ class LetterForm(forms.ModelForm):
         subject = cleaned_data.get('subject')
         due_date = cleaned_data.get('due_date')
         date = cleaned_data.get('date')
+        reference_no = cleaned_data.get('reference_no')
 
-        if direction == Letter.INCOMING and not sender:
-            self.add_error('sender', 'Sender is required for incoming letters. Please specify who sent this letter.')
+        if direction == Letter.INCOMING:
+            if not sender:
+                self.add_error('sender', 'Sender is required for incoming letters. Please specify who sent this letter.')
+            if not reference_no:
+                self.add_error('reference_no', 'Reference number is required for incoming letters.')
+            elif len(reference_no.strip()) < 2:
+                self.add_error('reference_no', 'Reference number must be at least 2 characters long.')
+        
         if direction == Letter.OUTGOING and not recipient:
             self.add_error('recipient', 'Recipient is required for outgoing letters. Please specify who will receive this letter.')
         

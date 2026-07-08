@@ -111,8 +111,8 @@ class Letter(models.Model):
     ]
 
     reference_no = models.CharField(
-        max_length=30, unique=True, blank=True,
-        help_text='Auto-generated: AE/{DEPT}/{SEQ}/{YY}',
+        max_length=50, unique=True, blank=True,
+        help_text='For incoming letters: enter manually. For outgoing letters: auto-generated as AE/{DEPT}/{SEQ}/{YY}',
     )
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
     letter_type = models.CharField(
@@ -222,8 +222,8 @@ class Letter(models.Model):
             return f'AE/{self.assigned_department.code}/{counter.last_number:04d}/{year_short:02d}'
 
     def save(self, *args, **kwargs):
-        # Auto-generate reference number on first save when department is set
-        if not self.reference_no and self.assigned_department:
+        # Auto-generate reference number only for outgoing letters on first save when department is set
+        if not self.reference_no and self.direction == self.OUTGOING and self.assigned_department:
             self.reference_no = self.generate_reference_number()
         super().save(*args, **kwargs)
 
