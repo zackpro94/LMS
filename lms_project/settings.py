@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'crispy_bootstrap5',
     'django_filters',
+    'corsheaders',
     # Local apps
     'letters.apps.LettersConfig',
     'accounts.apps.AccountsConfig',
@@ -50,6 +51,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -183,6 +185,19 @@ if os.environ.get('RAILWAY_ENVIRONMENT'):
 else:
     MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
+
+# ---------------------------------------------------------------------------
+# CORS Settings for iframe preview
+# ---------------------------------------------------------------------------
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "https://lms.pro.et",
+]
+CORS_ALLOW_CREDENTIALS = True
+
+# Allow same-origin iframes for media preview
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 # ---------------------------------------------------------------------------
 # Crispy Forms
