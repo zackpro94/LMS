@@ -454,6 +454,34 @@ class AddAttachmentView(LoginRequiredMixin, View):
 
 
 # ---------------------------------------------------------------------------
+# Attachment delete (for admin users)
+# ---------------------------------------------------------------------------
+class AttachmentDeleteView(LoginRequiredMixin, View):
+    """Delete an attachment - only for admin/superuser users."""
+    def post(self, request, letter_pk, attachment_pk):
+        letters_qs = get_user_letter_queryset(request.user)
+        letter = get_object_or_404(letters_qs, pk=letter_pk)
+        
+        # Check if user is admin or superuser
+        if not (request.user.is_superuser or request.user.groups.filter(name='Admin').exists()):
+            messages.error(request, 'Only admin users can delete attachments.')
+            return redirect(letter.get_absolute_url())
+        
+        attachment = get_object_or_404(letter.attachments, pk=attachment_pk)
+        filename = attachment.filename
+        attachment.delete()
+        
+        ActionLog.objects.create(
+            letter=letter,
+            action=f'Attachment deleted: {filename}',
+            action_by=request.user,
+        )
+        messages.success(request, f'Attachment "{filename}" deleted successfully.')
+        
+        return redirect(letter.get_absolute_url())
+
+
+# ---------------------------------------------------------------------------
 # Overdue letters
 # ---------------------------------------------------------------------------
 class OverdueLettersView(LoginRequiredMixin, ListView):
