@@ -295,7 +295,7 @@
               <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary" download>
                 <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Download</span>
               </a>
-              {% if request.user.is_superuser or request.user.groups.filter(name='Admin').exists %}
+              {% if is_admin %}
               <form method="post" action="{% url 'letters:delete_attachment' letter.pk att.pk %}" class="d-inline" onsubmit="return confirm('Are you sure you want to delete this attachment?')">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
