@@ -15,7 +15,7 @@ from django.views.generic import (
 from django_filters.views import FilterView
  
 from .filters import LetterFilter
-from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm
+from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm
 from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch
 from .permissions import (
     user_can_close, user_can_view_all_letters, CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
@@ -263,6 +263,7 @@ class LetterCreateView(LoginRequiredMixin, CreateView):
 
 class IncomingLetterCreateView(LetterCreateView):
     """Create view specifically for incoming letters."""
+    form_class = IncomingLetterForm
     
     def get_initial(self):
         return {'direction': Letter.INCOMING}
@@ -278,6 +279,7 @@ class IncomingLetterCreateView(LetterCreateView):
 
 class OutgoingLetterCreateView(LetterCreateView):
     """Create view specifically for outgoing letters."""
+    form_class = OutgoingLetterForm
     
     def get_initial(self):
         return {'direction': Letter.OUTGOING}

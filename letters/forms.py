@@ -82,34 +82,124 @@ class LetterForm(forms.ModelForm):
                 ]
                 self.fields['status'].choices = restricted
 
-    def clean(self):
-        cleaned_data = super().clean()
-        direction = cleaned_data.get('direction')
-        sender = cleaned_data.get('sender')
-        recipient = cleaned_data.get('recipient')
-        subject = cleaned_data.get('subject')
-        due_date = cleaned_data.get('due_date')
-        date = cleaned_data.get('date')
-        reference_no = cleaned_data.get('reference_no')
 
-        if direction == Letter.INCOMING:
-            if not sender:
-                self.add_error('sender', 'Sender is required for incoming letters. Please specify who sent this letter.')
-            if not reference_no:
-                self.add_error('reference_no', 'Reference number is required for incoming letters.')
-            elif len(reference_no.strip()) < 2:
-                self.add_error('reference_no', 'Reference number must be at least 2 characters long.')
-        
-        if direction == Letter.OUTGOING and not recipient:
-            self.add_error('recipient', 'Recipient is required for outgoing letters. Please specify who will receive this letter.')
-        
-        if subject and len(subject.strip()) < 3:
-            self.add_error('subject', 'Subject must be at least 3 characters long.')
-        
-        if due_date and date and due_date < date:
-            self.add_error('due_date', 'Due date cannot be before the letter date.')
+class IncomingLetterForm(LetterForm):
+    """Form specifically for incoming letters - no recipient field."""
+    
+    class Meta:
+        model = Letter
+        fields = [
+            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'subject',
+            'category', 'priority', 'assigned_department', 'assigned_person',
+            'status', 'related_letter', 'due_date', 'remarks',
+        ]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'remarks': forms.Textarea(attrs={'rows': 3}),
+        }
 
-        return cleaned_data
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        # Remove recipient field
+        if 'recipient' in self.fields:
+            del self.fields['recipient']
+        
+        # Set direction to INCOMING and hide it
+        if 'direction' in self.fields:
+            self.fields['direction'].initial = Letter.INCOMING
+            self.fields['direction'].widget = forms.HiddenInput()
+        
+        # Make reference_no required
+        self.fields['reference_no'].required = True
+        self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+        
+        # Update layout to remove recipient
+        self.helper.layout = Layout(
+            'direction',
+            Row(
+                Column('letter_type', css_class='col-md-4'),
+                Column('date', css_class='col-md-4'),
+                Column('priority', css_class='col-md-4'),
+            ),
+            'reference_no',
+            'sender',
+            'subject',
+            Row(
+                Column('category', css_class='col-md-4'),
+                Column('assigned_department', css_class='col-md-4'),
+                Column('assigned_person', css_class='col-md-4'),
+            ),
+            Row(
+                Column('status', css_class='col-md-4'),
+                Column('due_date', css_class='col-md-4'),
+                Column('related_letter', css_class='col-md-4'),
+            ),
+            'remarks',
+            Div(
+                Submit('submit', 'Save Incoming Letter', css_class='btn btn-primary btn-lg me-2'),
+                HTML('<a href="{% url \'letters:incoming_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
+                css_class='d-flex mt-3',
+            ),
+        )
+
+
+class OutgoingLetterForm(LetterForm):
+    """Form specifically for outgoing letters - no sender or reference_no field."""
+    
+    class Meta:
+        model = Letter
+        fields = [
+            'direction', 'letter_type', 'date', 'recipient', 'subject',
+            'category', 'priority', 'assigned_department', 'assigned_person',
+            'status', 'related_letter', 'due_date', 'remarks',
+        ]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date'}),
+            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'remarks': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        # Remove sender and reference_no fields
+        if 'sender' in self.fields:
+            del self.fields['sender']
+        if 'reference_no' in self.fields:
+            del self.fields['reference_no']
+        
+        # Set direction to OUTGOING and hide it
+        if 'direction' in self.fields:
+            self.fields['direction'].initial = Letter.OUTGOING
+            self.fields['direction'].widget = forms.HiddenInput()
+        
+        # Update layout to remove sender and reference_no
+        self.helper.layout = Layout(
+            'direction',
+            Row(
+                Column('letter_type', css_class='col-md-4'),
+                Column('date', css_class='col-md-4'),
+                Column('priority', css_class='col-md-4'),
+            ),
+            'recipient',
+            'subject',
+            Row(
+                Column('category', css_class='col-md-4'),
+                Column('assigned_department', css_class='col-md-4'),
+                Column('assigned_person', css_class='col-md-4'),
+            ),
+            Row(
+                Column('status', css_class='col-md-4'),
+                Column('due_date', css_class='col-md-4'),
+                Column('related_letter', css_class='col-md-4'),
+            ),
+            'remarks',
+            Div(
+                Submit('submit', 'Save Outgoing Letter', css_class='btn btn-primary btn-lg me-2'),
+                HTML('<a href="{% url \'letters:outgoing_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
+                css_class='d-flex mt-3',
+            ),
+        )
 
 
 class ActionLogForm(forms.ModelForm):
