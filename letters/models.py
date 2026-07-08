@@ -153,7 +153,6 @@ class Letter(models.Model):
         help_text='Link to original letter (for replies)',
     )
     due_date = models.DateField(null=True, blank=True)
-    remarks = models.TextField(blank=True)
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name='created_letters',

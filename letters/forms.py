@@ -13,12 +13,11 @@ class LetterForm(forms.ModelForm):
         fields = [
             'reference_no', 'direction', 'letter_type', 'date', 'sender', 'recipient', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
-            'status', 'related_letter', 'due_date', 'remarks',
+            'status', 'related_letter', 'due_date',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'due_date': forms.DateInput(attrs={'type': 'date'}),
-            'remarks': forms.Textarea(attrs={'rows': 3}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -64,7 +63,6 @@ class LetterForm(forms.ModelForm):
                 Column('due_date', css_class='col-md-4'),
                 Column('related_letter', css_class='col-md-4'),
             ),
-            'remarks',
             Div(
                 Submit('submit', 'Save Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
@@ -92,12 +90,11 @@ class IncomingLetterForm(LetterForm):
         fields = [
             'reference_no', 'direction', 'letter_type', 'date', 'sender', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
-            'status', 'related_letter', 'due_date', 'remarks',
+            'status', 'related_letter', 'due_date',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'due_date': forms.DateInput(attrs={'type': 'date'}),
-            'remarks': forms.Textarea(attrs={'rows': 3}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -140,7 +137,6 @@ class IncomingLetterForm(LetterForm):
                 Column('due_date', css_class='col-md-4'),
                 Column('related_letter', css_class='col-md-4'),
             ),
-            'remarks',
             Div(
                 Submit('submit', 'Save Incoming Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:incoming_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
@@ -157,12 +153,11 @@ class OutgoingLetterForm(LetterForm):
         fields = [
             'direction', 'letter_type', 'date', 'recipient', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
-            'status', 'related_letter', 'due_date', 'remarks',
+            'status', 'related_letter', 'due_date',
         ]
         widgets = {
             'date': forms.DateInput(attrs={'type': 'date'}),
             'due_date': forms.DateInput(attrs={'type': 'date'}),
-            'remarks': forms.Textarea(attrs={'rows': 3}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -198,7 +193,6 @@ class OutgoingLetterForm(LetterForm):
                 Column('due_date', css_class='col-md-4'),
                 Column('related_letter', css_class='col-md-4'),
             ),
-            'remarks',
             Div(
                 Submit('submit', 'Save Outgoing Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:outgoing_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
