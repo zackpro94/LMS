@@ -177,10 +177,9 @@ STORAGES = {
 # ---------------------------------------------------------------------------
 # Media files (uploaded attachments)
 # ---------------------------------------------------------------------------
-# For Railway, use cloud storage or Railway volumes
+# For Railway, use project directory for persistent storage
 if os.environ.get('RAILWAY_ENVIRONMENT'):
-    # Use Railway volume for persistent storage
-    MEDIA_ROOT = '/data/media'
+    MEDIA_ROOT = BASE_DIR / 'media'
 else:
     MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'

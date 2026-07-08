@@ -23,6 +23,9 @@ else
   echo "Warning: Admin user creation failed, but continuing..."
 fi
 
+echo "Creating media directory"
+mkdir -p media/letters/attachments
+
 echo "Collecting static files"
 if python manage.py collectstatic --noinput; then
   echo "Static files collected successfully"
