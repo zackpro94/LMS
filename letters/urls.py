@@ -19,6 +19,9 @@ urlpatterns = [
     path('letters/<int:pk>/delete/', views.LetterDeleteView.as_view(), name='letter_delete'),
     path('letters/bulk-action/', views.BulkActionView.as_view(), name='bulk_action'),
     
+    # Letter search API
+    path('api/letters/search/', views.LetterSearchView.as_view(), name='letter_search'),
+    
     # Saved searches
     path('letters/search/save/', views.SaveSearchView.as_view(), name='save_search'),
     path('letters/search/<int:pk>/delete/', views.DeleteSearchView.as_view(), name='delete_search'),

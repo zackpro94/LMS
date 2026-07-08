@@ -51,6 +51,97 @@
       directionField.addEventListener('change', toggleFields);
       toggleFields();
     }
+
+    // Related letter autocomplete
+    const relatedLetterField = document.getElementById('id_related_letter');
+    if (relatedLetterField && relatedLetterField.classList.contains('letter-search')) {
+      let searchTimeout;
+      const searchUrl = relatedLetterField.getAttribute('data-search-url');
+      
+      // Create autocomplete dropdown
+      const dropdown = document.createElement('div');
+      dropdown.className = 'autocomplete-dropdown';
+      dropdown.style.cssText = 'position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; width: 100%; display: none;';
+      relatedLetterField.parentNode.style.position = 'relative';
+      relatedLetterField.parentNode.appendChild(dropdown);
+
+      relatedLetterField.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        const query = this.value;
+        
+        if (query.length < 2) {
+          dropdown.style.display = 'none';
+          return;
+        }
+
+        searchTimeout = setTimeout(() => {
+          fetch(searchUrl + '?q=' + encodeURIComponent(query))
+            .then(response => response.json())
+            .then(data => {
+              dropdown.innerHTML = '';
+              if (data.results.length === 0) {
+                dropdown.style.display = 'none';
+                return;
+              }
+              
+              data.results.forEach(result => {
+                const item = document.createElement('div');
+                item.className = 'autocomplete-item';
+                item.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;';
+                item.textContent = result.text;
+                item.addEventListener('click', function() {
+                  relatedLetterField.value = result.id;
+                  dropdown.style.display = 'none';
+                });
+                item.addEventListener('mouseenter', function() {
+                  this.style.background = '#f5f5f5';
+                });
+                item.addEventListener('mouseleave', function() {
+                  this.style.background = 'white';
+                });
+                dropdown.appendChild(item);
+              });
+              
+              dropdown.style.display = 'block';
+            })
+            .catch(error => console.error('Search error:', error));
+        }, 300);
+      });
+
+      // Hide dropdown when clicking outside
+      document.addEventListener('click', function(e) {
+        if (!relatedLetterField.contains(e.target) && !dropdown.contains(e.target)) {
+          dropdown.style.display = 'none';
+        }
+      });
+
+      // Handle keyboard navigation
+      relatedLetterField.addEventListener('keydown', function(e) {
+        const items = dropdown.querySelectorAll('.autocomplete-item');
+        const visibleItems = Array.from(items).filter(item => item.offsetParent !== null);
+        
+        if (e.key === 'ArrowDown' && visibleItems.length > 0) {
+          e.preventDefault();
+          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
+          const nextIndex = currentIndex < visibleItems.length - 1 ? currentIndex + 1 : 0;
+          visibleItems.forEach(item => item.style.background = 'white');
+          visibleItems[nextIndex].style.background = '#f5f5f5';
+        } else if (e.key === 'ArrowUp' && visibleItems.length > 0) {
+          e.preventDefault();
+          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
+          const prevIndex = currentIndex > 0 ? currentIndex - 1 : visibleItems.length - 1;
+          visibleItems.forEach(item => item.style.background = 'white');
+          visibleItems[prevIndex].style.background = '#f5f5f5';
+        } else if (e.key === 'Enter' && visibleItems.length > 0) {
+          e.preventDefault();
+          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
+          const targetIndex = currentIndex >= 0 ? currentIndex : 0;
+          visibleItems[targetIndex].click();
+        } else if (e.key === 'Escape') {
+          dropdown.style.display = 'none';
+        }
+      });
+    }
   });
 </script>
 {% endblock %}

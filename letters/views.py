@@ -27,6 +27,41 @@ from .email_utils import (
 )
 
 
+# ---------------------------------------------------------------------------
+# Letter Search API for autocomplete
+# ---------------------------------------------------------------------------
+class LetterSearchView(LoginRequiredMixin, View):
+    """API endpoint for searching letters (used for related letter autocomplete)."""
+    def get(self, request):
+        query = request.GET.get('q', '')
+        if not query or len(query) < 2:
+            return JsonResponse({'results': []})
+        
+        letters_qs = get_user_letter_queryset(request.user)
+        
+        # Search by reference_no, sender, recipient, subject, department
+        letters = letters_qs.filter(
+            Q(reference_no__icontains=query) |
+            Q(sender__icontains=query) |
+            Q(recipient__icontains=query) |
+            Q(subject__icontains=query) |
+            Q(assigned_department__name__icontains=query)
+        )[:10]  # Limit to 10 results
+        
+        results = []
+        for letter in letters:
+            results.append({
+                'id': letter.pk,
+                'text': f"{letter.reference_no} - {letter.subject[:50]}{'...' if len(letter.subject) > 50 else ''}",
+                'reference_no': letter.reference_no,
+                'subject': letter.subject,
+                'sender': letter.sender or '',
+                'recipient': letter.recipient or '',
+            })
+        
+        return JsonResponse({'results': results})
+
+
 def get_user_letter_queryset(user, qs=None):
     """Filters a letter queryset based on the user's role and assigned department."""
     if qs is None:

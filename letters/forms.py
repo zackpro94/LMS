@@ -70,6 +70,13 @@ class LetterForm(forms.ModelForm):
             ),
         )
 
+        # Make related_letter searchable with autocomplete
+        self.fields['related_letter'].widget.attrs.update({
+            'class': 'form-control letter-search',
+            'placeholder': 'Search by reference, sender, subject...',
+            'data-search-url': '/api/letters/search/'
+        })
+
         # If user is not admin/superuser, restrict status choices for Front Desk
         if user and not user.is_superuser:
             is_admin = user.groups.filter(name='Admin').exists()
