@@ -57,7 +57,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx['incoming_count'] = letters_qs.filter(direction='INCOMING').count()
         ctx['outgoing_count'] = letters_qs.filter(direction='OUTGOING').count()
         ctx['pending_count'] = letters_qs.filter(
-            status__in=['DRAFTED', 'IN_REVIEW'],
+            status__in=['RECEIVED', 'DRAFTED', 'IN_REVIEW'],
         ).count()
         ctx['overdue_count'] = letters_qs.filter(
             due_date__lt=today,
@@ -295,8 +295,15 @@ class OutgoingLetterCreateView(LetterCreateView):
 
 class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
     model = Letter
-    form_class = LetterForm
     template_name = 'letters/letter_form.html'
+
+    def get_form_class(self):
+        """Use appropriate form based on letter direction."""
+        if self.object.direction == Letter.INCOMING:
+            return IncomingLetterForm
+        elif self.object.direction == Letter.OUTGOING:
+            return OutgoingLetterForm
+        return LetterForm
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
@@ -376,7 +383,7 @@ class AddActionView(LoginRequiredMixin, View):
             # Optionally update letter status
             new_status = form.cleaned_data.get('new_status')
             if new_status:
-                if new_status == 'ARCHIVED':
+                if new_status in ('CLOSED', 'ARCHIVED'):
                     if not user_can_close(request.user, letter):
                         messages.error(
                             request,
@@ -484,16 +491,21 @@ class BulkActionView(LoginRequiredMixin, View):
             for letter in letters:
                 if user_can_close(request.user, letter):
                     old_status = letter.status
-                    letter.status = 'ARCHIVED'
+                    # Use CLOSED for incoming, ARCHIVED for outgoing
+                    if letter.direction == Letter.INCOMING:
+                        new_status = 'CLOSED'
+                    else:
+                        new_status = 'ARCHIVED'
+                    letter.status = new_status
                     letter.save(update_fields=['status', 'updated_at'])
                     ActionLog.objects.create(
                         letter=letter,
-                        action=f'Status changed: {old_status} → ARCHIVED (bulk action)',
+                        action=f'Status changed: {old_status} → {new_status} (bulk action)',
                         action_by=request.user,
                     )
-                    send_status_change_notification(letter, old_status, 'ARCHIVED')
+                    send_status_change_notification(letter, old_status, new_status)
                     count += 1
-            messages.success(request, f'{count} letter(s) archived successfully.')
+            messages.success(request, f'{count} letter(s) closed/archived successfully.')
         
         elif action == 'archive':
             for letter in letters:

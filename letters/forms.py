@@ -74,10 +74,10 @@ class LetterForm(forms.ModelForm):
         if user and not user.is_superuser:
             is_admin = user.groups.filter(name='Admin').exists()
             if not is_admin:
-                # Front Desk users cannot set ARCHIVED directly
+                # Front Desk users cannot set ARCHIVED or CLOSED directly
                 restricted = [
                     (val, label) for val, label in Letter.STATUS_CHOICES
-                    if val not in ('ARCHIVED',)
+                    if val not in ('ARCHIVED', 'CLOSED')
                 ]
                 self.fields['status'].choices = restricted
 
@@ -115,6 +115,14 @@ class IncomingLetterForm(LetterForm):
             # Ensure it's not readonly
             if 'readonly' in self.fields['reference_no'].widget.attrs:
                 del self.fields['reference_no'].widget.attrs['readonly']
+        
+        # Filter status choices for incoming letters
+        if 'status' in self.fields:
+            incoming_statuses = [
+                (val, label) for val, label in Letter.STATUS_CHOICES
+                if val in ['RECEIVED', 'IN_REVIEW', 'ACTIONED', 'RESPONDED', 'CLOSED', 'ARCHIVED']
+            ]
+            self.fields['status'].choices = incoming_statuses
         
         # Update layout to remove recipient
         self.helper.layout = Layout(
@@ -173,6 +181,14 @@ class OutgoingLetterForm(LetterForm):
             self.fields['direction'].initial = Letter.OUTGOING
             self.fields['direction'].widget = forms.HiddenInput()
         
+        # Filter status choices for outgoing letters
+        if 'status' in self.fields:
+            outgoing_statuses = [
+                (val, label) for val, label in Letter.STATUS_CHOICES
+                if val in ['DRAFTED', 'IN_REVIEW', 'SUBMITTED', 'RESPONDED', 'ARCHIVED']
+            ]
+            self.fields['status'].choices = outgoing_statuses
+        
         # Update layout to remove sender and reference_no
         self.helper.layout = Layout(
             'direction',
@@ -225,7 +241,7 @@ class ActionLogForm(forms.ModelForm):
         if not can_close:
             restricted = [
                 (val, label) for val, label in Letter.STATUS_CHOICES
-                if val not in ('ARCHIVED',)
+                if val not in ('ARCHIVED', 'CLOSED')
             ]
             self.fields['new_status'].choices = [
                 ('', '— Keep current status —'),

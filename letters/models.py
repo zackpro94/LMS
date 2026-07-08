@@ -95,16 +95,24 @@ class Letter(models.Model):
     ]
 
     # Status choices
+    # Incoming: RECEIVED, IN_REVIEW, ACTIONED, RESPONDED, CLOSED, ARCHIVED
+    # Outgoing: DRAFTED, IN_REVIEW, SUBMITTED, RESPONDED, ARCHIVED
+    RECEIVED = 'RECEIVED'
     DRAFTED = 'DRAFTED'
     IN_REVIEW = 'IN_REVIEW'
+    ACTIONED = 'ACTIONED'
     SUBMITTED = 'SUBMITTED'
     RESPONDED = 'RESPONDED'
+    CLOSED = 'CLOSED'
     ARCHIVED = 'ARCHIVED'
     STATUS_CHOICES = [
+        (RECEIVED, 'Received'),
         (DRAFTED, 'Drafted'),
         (IN_REVIEW, 'In Review'),
+        (ACTIONED, 'Actioned'),
         (SUBMITTED, 'Submitted'),
         (RESPONDED, 'Responded'),
+        (CLOSED, 'Closed'),
         (ARCHIVED, 'Archived'),
     ]
 
@@ -219,6 +227,13 @@ class Letter(models.Model):
             return f'AE/{self.assigned_department.code}/{counter.last_number:04d}/{year_short:02d}'
 
     def save(self, *args, **kwargs):
+        # Set default status based on direction if not set
+        if not self.pk and not self.status:
+            if self.direction == self.INCOMING:
+                self.status = self.RECEIVED
+            elif self.direction == self.OUTGOING:
+                self.status = self.DRAFTED
+        
         # Auto-generate reference number only for outgoing letters on first save when department is set
         if not self.reference_no and self.direction == self.OUTGOING and self.assigned_department:
             self.reference_no = self.generate_reference_number()
