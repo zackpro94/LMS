@@ -437,19 +437,25 @@ class AddAttachmentView(LoginRequiredMixin, View):
         form = AttachmentForm(request.POST, request.FILES)
 
         if form.is_valid():
-            att = form.save(commit=False)
-            att.letter = letter
-            att.uploaded_by = request.user
-            att.save()
+            try:
+                att = form.save(commit=False)
+                att.letter = letter
+                att.uploaded_by = request.user
+                att.save()
 
-            ActionLog.objects.create(
-                letter=letter,
-                action=f'Attachment added: {att.filename}',
-                action_by=request.user,
-            )
-            messages.success(request, 'Attachment uploaded successfully.')
+                ActionLog.objects.create(
+                    letter=letter,
+                    action=f'Attachment added: {att.filename}',
+                    action_by=request.user,
+                )
+                messages.success(request, 'Attachment uploaded successfully.')
+            except Exception as e:
+                messages.error(request, f'Error saving attachment: {str(e)}')
         else:
-            messages.error(request, 'Error uploading attachment.')
+            # Display specific form validation errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f'{field}: {error}')
 
         return redirect(letter.get_absolute_url())
 
