@@ -440,8 +440,8 @@ class BulkActionView(LoginRequiredMixin, View):
         count = 0
         
         if action == 'delete':
-            if not user_can_view_all_letters(request.user):
-                messages.error(request, 'Only administrators can delete letters.')
+            if not request.user.is_superuser:
+                messages.error(request, 'Only superusers can delete letters.')
                 return redirect(request.META.get('HTTP_REFERER', reverse('letters:letter_list')))
             
             count = letters.count()
