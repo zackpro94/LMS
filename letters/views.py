@@ -198,14 +198,27 @@ class LetterDetailView(LoginRequiredMixin, CanViewLetterMixin, DetailView):
 
         ctx['attachments'] = letter.attachments.select_related('uploaded_by')
         ctx['action_logs'] = letter.actions.select_related('action_by')
-        ctx['action_form'] = ActionLogForm(can_close=can_close)
+        ctx['action_form'] = ActionLogForm(can_close=can_close, letter=letter)
         ctx['attachment_form'] = AttachmentForm()
         ctx['can_close'] = can_close
         ctx['related_replies'] = letter.replies.select_related(
             'assigned_department', 'assigned_person',
         )
         ctx['action_count'] = ctx['action_logs'].count()
-        ctx['status_flow'] = Letter.STATUS_CHOICES
+        
+        # Set status flow based on letter direction
+        if letter.direction == Letter.INCOMING:
+            ctx['status_flow'] = [
+                (val, label) for val, label in Letter.STATUS_CHOICES
+                if val in ['RECEIVED', 'IN_REVIEW', 'ACTIONED', 'RESPONDED', 'CLOSED', 'ARCHIVED']
+            ]
+        elif letter.direction == Letter.OUTGOING:
+            ctx['status_flow'] = [
+                (val, label) for val, label in Letter.STATUS_CHOICES
+                if val in ['DRAFTED', 'IN_REVIEW', 'SUBMITTED', 'RESPONDED', 'ARCHIVED']
+            ]
+        else:
+            ctx['status_flow'] = Letter.STATUS_CHOICES
 
         if letter.direction == Letter.INCOMING:
             ctx['back_url'] = reverse('letters:incoming_letter_list')

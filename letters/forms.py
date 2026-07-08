@@ -236,16 +236,39 @@ class ActionLogForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, can_close=False, **kwargs):
+    def __init__(self, *args, can_close=False, letter=None, **kwargs):
         super().__init__(*args, **kwargs)
+        
+        # Filter status choices based on letter direction
+        if letter:
+            if letter.direction == Letter.INCOMING:
+                restricted_statuses = [
+                    (val, label) for val, label in Letter.STATUS_CHOICES
+                    if val in ['RECEIVED', 'IN_REVIEW', 'ACTIONED', 'RESPONDED', 'CLOSED', 'ARCHIVED']
+                ]
+            elif letter.direction == Letter.OUTGOING:
+                restricted_statuses = [
+                    (val, label) for val, label in Letter.STATUS_CHOICES
+                    if val in ['DRAFTED', 'IN_REVIEW', 'SUBMITTED', 'RESPONDED', 'ARCHIVED']
+                ]
+            else:
+                restricted_statuses = Letter.STATUS_CHOICES
+        else:
+            restricted_statuses = Letter.STATUS_CHOICES
+        
         if not can_close:
+            # Remove ARCHIVED and CLOSED from choices if user can't close
             restricted = [
-                (val, label) for val, label in Letter.STATUS_CHOICES
+                (val, label) for val, label in restricted_statuses
                 if val not in ('ARCHIVED', 'CLOSED')
             ]
             self.fields['new_status'].choices = [
                 ('', '— Keep current status —'),
             ] + restricted
+        else:
+            self.fields['new_status'].choices = [
+                ('', '— Keep current status —'),
+            ] + restricted_statuses
 
         self.helper = FormHelper()
         self.helper.form_method = 'post'
