@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% load crispy_forms_tags %}
+
+{% block title %}Delete Letter {{ letter.reference_no }}{% endblock %}
+{% block page_title %}Delete Letter{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <div class="card card-glass">
+      <div class="card-header bg-danger text-white">
+        <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Confirm Deletion</h5>
+      </div>
+      <div class="card-body">
+        <div class="alert alert-warning">
+          <strong>Warning:</strong> This action cannot be undone. All associated data including:
+          <ul class="mb-0 mt-2">
+            <li>Letter details</li>
+            <li>Action logs</li>
+            <li>Attachments</li>
+            <li>Related letter references</li>
+          </ul>
+          will be permanently deleted.
+        </div>
+
+        <div class="mb-4">
+          <h6>Letter to delete:</h6>
+          <table class="table table-sm">
+            <tr>
+              <th>Reference:</th>
+              <td><strong>{{ letter.reference_no }}</strong></td>
+            </tr>
+            <tr>
+              <th>Subject:</th>
+              <td>{{ letter.subject }}</td>
+            </tr>
+            <tr>
+              <th>Direction:</th>
+              <td>{{ letter.get_direction_display }}</td>
+            </tr>
+            <tr>
+              <th>Status:</th>
+              <td>{{ letter.get_status_display }}</td>
+            </tr>
+          </table>
+        </div>
+
+        <form method="post">
+          {% csrf_token %}
+          <div class="d-flex gap-2">
+            <a href="{{ letter.get_absolute_url }}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-circle me-2"></i>Cancel
+            </a>
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-trash me-2"></i>Delete Permanently
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

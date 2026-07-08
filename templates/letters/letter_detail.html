@@ -228,6 +228,11 @@
             <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-sm btn-outline-primary">
               <i class="bi bi-pencil-square"></i> Edit Letter
             </a>
+            {% if request.user.is_superuser %}
+            <a href="{% url 'letters:letter_delete' letter.pk %}" class="btn btn-sm btn-outline-danger">
+              <i class="bi bi-trash"></i> Delete
+            </a>
+            {% endif %}
           </div>
         </div>
       </div>

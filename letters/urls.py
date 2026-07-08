@@ -14,6 +14,7 @@ urlpatterns = [
     path('letters/create/', views.LetterCreateView.as_view(), name='letter_create'),
     path('letters/<int:pk>/', views.LetterDetailView.as_view(), name='letter_detail'),
     path('letters/<int:pk>/edit/', views.LetterUpdateView.as_view(), name='letter_edit'),
+    path('letters/<int:pk>/delete/', views.LetterDeleteView.as_view(), name='letter_delete'),
     path('letters/bulk-action/', views.BulkActionView.as_view(), name='bulk_action'),
     
     # Saved searches

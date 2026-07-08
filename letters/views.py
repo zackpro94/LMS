@@ -305,6 +305,24 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
         return ctx
 
 
+class LetterDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete a letter - only for superusers."""
+    model = Letter
+    template_name = 'letters/letter_confirm_delete.html'
+    success_url = reverse_lazy('letters:letter_list')
+
+    def dispatch(self, request, *args, **kwargs):
+        if not request.user.is_superuser:
+            messages.error(request, 'Only superusers can delete letters.')
+            return redirect('letters:letter_detail', pk=self.get_object().pk)
+        return super().dispatch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        letter = self.get_object()
+        messages.success(request, f'Letter {letter.reference_no} has been deleted.')
+        return super().delete(request, *args, **kwargs)
+
+
 # ---------------------------------------------------------------------------
 # Action log (POST from detail page)
 # ---------------------------------------------------------------------------
