@@ -111,9 +111,13 @@ class IncomingLetterForm(LetterForm):
             self.fields['direction'].initial = Letter.INCOMING
             self.fields['direction'].widget = forms.HiddenInput()
         
-        # Make reference_no required
-        self.fields['reference_no'].required = True
-        self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+        # Make reference_no required and editable
+        if 'reference_no' in self.fields:
+            self.fields['reference_no'].required = True
+            self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+            # Ensure it's not readonly
+            if 'readonly' in self.fields['reference_no'].widget.attrs:
+                del self.fields['reference_no'].widget.attrs['readonly']
         
         # Update layout to remove recipient
         self.helper.layout = Layout(
