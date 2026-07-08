@@ -261,6 +261,36 @@ class LetterCreateView(LoginRequiredMixin, CreateView):
         return ctx
 
 
+class IncomingLetterCreateView(LetterCreateView):
+    """Create view specifically for incoming letters."""
+    
+    def get_initial(self):
+        return {'direction': Letter.INCOMING}
+    
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['form_title'] = 'Register Incoming Letter'
+        return ctx
+    
+    def get_success_url(self):
+        return reverse('letters:incoming_letter_list')
+
+
+class OutgoingLetterCreateView(LetterCreateView):
+    """Create view specifically for outgoing letters."""
+    
+    def get_initial(self):
+        return {'direction': Letter.OUTGOING}
+    
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['form_title'] = 'Register Outgoing Letter'
+        return ctx
+    
+    def get_success_url(self):
+        return reverse('letters:outgoing_letter_list')
+
+
 class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
     model = Letter
     form_class = LetterForm

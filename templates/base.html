@@ -45,8 +45,13 @@
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:letter_create' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'letter_create' %}active{% endif %}">
-          <i class="bi bi-plus-circle"></i> <span>New Letter</span>
+        <a href="{% url 'letters:incoming_letter_create' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'incoming_letter_create' %}active{% endif %}">
+          <i class="bi bi-plus-circle"></i> <span>New Incoming</span>
+        </a>
+      </li>
+      <li class="sidebar-nav-item">
+        <a href="{% url 'letters:outgoing_letter_create' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'outgoing_letter_create' %}active{% endif %}">
+          <i class="bi bi-plus-circle"></i> <span>New Outgoing</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
@@ -107,10 +112,10 @@
         <button class="btn btn-sm btn-outline-secondary theme-toggle" type="button" id="themeToggle" title="Toggle dark mode">
           <i class="bi bi-moon"></i>
         </button>
-        <a href="{% url 'letters:letter_create' %}?direction=INCOMING" class="btn btn-sm btn-primary">
+        <a href="{% url 'letters:incoming_letter_create' %}" class="btn btn-sm btn-primary">
           <i class="bi bi-envelope-arrow-down"></i> <span class="d-none d-md-inline">New Incoming</span>
         </a>
-        <a href="{% url 'letters:letter_create' %}?direction=OUTGOING" class="btn btn-sm btn-accent">
+        <a href="{% url 'letters:outgoing_letter_create' %}" class="btn btn-sm btn-accent">
           <i class="bi bi-envelope-arrow-up"></i> <span class="d-none d-md-inline">New Outgoing</span>
         </a>
       </div>
