@@ -9,13 +9,26 @@ until python -c "import django; django.setup(); from django.db import connection
 done
 
 echo "PostgreSQL is up - running migrations"
-python manage.py migrate --noinput
+if python manage.py migrate --noinput; then
+  echo "Migrations completed successfully"
+else
+  echo "Error running migrations"
+  exit 1
+fi
 
 echo "Creating admin user if not exists"
-python manage.py create_admin
+if python manage.py create_admin; then
+  echo "Admin user creation completed"
+else
+  echo "Warning: Admin user creation failed, but continuing..."
+fi
 
 echo "Collecting static files"
-python manage.py collectstatic --noinput
+if python manage.py collectstatic --noinput; then
+  echo "Static files collected successfully"
+else
+  echo "Warning: Static file collection failed, but continuing..."
+fi
 
 echo "Starting gunicorn"
 exec gunicorn lms_project.wsgi:application --bind 0.0.0.0:$PORT

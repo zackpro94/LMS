@@ -73,11 +73,20 @@ class LetterForm(forms.ModelForm):
         direction = cleaned_data.get('direction')
         sender = cleaned_data.get('sender')
         recipient = cleaned_data.get('recipient')
+        subject = cleaned_data.get('subject')
+        due_date = cleaned_data.get('due_date')
+        date = cleaned_data.get('date')
 
         if direction == Letter.INCOMING and not sender:
-            self.add_error('sender', 'Sender is required for incoming letters.')
+            self.add_error('sender', 'Sender is required for incoming letters. Please specify who sent this letter.')
         if direction == Letter.OUTGOING and not recipient:
-            self.add_error('recipient', 'Recipient is required for outgoing letters.')
+            self.add_error('recipient', 'Recipient is required for outgoing letters. Please specify who will receive this letter.')
+        
+        if subject and len(subject.strip()) < 3:
+            self.add_error('subject', 'Subject must be at least 3 characters long.')
+        
+        if due_date and date and due_date < date:
+            self.add_error('due_date', 'Due date cannot be before the letter date.')
 
         return cleaned_data
 
@@ -143,8 +152,16 @@ class AttachmentForm(forms.ModelForm):
 
     def clean_file(self):
         f = self.cleaned_data.get('file')
-        if f and f.size > 10 * 1024 * 1024:
-            raise forms.ValidationError('File size must be under 10 MB.')
+        if f:
+            if f.size > 10 * 1024 * 1024:
+                raise forms.ValidationError('File size must be under 10 MB. Your file is {:.2f} MB.'.format(f.size / (1024 * 1024)))
+            
+            # Check file extension
+            allowed_extensions = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.xls', '.xlsx']
+            import os
+            ext = os.path.splitext(f.name)[1].lower()
+            if ext not in allowed_extensions:
+                raise forms.ValidationError('File type not allowed. Allowed types: PDF, DOC, DOCX, JPG, PNG, XLS, XLSX.')
         return f
 
 
@@ -288,53 +305,85 @@ class StaffForm(forms.ModelForm):
             Submit('submit', 'Save Staff Member', css_class='btn btn-primary mt-3'),
         )
 
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username:
+            if len(username) < 3:
+                raise forms.ValidationError('Username must be at least 3 characters long.')
+            if not username.isalnum():
+                raise forms.ValidationError('Username can only contain letters and numbers.')
+            # Check for existing username (excluding current user)
+            existing = User.objects.filter(username=username).exclude(pk=self.instance.pk if self.instance.pk else None).first()
+            if existing:
+                raise forms.ValidationError('This username is already taken. Please choose another.')
+        return username
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if email:
+            # Check for existing email (excluding current user)
+            existing = User.objects.filter(email=email).exclude(pk=self.instance.pk if self.instance.pk else None).first()
+            if existing:
+                raise forms.ValidationError('This email is already registered. Please use another.')
+        return email
+    
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        if password:
+            if len(password) < 6:
+                raise forms.ValidationError('Password must be at least 6 characters long.')
+        return password
+
     def save(self, commit=True):
         user = super().save(commit=False)
         password = self.cleaned_data.get('password')
         if password:
             user.set_password(password)
         if commit:
-            user.save()
-            
-            # Save role groups
-            user.groups.clear()
-            role = self.cleaned_data.get('role')
-            group_name = None
-            if role == 'admin':
-                group_name = 'Admin'
-            elif role == 'front_desk':
-                group_name = 'Front Desk'
-            elif role == 'dept_staff':
-                group_name = 'Department Staff'
+            try:
+                user.save()
                 
-            if group_name:
-                group, _ = Group.objects.get_or_create(name=group_name)
-                user.groups.add(group)
-                
-            # Direct permissions for view all letters
-            can_view_all = self.cleaned_data.get('can_view_all_letters')
-            can_view_outgoing = self.cleaned_data.get('can_view_outgoing_letters')
-            can_view_incoming = self.cleaned_data.get('can_view_incoming_letters')
-            from django.contrib.contenttypes.models import ContentType
-            from letters.models import Letter
-            content_type = ContentType.objects.get_for_model(Letter)
+                # Save role groups
+                user.groups.clear()
+                role = self.cleaned_data.get('role')
+                group_name = None
+                if role == 'admin':
+                    group_name = 'Admin'
+                elif role == 'front_desk':
+                    group_name = 'Front Desk'
+                elif role == 'dept_staff':
+                    group_name = 'Department Staff'
+                    
+                if group_name:
+                    group, _ = Group.objects.get_or_create(name=group_name)
+                    user.groups.add(group)
+                    
+                # Direct permissions for view all letters
+                can_view_all = self.cleaned_data.get('can_view_all_letters')
+                can_view_outgoing = self.cleaned_data.get('can_view_outgoing_letters')
+                can_view_incoming = self.cleaned_data.get('can_view_incoming_letters')
+                from django.contrib.contenttypes.models import ContentType
+                from letters.models import Letter
+                content_type = ContentType.objects.get_for_model(Letter)
 
-            perm_map = {
-                'can_view_all_letters': can_view_all,
-                'can_view_outgoing_letters': can_view_outgoing,
-                'can_view_incoming_letters': can_view_incoming,
-            }
-            for codename, granted in perm_map.items():
-                perm_obj, _ = Permission.objects.get_or_create(
-                    codename=codename,
-                    content_type=content_type,
-                )
-                if granted:
-                    user.user_permissions.add(perm_obj)
-                else:
-                    user.user_permissions.remove(perm_obj)
+                perm_map = {
+                    'can_view_all_letters': can_view_all,
+                    'can_view_outgoing_letters': can_view_outgoing,
+                    'can_view_incoming_letters': can_view_incoming,
+                }
+                for codename, granted in perm_map.items():
+                    perm_obj, _ = Permission.objects.get_or_create(
+                        codename=codename,
+                        content_type=content_type,
+                    )
+                    if granted:
+                        user.user_permissions.add(perm_obj)
+                    else:
+                        user.user_permissions.remove(perm_obj)
+                    
+                # Save departments
+                user.departments.set(self.cleaned_data.get('departments'))
+            except Exception as e:
+                raise forms.ValidationError(f'Error saving user: {str(e)}')
                 
-            # Save departments
-            user.departments.set(self.cleaned_data.get('departments'))
-            
         return user
