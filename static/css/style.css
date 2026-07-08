@@ -926,3 +926,110 @@ body.sidebar-open {
   .card-glass { box-shadow: none; border: 1px solid #ddd; }
   .page-content { padding: 0; }
 }
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  /* Status pipeline - make scrollable on mobile */
+  .status-pipeline {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .status-pipeline__step {
+    flex-shrink: 0;
+  }
+  
+  /* Letter header - stack badges on mobile */
+  .letter-header .card-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  
+  .letter-header .d-flex.flex-wrap.gap-2 {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+  
+  /* Detail fields - full width on mobile */
+  .detail-field {
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Attachment items - stack vertically on mobile */
+  .attachment-item {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
+  
+  .attachment-item__info {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  
+  .attachment-item__actions {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+  
+  .attachment-item__actions .btn {
+    flex: 1;
+    justify-content: center;
+  }
+  
+  /* Timeline - compact on mobile */
+  .timeline-item {
+    padding-left: 1rem;
+  }
+  
+  .timeline-marker {
+    width: 10px;
+    height: 10px;
+  }
+  
+  /* Quick stats - smaller on mobile */
+  .letter-stat {
+    padding: 0.75rem;
+  }
+  
+  .letter-stat__icon {
+    font-size: 1.25rem;
+  }
+  
+  .letter-stat__value {
+    font-size: 0.875rem;
+  }
+  
+  .letter-stat__label {
+    font-size: 0.75rem;
+  }
+  
+  /* Modal - fullscreen on mobile */
+  .modal-dialog {
+    margin: 0;
+    max-width: 100%;
+  }
+  
+  .modal-content {
+    height: 100vh;
+    border-radius: 0;
+  }
+  
+  /* Page content - reduce padding on mobile */
+  .page-content {
+    padding: 1rem;
+  }
+  
+  /* Breadcrumb - smaller on mobile */
+  .letter-breadcrumb {
+    font-size: 0.875rem;
+  }
+  
+  /* Alert - compact on mobile */
+  .alert {
+    font-size: 0.875rem;
+    padding: 0.75rem 1rem;
+  }
+}
+
