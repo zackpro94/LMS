@@ -11,6 +11,9 @@ done
 echo "PostgreSQL is up - running migrations"
 python manage.py migrate --noinput
 
+echo "Creating admin user if not exists"
+python manage.py create_admin
+
 echo "Collecting static files"
 python manage.py collectstatic --noinput
 
