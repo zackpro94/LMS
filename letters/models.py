@@ -95,18 +95,16 @@ class Letter(models.Model):
     ]
 
     # Status choices
-    RECEIVED = 'RECEIVED'
+    DRAFTED = 'DRAFTED'
     IN_REVIEW = 'IN_REVIEW'
-    ACTIONED = 'ACTIONED'
+    SUBMITTED = 'SUBMITTED'
     RESPONDED = 'RESPONDED'
-    CLOSED = 'CLOSED'
     ARCHIVED = 'ARCHIVED'
     STATUS_CHOICES = [
-        (RECEIVED, 'Received'),
+        (DRAFTED, 'Drafted'),
         (IN_REVIEW, 'In Review'),
-        (ACTIONED, 'Actioned'),
+        (SUBMITTED, 'Submitted'),
         (RESPONDED, 'Responded'),
-        (CLOSED, 'Closed'),
         (ARCHIVED, 'Archived'),
     ]
 
@@ -147,7 +145,7 @@ class Letter(models.Model):
         null=True, blank=True, related_name='assigned_letters',
     )
     status = models.CharField(
-        max_length=20, choices=STATUS_CHOICES, default=RECEIVED,
+        max_length=20, choices=STATUS_CHOICES, default=DRAFTED,
     )
     related_letter = models.ForeignKey(
         'self', on_delete=models.SET_NULL,
@@ -183,8 +181,8 @@ class Letter(models.Model):
     # ------------------------------------------------------------------
     @property
     def is_overdue(self):
-        """Return True if past due_date and not closed/archived."""
-        if self.due_date and self.status not in (self.CLOSED, self.ARCHIVED):
+        """Return True if past due_date and not archived."""
+        if self.due_date and self.status != self.ARCHIVED:
             return self.due_date < timezone.now().date()
         return False
 

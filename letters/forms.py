@@ -76,10 +76,10 @@ class LetterForm(forms.ModelForm):
         if user and not user.is_superuser:
             is_admin = user.groups.filter(name='Admin').exists()
             if not is_admin:
-                # Front Desk users cannot set CLOSED or ARCHIVED directly
+                # Front Desk users cannot set ARCHIVED directly
                 restricted = [
                     (val, label) for val, label in Letter.STATUS_CHOICES
-                    if val not in ('CLOSED', 'ARCHIVED')
+                    if val not in ('ARCHIVED',)
                 ]
                 self.fields['status'].choices = restricted
 
@@ -231,7 +231,7 @@ class ActionLogForm(forms.ModelForm):
         if not can_close:
             restricted = [
                 (val, label) for val, label in Letter.STATUS_CHOICES
-                if val not in ('CLOSED', 'ARCHIVED')
+                if val not in ('ARCHIVED',)
             ]
             self.fields['new_status'].choices = [
                 ('', '— Keep current status —'),

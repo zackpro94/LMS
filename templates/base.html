@@ -45,16 +45,6 @@
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:incoming_letter_create' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'incoming_letter_create' %}active{% endif %}">
-          <i class="bi bi-plus-circle"></i> <span>New Incoming</span>
-        </a>
-      </li>
-      <li class="sidebar-nav-item">
-        <a href="{% url 'letters:outgoing_letter_create' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'outgoing_letter_create' %}active{% endif %}">
-          <i class="bi bi-plus-circle"></i> <span>New Outgoing</span>
-        </a>
-      </li>
-      <li class="sidebar-nav-item">
         <a href="{% url 'letters:overdue_letters' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'overdue_letters' %}active{% endif %}">
           <i class="bi bi-exclamation-triangle"></i> <span>Overdue</span>
         </a>

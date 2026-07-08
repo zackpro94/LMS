@@ -57,15 +57,15 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         ctx['incoming_count'] = letters_qs.filter(direction='INCOMING').count()
         ctx['outgoing_count'] = letters_qs.filter(direction='OUTGOING').count()
         ctx['pending_count'] = letters_qs.filter(
-            status__in=['RECEIVED', 'IN_REVIEW'],
+            status__in=['DRAFTED', 'IN_REVIEW'],
         ).count()
         ctx['overdue_count'] = letters_qs.filter(
             due_date__lt=today,
-        ).exclude(status__in=['CLOSED', 'ARCHIVED']).count()
+        ).exclude(status__in=['ARCHIVED']).count()
         ctx['in_review_count'] = letters_qs.filter(status='IN_REVIEW').count()
         ctx['urgent_count'] = letters_qs.filter(
             priority='URGENT',
-        ).exclude(status__in=['CLOSED', 'ARCHIVED']).count()
+        ).exclude(status__in=['ARCHIVED']).count()
 
         # Filter action logs so user only sees actions for letters they can view
         action_qs = ActionLog.objects.all()
@@ -376,7 +376,7 @@ class AddActionView(LoginRequiredMixin, View):
             # Optionally update letter status
             new_status = form.cleaned_data.get('new_status')
             if new_status:
-                if new_status in ('CLOSED', 'ARCHIVED'):
+                if new_status == 'ARCHIVED':
                     if not user_can_close(request.user, letter):
                         messages.error(
                             request,
@@ -443,7 +443,7 @@ class OverdueLettersView(LoginRequiredMixin, ListView):
 
     def get_queryset(self):
         today = timezone.now().date()
-        qs = Letter.objects.filter(due_date__lt=today).exclude(status__in=['CLOSED', 'ARCHIVED'])
+        qs = Letter.objects.filter(due_date__lt=today).exclude(status__in=['ARCHIVED'])
         qs = get_user_letter_queryset(self.request.user, qs)
         return qs.select_related('assigned_department', 'assigned_person')
 
@@ -484,16 +484,16 @@ class BulkActionView(LoginRequiredMixin, View):
             for letter in letters:
                 if user_can_close(request.user, letter):
                     old_status = letter.status
-                    letter.status = 'CLOSED'
+                    letter.status = 'ARCHIVED'
                     letter.save(update_fields=['status', 'updated_at'])
                     ActionLog.objects.create(
                         letter=letter,
-                        action=f'Status changed: {old_status} → CLOSED (bulk action)',
+                        action=f'Status changed: {old_status} → ARCHIVED (bulk action)',
                         action_by=request.user,
                     )
-                    send_status_change_notification(letter, old_status, 'CLOSED')
+                    send_status_change_notification(letter, old_status, 'ARCHIVED')
                     count += 1
-            messages.success(request, f'{count} letter(s) closed successfully.')
+            messages.success(request, f'{count} letter(s) archived successfully.')
         
         elif action == 'archive':
             for letter in letters:
