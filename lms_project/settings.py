@@ -22,6 +22,12 @@ if os.environ.get('RAILWAY_ENVIRONMENT'):
     # Add Railway domain to CSRF trusted origins
     CSRF_TRUSTED_ORIGINS = ['https://*.railway.app']
 
+# Add custom domain
+ALLOWED_HOSTS.append('lms.pro.et')
+if 'CSRF_TRUSTED_ORIGINS' not in locals():
+    CSRF_TRUSTED_ORIGINS = []
+CSRF_TRUSTED_ORIGINS.append('https://lms.pro.et')
+
 # ---------------------------------------------------------------------------
 # Application definition
 # ---------------------------------------------------------------------------
