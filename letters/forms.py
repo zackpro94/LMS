@@ -302,8 +302,8 @@ class AttachmentForm(forms.ModelForm):
     def clean_file(self):
         f = self.cleaned_data.get('file')
         if f:
-            if f.size > 10 * 1024 * 1024:
-                raise forms.ValidationError('File size must be under 10 MB. Your file is {:.2f} MB.'.format(f.size / (1024 * 1024)))
+            if f.size > 2 * 1024 * 1024:
+                raise forms.ValidationError('File size must be under 2 MB. Your file is {:.2f} MB.'.format(f.size / (1024 * 1024)))
             
             # Check file extension
             allowed_extensions = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.xls', '.xlsx']
