@@ -203,6 +203,22 @@
             </div>
           </div>
         </div>
+        
+        {% if action_logs %}
+        <hr class="my-3">
+        <div class="detail-field">
+          <label><i class="bi bi-clock-history"></i> Latest Action</label>
+          <p class="fw-semibold">{{ action_logs.0.action }}</p>
+          {% if action_logs.0.notes %}
+          <p class="text-muted small mb-0">{{ action_logs.0.notes }}</p>
+          {% endif %}
+          <small class="text-muted">
+            <i class="bi bi-person"></i>
+            {{ action_logs.0.action_by.get_full_name|default:action_logs.0.action_by.username|default:"System" }}
+            · {{ action_logs.0.action_date|date:"d M Y H:i" }}
+          </small>
+        </div>
+        {% endif %}
 
         <hr>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
