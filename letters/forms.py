@@ -25,18 +25,19 @@ class LetterForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
 
-        # Make reference_no required for incoming letters
-        if self.instance and self.instance.direction == Letter.INCOMING:
-            self.fields['reference_no'].required = True
-            self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
-        elif self.data and self.data.get('direction') == Letter.INCOMING:
-            self.fields['reference_no'].required = True
-            self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
-        else:
-            # For outgoing letters, reference_no is auto-generated
-            self.fields['reference_no'].required = False
-            self.fields['reference_no'].widget.attrs['readonly'] = True
-            self.fields['reference_no'].help_text = 'Auto-generated for outgoing letters'
+        # Make reference_no required for incoming letters (only if field exists)
+        if 'reference_no' in self.fields:
+            if self.instance and self.instance.direction == Letter.INCOMING:
+                self.fields['reference_no'].required = True
+                self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+            elif self.data and self.data.get('direction') == Letter.INCOMING:
+                self.fields['reference_no'].required = True
+                self.fields['reference_no'].help_text = 'Enter the reference number from the original letter'
+            else:
+                # For outgoing letters, reference_no is auto-generated
+                self.fields['reference_no'].required = False
+                self.fields['reference_no'].widget.attrs['readonly'] = True
+                self.fields['reference_no'].help_text = 'Auto-generated for outgoing letters'
 
         self.helper = FormHelper()
         self.helper.form_method = 'post'
