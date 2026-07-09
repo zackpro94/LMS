@@ -536,6 +536,9 @@ document.addEventListener('DOMContentLoaded', function () {
         <a id="previewDownload" href="" class="btn btn-primary" download>
           <i class="bi bi-download"></i> Download
         </a>
+        <button id="previewShare" class="btn btn-outline-primary" type="button">
+          <i class="bi bi-share"></i> Share
+        </button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
@@ -549,12 +552,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const previewImage = document.getElementById('previewImage');
   const previewTitle = document.getElementById('previewModalTitle');
   const previewDownload = document.getElementById('previewDownload');
+  const previewShare = document.getElementById('previewShare');
+  let currentPreviewUrl = '';
   
   previewModal.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
     const url = button.getAttribute('data-preview-url');
     const name = button.getAttribute('data-preview-name');
     
+    currentPreviewUrl = url;
     previewTitle.textContent = name;
     previewDownload.href = url;
     
@@ -576,6 +582,46 @@ document.addEventListener('DOMContentLoaded', function() {
   previewModal.addEventListener('hidden.bs.modal', function() {
     previewFrame.src = '';
     previewImage.src = '';
+    currentPreviewUrl = '';
+  });
+  
+  // Share button functionality
+  previewShare.addEventListener('click', function() {
+    if (currentPreviewUrl) {
+      // Copy URL to clipboard
+      navigator.clipboard.writeText(currentPreviewUrl).then(function() {
+        // Change button text temporarily to show success
+        const originalText = previewShare.innerHTML;
+        previewShare.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        previewShare.classList.remove('btn-outline-primary');
+        previewShare.classList.add('btn-success');
+        
+        setTimeout(function() {
+          previewShare.innerHTML = originalText;
+          previewShare.classList.remove('btn-success');
+          previewShare.classList.add('btn-outline-primary');
+        }, 2000);
+      }).catch(function(err) {
+        // Fallback for browsers that don't support clipboard API
+        const textArea = document.createElement('textarea');
+        textArea.value = currentPreviewUrl;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+        
+        const originalText = previewShare.innerHTML;
+        previewShare.innerHTML = '<i class="bi bi-check"></i> Copied!';
+        previewShare.classList.remove('btn-outline-primary');
+        previewShare.classList.add('btn-success');
+        
+        setTimeout(function() {
+          previewShare.innerHTML = originalText;
+          previewShare.classList.remove('btn-success');
+          previewShare.classList.add('btn-outline-primary');
+        }, 2000);
+      });
+    }
   });
 });
 </script>
