@@ -257,6 +257,10 @@ class Attachment(models.Model):
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
     short_code = models.CharField(max_length=10, unique=True, blank=True, null=True)
+    custom_short_code = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text='Custom short code for sharing (optional)')
+    access_count = models.IntegerField(default=0, help_text='Number of times the shared link has been accessed')
+    last_accessed = models.DateTimeField(null=True, blank=True, help_text='Last time the shared link was accessed')
+    expires_at = models.DateTimeField(null=True, blank=True, help_text='Expiration date for the shared link (optional)')
 
     def __str__(self):
         return f'Attachment: {self.filename} → {self.letter}'
@@ -279,7 +283,45 @@ class Attachment(models.Model):
     
     def get_short_url(self):
         """Return the short URL path for sharing"""
-        return f'/share/{self.short_code}/'
+        code = self.custom_short_code if self.custom_short_code else self.short_code
+        return f'/share/{code}/'
+    
+    def is_expired(self):
+        """Check if the shared link has expired"""
+        if self.expires_at:
+            from django.utils import timezone
+            return timezone.now() > self.expires_at
+        return False
+    
+    def generate_qr_code(self):
+        """Generate QR code for the short URL"""
+        import qrcode
+        from io import BytesIO
+        import base64
+        
+        from django.conf import settings
+        
+        # Get the full URL
+        full_url = f"{settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://lms.pro.et'}{self.get_short_url()}"
+        
+        # Generate QR code
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(full_url)
+        qr.make(fit=True)
+        
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # Convert to base64
+        buffer = BytesIO()
+        img.save(buffer, format='PNG')
+        img_str = base64.b64encode(buffer.getvalue()).decode()
+        
+        return f"data:image/png;base64,{img_str}"
 
     @property
     def file_size_display(self):

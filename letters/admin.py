@@ -64,10 +64,27 @@ class LetterAdmin(admin.ModelAdmin):
 
 @admin.register(Attachment)
 class AttachmentAdmin(admin.ModelAdmin):
-    list_display = ('letter', 'filename', 'uploaded_by', 'uploaded_at')
-    list_filter = ('uploaded_at',)
-    search_fields = ('file', 'letter__reference_no')
-    readonly_fields = ('uploaded_at',)
+    list_display = ('letter', 'filename', 'uploaded_by', 'uploaded_at', 'access_count', 'last_accessed', 'expires_at')
+    list_filter = ('uploaded_at', 'expires_at')
+    search_fields = ('file', 'letter__reference_no', 'custom_short_code', 'short_code')
+    readonly_fields = ('uploaded_at', 'short_code', 'access_count', 'last_accessed')
+    fieldsets = (
+        (None, {
+            'fields': ('letter', 'file', 'uploaded_by')
+        }),
+        ('Sharing Options', {
+            'fields': ('custom_short_code', 'expires_at'),
+            'description': 'Set custom short code or expiration date for shared links'
+        }),
+        ('Analytics', {
+            'fields': ('short_code', 'access_count', 'last_accessed'),
+            'classes': ('collapse',)
+        }),
+        ('Metadata', {
+            'fields': ('uploaded_at',),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(ActionLog)

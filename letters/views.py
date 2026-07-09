@@ -14,6 +14,7 @@ from django.views.generic import (
     CreateView, DetailView, ListView, TemplateView, UpdateView, DeleteView
 )
 from django_filters.views import FilterView
+from django.db import models
  
 from .filters import LetterFilter
 from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm
@@ -1043,8 +1044,20 @@ class StaffDeleteView(LoginRequiredMixin, SuperuserOrAdminRequiredMixin, DeleteV
 # Short URL redirect for file sharing
 # ---------------------------------------------------------------------------
 class ShortUrlRedirectView(View):
-    """Redirect short URL to actual file URL."""
+    """Redirect short URL to actual file URL with analytics."""
     def get(self, request, short_code):
-        attachment = get_object_or_404(Attachment, short_code=short_code)
+        # Try to find by custom short code first, then regular short code
+        attachment = get_object_or_404(Attachment, models.Q(short_code=short_code) | models.Q(custom_short_code=short_code))
+        
+        # Check if link has expired
+        if attachment.is_expired():
+            from django.http import HttpResponse
+            return HttpResponse("This link has expired.", status=410)
+        
+        # Update analytics
+        attachment.access_count += 1
+        attachment.last_accessed = timezone.now()
+        attachment.save(update_fields=['access_count', 'last_accessed'])
+        
         return HttpResponseRedirect(attachment.file.url)
 

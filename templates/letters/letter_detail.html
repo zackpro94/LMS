@@ -286,6 +286,12 @@
                 {{ att.file_size_display }}
                 · {{ att.uploaded_by.get_full_name|default:att.uploaded_by.username|default:"—" }}
                 · {{ att.uploaded_at|timesince }} ago
+                {% if att.access_count > 0 %}
+                · <i class="bi bi-eye"></i> {{ att.access_count }}
+                {% endif %}
+                {% if att.expires_at %}
+                · <i class="bi bi-clock"></i> Expires {{ att.expires_at|date:"M d, Y" }}
+                {% endif %}
               </small>
             </div>
             <div class="attachment-item__actions d-flex gap-2 flex-shrink-0">
@@ -533,13 +539,85 @@ document.addEventListener('DOMContentLoaded', function () {
         <img id="previewImage" src="" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none;" alt="Preview">
       </div>
       <div class="modal-footer">
-        <a id="previewDownload" href="" class="btn btn-primary" download>
-          <i class="bi bi-download"></i> Download
-        </a>
-        <button id="previewShare" class="btn btn-outline-primary" type="button">
-          <i class="bi bi-share"></i> Share
+        <div class="d-flex flex-wrap gap-2 w-100">
+          <div class="d-flex gap-2">
+            <a id="previewDownload" href="" class="btn btn-primary" download>
+              <i class="bi bi-download"></i> Download
+            </a>
+            <button id="previewShare" class="btn btn-outline-primary" type="button">
+              <i class="bi bi-share"></i> Share
+            </button>
+          </div>
+          <div class="d-flex gap-2 ms-auto">
+            <button id="previewQR" class="btn btn-outline-secondary" type="button" title="QR Code">
+              <i class="bi bi-qr-code"></i>
+            </button>
+            <button id="previewEmail" class="btn btn-outline-secondary" type="button" title="Email">
+              <i class="bi bi-envelope"></i>
+            </button>
+            <button id="previewWhatsApp" class="btn btn-outline-success" type="button" title="WhatsApp">
+              <i class="bi bi-whatsapp"></i>
+            </button>
+            <button id="previewTelegram" class="btn btn-outline-info" type="button" title="Telegram">
+              <i class="bi bi-telegram"></i>
+            </button>
+          </div>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">QR Code</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <div id="qrCodeContainer"></div>
+        <p class="mt-3 text-muted">Scan to open file</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Email Share Modal -->
+<div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Share via Email</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="emailShareForm">
+          <div class="mb-3">
+            <label for="emailTo" class="form-label">To</label>
+            <input type="email" class="form-control" id="emailTo" required placeholder="recipient@example.com">
+          </div>
+          <div class="mb-3">
+            <label for="emailSubject" class="form-label">Subject</label>
+            <input type="text" class="form-control" id="emailSubject" required>
+          </div>
+          <div class="mb-3">
+            <label for="emailMessage" class="form-label">Message</label>
+            <textarea class="form-control" id="emailMessage" rows="3"></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">File Link</label>
+            <input type="text" class="form-control" id="emailLink" readonly>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary" id="sendEmailBtn">
+          <i class="bi bi-send"></i> Send
         </button>
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
       </div>
     </div>
   </div>
@@ -553,8 +631,15 @@ document.addEventListener('DOMContentLoaded', function() {
   const previewTitle = document.getElementById('previewModalTitle');
   const previewDownload = document.getElementById('previewDownload');
   const previewShare = document.getElementById('previewShare');
+  const previewQR = document.getElementById('previewQR');
+  const previewEmail = document.getElementById('previewEmail');
+  const previewWhatsApp = document.getElementById('previewWhatsApp');
+  const previewTelegram = document.getElementById('previewTelegram');
+  const qrModal = document.getElementById('qrModal');
+  const emailModal = document.getElementById('emailModal');
   let currentPreviewUrl = '';
   let currentShortUrl = '';
+  let currentFileName = '';
   
   previewModal.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
@@ -563,7 +648,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const shortUrl = button.getAttribute('data-short-url');
     
     currentPreviewUrl = url;
-    currentShortUrl = shortUrl || url; // Fallback to long URL if short URL not available
+    currentShortUrl = shortUrl || url;
+    currentFileName = name;
     previewTitle.textContent = name;
     previewDownload.href = url;
     
@@ -587,14 +673,13 @@ document.addEventListener('DOMContentLoaded', function() {
     previewImage.src = '';
     currentPreviewUrl = '';
     currentShortUrl = '';
+    currentFileName = '';
   });
   
-  // Share button functionality
+  // Copy short URL to clipboard
   previewShare.addEventListener('click', function() {
     if (currentShortUrl) {
-      // Copy short URL to clipboard
       navigator.clipboard.writeText(currentShortUrl).then(function() {
-        // Change button text temporarily to show success
         const originalText = previewShare.innerHTML;
         previewShare.innerHTML = '<i class="bi bi-check"></i> Copied!';
         previewShare.classList.remove('btn-outline-primary');
@@ -606,7 +691,6 @@ document.addEventListener('DOMContentLoaded', function() {
           previewShare.classList.add('btn-outline-primary');
         }, 2000);
       }).catch(function(err) {
-        // Fallback for browsers that don't support clipboard API
         const textArea = document.createElement('textarea');
         textArea.value = currentShortUrl;
         document.body.appendChild(textArea);
@@ -625,6 +709,58 @@ document.addEventListener('DOMContentLoaded', function() {
           previewShare.classList.add('btn-outline-primary');
         }, 2000);
       });
+    }
+  });
+  
+  // QR Code generation
+  previewQR.addEventListener('click', function() {
+    if (currentShortUrl) {
+      // Generate QR code using a simple API
+      const qrContainer = document.getElementById('qrCodeContainer');
+      qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentShortUrl)}" alt="QR Code" class="img-fluid">`;
+      new bootstrap.Modal(qrModal).show();
+    }
+  });
+  
+  // Email sharing
+  previewEmail.addEventListener('click', function() {
+    if (currentShortUrl && currentFileName) {
+      document.getElementById('emailTo').value = '';
+      document.getElementById('emailSubject').value = `File: ${currentFileName}`;
+      document.getElementById('emailMessage').value = 'Please find the attached file link below:';
+      document.getElementById('emailLink').value = currentShortUrl;
+      new bootstrap.Modal(emailModal).show();
+    }
+  });
+  
+  // Send email (opens mail client)
+  document.getElementById('sendEmailBtn').addEventListener('click', function() {
+    const to = document.getElementById('emailTo').value;
+    const subject = document.getElementById('emailSubject').value;
+    const message = document.getElementById('emailMessage').value;
+    const link = document.getElementById('emailLink').value;
+    
+    const mailtoLink = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message + '\n\n' + link)}`;
+    window.location.href = mailtoLink;
+    
+    bootstrap.Modal.getInstance(emailModal).hide();
+  });
+  
+  // WhatsApp sharing
+  previewWhatsApp.addEventListener('click', function() {
+    if (currentShortUrl && currentFileName) {
+      const text = `File: ${currentFileName}\n${currentShortUrl}`;
+      const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(whatsappUrl, '_blank');
+    }
+  });
+  
+  // Telegram sharing
+  previewTelegram.addEventListener('click', function() {
+    if (currentShortUrl && currentFileName) {
+      const text = `File: ${currentFileName}\n${currentShortUrl}`;
+      const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(currentShortUrl)}&text=${encodeURIComponent(currentFileName)}`;
+      window.open(telegramUrl, '_blank');
     }
   });
 });
