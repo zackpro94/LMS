@@ -205,15 +205,11 @@ if USE_R2_STORAGE:
         # Storage backend
         DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
         
-        # Media URL configuration
-        if AWS_S3_CUSTOM_DOMAIN:
-            MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
-        else:
-            # For R2 without custom domain, use the endpoint URL directly
-            MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
+        # Use /media/ URL for proxy approach to avoid CORB
+        MEDIA_URL = '/media/'
         
         MEDIA_ROOT = ''
-        print(f"R2 Storage enabled: Bucket={AWS_STORAGE_BUCKET_NAME}, Endpoint={AWS_S3_ENDPOINT_URL}")
+        print(f"R2 Storage enabled with proxy: Bucket={AWS_STORAGE_BUCKET_NAME}, Endpoint={AWS_S3_ENDPOINT_URL}")
 
 if not USE_R2_STORAGE:
     # For Railway/local development, use local filesystem
