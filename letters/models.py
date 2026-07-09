@@ -1,5 +1,7 @@
 from django.db import models, transaction
+import os
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.models import User
@@ -245,7 +247,10 @@ class Attachment(models.Model):
     letter = models.ForeignKey(
         Letter, on_delete=models.CASCADE, related_name='attachments',
     )
-    file = models.FileField(upload_to='letters/attachments/%Y/%m/')
+    file = models.FileField(
+        upload_to='letters/attachments/%Y/%m/',
+        storage=default_storage
+    )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
     )
