@@ -205,6 +205,10 @@ if USE_R2_STORAGE:
         # Storage backend
         DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
         
+        # Additional R2-specific settings
+        AWS_S3_ADDRESSING_STYLE = 'path'
+        AWS_S3_FILE_OVERWRITE = False
+        
         # Use /media/ URL for proxy approach to avoid CORB
         MEDIA_URL = '/media/'
         

@@ -476,7 +476,16 @@ class AddAttachmentView(LoginRequiredMixin, View):
                 att = form.save(commit=False)
                 att.letter = letter
                 att.uploaded_by = request.user
+                
+                # Debug logging
+                print(f"Storage backend: {att.file.storage}")
+                print(f"File name before save: {att.file.name}")
+                print(f"USE_R2_STORAGE: {os.environ.get('USE_R2_STORAGE')}")
+                
                 att.save()
+                
+                print(f"File name after save: {att.file.name}")
+                print(f"File URL: {att.file.url}")
 
                 ActionLog.objects.create(
                     letter=letter,
@@ -485,6 +494,9 @@ class AddAttachmentView(LoginRequiredMixin, View):
                 )
                 messages.success(request, 'Attachment uploaded successfully.')
             except Exception as e:
+                print(f"Error saving attachment: {e}")
+                import traceback
+                traceback.print_exc()
                 messages.error(request, f'Error saving attachment: {str(e)}')
         else:
             # Display specific form validation errors
