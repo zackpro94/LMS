@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'crispy_bootstrap5',
     'django_filters',
     'corsheaders',
+    'storages',
     # Local apps
     'letters.apps.LettersConfig',
     'accounts.apps.AccountsConfig',
@@ -179,12 +180,40 @@ STORAGES = {
 # ---------------------------------------------------------------------------
 # Media files (uploaded attachments)
 # ---------------------------------------------------------------------------
-# For Railway, use project directory for persistent storage
-if os.environ.get('RAILWAY_ENVIRONMENT'):
-    MEDIA_ROOT = BASE_DIR / 'media'
+# Cloudflare R2 Storage Configuration
+USE_R2_STORAGE = os.environ.get('USE_R2_STORAGE', 'False').lower() in ('true', '1', 'yes')
+
+if USE_R2_STORAGE:
+    # Use Cloudflare R2 for production
+    AWS_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')
+    AWS_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY')
+    AWS_STORAGE_BUCKET_NAME = os.environ.get('R2_BUCKET_NAME')
+    AWS_S3_ENDPOINT_URL = os.environ.get('R2_ENDPOINT_URL')  # e.g., https://<accountid>.r2.cloudflarestorage.com
+    AWS_S3_REGION_NAME = 'auto'
+    AWS_S3_CUSTOM_DOMAIN = os.environ.get('R2_CUSTOM_DOMAIN')  # Optional: custom domain for serving files
+    
+    # R2-specific settings
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }
+    
+    # Storage backend
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    
+    # Media URL configuration
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    else:
+        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.replace("https://", "")}/'
+    
+    MEDIA_ROOT = ''
 else:
-    MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_URL = '/media/'
+    # For Railway/local development, use local filesystem
+    if os.environ.get('RAILWAY_ENVIRONMENT'):
+        MEDIA_ROOT = BASE_DIR / 'media'
+    else:
+        MEDIA_ROOT = BASE_DIR / 'media'
+    MEDIA_URL = '/media/'
 
 # ---------------------------------------------------------------------------
 # CORS Settings for iframe preview

@@ -150,6 +150,31 @@ DJANGO_DEBUG=False
 DJANGO_ALLOWED_HOSTS=your-domain.com
 ```
 
+### Cloudflare R2 Storage (Optional)
+
+To use Cloudflare R2 for attachment storage instead of local filesystem:
+
+```bash
+USE_R2_STORAGE=True
+R2_ACCESS_KEY_ID=your_r2_access_key_id
+R2_SECRET_ACCESS_KEY=your_r2_secret_access_key
+R2_BUCKET_NAME=your-bucket-name
+R2_ENDPOINT_URL=https://<accountid>.r2.cloudflarestorage.com
+R2_CUSTOM_DOMAIN=media.your-domain.com  # Optional: custom domain for serving files
+```
+
+**To set up Cloudflare R2:**
+1. Create an R2 bucket in your Cloudflare dashboard
+2. Create an API token with R2 permissions (or use R2 API keys)
+3. Add the environment variables above to your Railway project or deployment
+4. Set `USE_R2_STORAGE=True` to enable R2 storage
+
+**Benefits of R2:**
+- Persistent storage across deployments
+- Better performance for file serving
+- Cost-effective object storage
+- CDN integration via Cloudflare
+
 ---
 
 ## License
