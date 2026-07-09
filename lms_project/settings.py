@@ -192,28 +192,37 @@ if USE_R2_STORAGE:
     AWS_S3_REGION_NAME = 'auto'
     AWS_S3_CUSTOM_DOMAIN = os.environ.get('R2_CUSTOM_DOMAIN')  # Optional: custom domain for serving files
     
-    # R2-specific settings
-    AWS_S3_OBJECT_PARAMETERS = {
-        'CacheControl': 'max-age=86400',
-    }
-    
-    # Storage backend
-    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-    
-    # Media URL configuration
-    if AWS_S3_CUSTOM_DOMAIN:
-        MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+    # Validate required settings
+    if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL]):
+        print("WARNING: R2 storage enabled but missing required environment variables. Falling back to local storage.")
+        USE_R2_STORAGE = False
     else:
-        MEDIA_URL = f'https://{AWS_STORAGE_BUCKET_NAME}.{AWS_S3_ENDPOINT_URL.replace("https://", "")}/'
-    
-    MEDIA_ROOT = ''
-else:
+        # R2-specific settings
+        AWS_S3_OBJECT_PARAMETERS = {
+            'CacheControl': 'max-age=86400',
+        }
+        
+        # Storage backend
+        DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+        
+        # Media URL configuration
+        if AWS_S3_CUSTOM_DOMAIN:
+            MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/'
+        else:
+            # For R2 without custom domain, use the endpoint URL directly
+            MEDIA_URL = f'{AWS_S3_ENDPOINT_URL}/{AWS_STORAGE_BUCKET_NAME}/'
+        
+        MEDIA_ROOT = ''
+        print(f"R2 Storage enabled: Bucket={AWS_STORAGE_BUCKET_NAME}, Endpoint={AWS_S3_ENDPOINT_URL}")
+
+if not USE_R2_STORAGE:
     # For Railway/local development, use local filesystem
     if os.environ.get('RAILWAY_ENVIRONMENT'):
         MEDIA_ROOT = BASE_DIR / 'media'
     else:
         MEDIA_ROOT = BASE_DIR / 'media'
     MEDIA_URL = '/media/'
+    print("Using local filesystem for media storage")
 
 # ---------------------------------------------------------------------------
 # CORS Settings for iframe preview
@@ -223,7 +232,19 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8000",
     "https://lms.pro.et",
 ]
-CORS_ALLOW_CREDENTIALS = True
+
+# Add R2 endpoint if configured
+if USE_R2_STORAGE and AWS_S3_ENDPOINT_URL:
+    CORS_ALLOWED_ORIGINS.append(AWS_S3_ENDPOINT_URL)
+    if AWS_S3_CUSTOM_DOMAIN:
+        CORS_ALLOWED_ORIGINS.append(f"https://{AWS_S3_CUSTOM_DOMAIN}")
+
+# Allow all origins for R2 media files in development
+if DEBUG and USE_R2_STORAGE:
+    CORS_ALLOW_ALL_ORIGINS = True
+    CORS_ALLOW_CREDENTIALS = False
+else:
+    CORS_ALLOW_CREDENTIALS = True
 
 # Allow same-origin iframes for media preview
 X_FRAME_OPTIONS = 'SAMEORIGIN'

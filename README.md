@@ -168,6 +168,17 @@ R2_CUSTOM_DOMAIN=media.your-domain.com  # Optional: custom domain for serving fi
 2. Create an API token with R2 permissions (or use R2 API keys)
 3. Add the environment variables above to your Railway project or deployment
 4. Set `USE_R2_STORAGE=True` to enable R2 storage
+5. **Configure CORS on your R2 bucket** (required for file preview):
+   - Go to your R2 bucket in Cloudflare dashboard
+   - Click "Settings" → "CORS Policy"
+   - Add a CORS rule with:
+     ```
+     Allowed origins: *
+     Allowed methods: GET, HEAD
+     Allowed headers: *
+     Max age: 86400
+     ```
+   - Or restrict to your domain: `https://lms.pro.et`
 
 **Benefits of R2:**
 - Persistent storage across deployments
