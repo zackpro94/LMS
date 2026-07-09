@@ -4,7 +4,7 @@ import os
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
@@ -1037,4 +1037,14 @@ class StaffDeleteView(LoginRequiredMixin, SuperuserOrAdminRequiredMixin, DeleteV
     def form_valid(self, form):
         messages.success(self.request, f"Staff account '{self.object.username}' deleted.")
         return super().form_valid(form)
+
+
+# ---------------------------------------------------------------------------
+# Short URL redirect for file sharing
+# ---------------------------------------------------------------------------
+class ShortUrlRedirectView(View):
+    """Redirect short URL to actual file URL."""
+    def get(self, request, short_code):
+        attachment = get_object_or_404(Attachment, short_code=short_code)
+        return HttpResponseRedirect(attachment.file.url)
 

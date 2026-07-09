@@ -31,6 +31,9 @@ urlpatterns = [
     path('letters/<int:pk>/attach/', views.AddAttachmentView.as_view(), name='add_attachment'),
     path('letters/<int:letter_pk>/attachments/<int:attachment_pk>/delete/', views.AttachmentDeleteView.as_view(), name='delete_attachment'),
     path('letters/<int:pk>/actions/export/', views.ExportActionsView.as_view(), name='export_actions'),
+    
+    # Short URL for file sharing
+    path('share/<str:short_code>/', views.ShortUrlRedirectView.as_view(), name='short_url_redirect'),
 
     # Overdue
     path('letters/overdue/', views.OverdueLettersView.as_view(), name='overdue_letters'),

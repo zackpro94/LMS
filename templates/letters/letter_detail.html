@@ -289,7 +289,7 @@
               </small>
             </div>
             <div class="attachment-item__actions d-flex gap-2 flex-shrink-0">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}" data-short-url="{{ request.build_absolute_uri }}{{ att.get_short_url }}">
                 <i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">Preview</span>
               </button>
               <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary" download>
@@ -554,13 +554,16 @@ document.addEventListener('DOMContentLoaded', function() {
   const previewDownload = document.getElementById('previewDownload');
   const previewShare = document.getElementById('previewShare');
   let currentPreviewUrl = '';
+  let currentShortUrl = '';
   
   previewModal.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
     const url = button.getAttribute('data-preview-url');
     const name = button.getAttribute('data-preview-name');
+    const shortUrl = button.getAttribute('data-short-url');
     
     currentPreviewUrl = url;
+    currentShortUrl = shortUrl || url; // Fallback to long URL if short URL not available
     previewTitle.textContent = name;
     previewDownload.href = url;
     
@@ -583,13 +586,14 @@ document.addEventListener('DOMContentLoaded', function() {
     previewFrame.src = '';
     previewImage.src = '';
     currentPreviewUrl = '';
+    currentShortUrl = '';
   });
   
   // Share button functionality
   previewShare.addEventListener('click', function() {
-    if (currentPreviewUrl) {
-      // Copy URL to clipboard
-      navigator.clipboard.writeText(currentPreviewUrl).then(function() {
+    if (currentShortUrl) {
+      // Copy short URL to clipboard
+      navigator.clipboard.writeText(currentShortUrl).then(function() {
         // Change button text temporarily to show success
         const originalText = previewShare.innerHTML;
         previewShare.innerHTML = '<i class="bi bi-check"></i> Copied!';
@@ -604,7 +608,7 @@ document.addEventListener('DOMContentLoaded', function() {
       }).catch(function(err) {
         // Fallback for browsers that don't support clipboard API
         const textArea = document.createElement('textarea');
-        textArea.value = currentPreviewUrl;
+        textArea.value = currentShortUrl;
         document.body.appendChild(textArea);
         textArea.select();
         document.execCommand('copy');

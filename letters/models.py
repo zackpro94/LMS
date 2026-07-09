@@ -256,6 +256,7 @@ class Attachment(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
     )
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    short_code = models.CharField(max_length=10, unique=True, blank=True, null=True)
 
     def __str__(self):
         return f'Attachment: {self.filename} → {self.letter}'
@@ -265,6 +266,21 @@ class Attachment(models.Model):
         """Return just the filename portion of the upload path."""
         import os
         return os.path.basename(self.file.name)
+
+    def save(self, *args, **kwargs):
+        # Generate short code if not exists
+        if not self.short_code:
+            import secrets
+            self.short_code = secrets.token_urlsafe(8)[:10]
+            # Ensure uniqueness
+            while Attachment.objects.filter(short_code=self.short_code).exists():
+                self.short_code = secrets.token_urlsafe(8)[:10]
+        super().save(*args, **kwargs)
+    
+    def get_short_url(self):
+        """Return the short URL for sharing"""
+        from django.urls import reverse
+        return reverse('letters:short_url_redirect', kwargs={'short_code': self.short_code})
 
     @property
     def file_size_display(self):
