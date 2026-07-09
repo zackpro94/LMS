@@ -183,6 +183,34 @@ STORAGES = {
 # Cloudflare R2 Storage Configuration
 USE_R2_STORAGE = os.environ.get('USE_R2_STORAGE', 'False').lower() in ('true', '1', 'yes')
 
+# Custom storage function
+def get_media_storage():
+    """Return the appropriate storage backend based on configuration"""
+    if USE_R2_STORAGE:
+        AWS_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')
+        AWS_SECRET_ACCESS_KEY = os.environ.get('R2_SECRET_ACCESS_KEY')
+        AWS_STORAGE_BUCKET_NAME = os.environ.get('R2_BUCKET_NAME')
+        AWS_S3_ENDPOINT_URL = os.environ.get('R2_ENDPOINT_URL')
+        
+        if not all([AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_STORAGE_BUCKET_NAME, AWS_S3_ENDPOINT_URL]):
+            print("WARNING: R2 storage enabled but missing required environment variables. Falling back to local storage.")
+            from django.core.files.storage import FileSystemStorage
+            return FileSystemStorage(location=str(BASE_DIR / 'media'), base_url='/media/')
+        else:
+            from storages.backends.s3boto3 import S3Boto3Storage
+            return S3Boto3Storage(
+                bucket_name=AWS_STORAGE_BUCKET_NAME,
+                endpoint_url=AWS_S3_ENDPOINT_URL,
+                access_key=AWS_ACCESS_KEY_ID,
+                secret_key=AWS_SECRET_ACCESS_KEY,
+                region_name='auto',
+                addressing_style='path',
+                file_overwrite=False,
+            )
+    else:
+        from django.core.files.storage import FileSystemStorage
+        return FileSystemStorage(location=str(BASE_DIR / 'media'), base_url='/media/')
+
 if USE_R2_STORAGE:
     # Use Cloudflare R2 for production
     AWS_ACCESS_KEY_ID = os.environ.get('R2_ACCESS_KEY_ID')

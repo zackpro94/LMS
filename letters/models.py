@@ -249,7 +249,7 @@ class Attachment(models.Model):
     )
     file = models.FileField(
         upload_to='letters/attachments/%Y/%m/',
-        storage=default_storage
+        storage=lambda: settings.get_media_storage()
     )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
