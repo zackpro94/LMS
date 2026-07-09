@@ -278,9 +278,8 @@ class Attachment(models.Model):
         super().save(*args, **kwargs)
     
     def get_short_url(self):
-        """Return the short URL for sharing"""
-        from django.urls import reverse
-        return reverse('letters:short_url_redirect', kwargs={'short_code': self.short_code})
+        """Return the short URL path for sharing"""
+        return f'/share/{self.short_code}/'
 
     @property
     def file_size_display(self):

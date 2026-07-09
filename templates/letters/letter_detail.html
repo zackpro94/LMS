@@ -289,7 +289,7 @@
               </small>
             </div>
             <div class="attachment-item__actions d-flex gap-2 flex-shrink-0">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}" data-short-url="{{ request.build_absolute_uri }}{{ att.get_short_url }}">
+              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}" data-short-url="{{ request.scheme }}://{{ request.get_host }}{{ att.get_short_url }}">
                 <i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">Preview</span>
               </button>
               <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary" download>
