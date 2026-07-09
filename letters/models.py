@@ -5,6 +5,7 @@ from django.core.files.storage import default_storage
 from django.urls import reverse
 from django.utils import timezone
 from django.contrib.auth.models import User
+from .storage import R2Storage
 
 
 class Category(models.Model):
@@ -249,7 +250,7 @@ class Attachment(models.Model):
     )
     file = models.FileField(
         upload_to='letters/attachments/%Y/%m/',
-        storage=lambda: settings.get_media_storage()
+        storage=R2Storage()
     )
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
