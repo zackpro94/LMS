@@ -29,8 +29,8 @@ if 'CSRF_TRUSTED_ORIGINS' not in locals():
 CSRF_TRUSTED_ORIGINS.append('https://lms.pro.et')
 
 # Push Notification Settings (VAPID)
-VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', 'BCb_zgKuvKVZO2dxUN_HkfNxjivR9dmJSPSebHjsFAFiom0ZOACTGzArltyaSx48x_xZFjx6MnAnN52CBkk9UnE')
-VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', 'R0RslfqLenLe6C-7ww8wuTXZ0L-i9rvrIHWJyfhtCcc')
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', 'BH0kCCgHsTcENSDsqsd6dMpMHaYwoCMaZJxL8V0xRoHvbGSLzrVtPBHoYp4eY-0zj2ZskLxVVH25_bQJNCPDYVE')
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', 'A-51wCdoiSEFBuJ1Hm6BjU6BQtRf1wwtS19BwZubxoo')
 VAPID_CLAIMS = {'sub': 'mailto:admin@lms.pro.et'}
 
 # ---------------------------------------------------------------------------

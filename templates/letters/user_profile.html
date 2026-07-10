@@ -412,7 +412,32 @@ async function requestPushPermission() {
   } catch (error) {
     console.error('Error requesting push permission:', error);
     console.error('Error details:', error.message, error.name, error.stack);
-    alert('Failed to enable push notifications: ' + error.message);
+    
+    // Detect Brave browser and provide specific guidance
+    const isBrave = (navigator.brave && await navigator.brave.isBrave()) || false;
+    
+    if (error.message && error.message.includes('push service')) {
+      if (isBrave) {
+        alert(
+          'Push notifications failed because Brave blocks the push service by default.\n\n' +
+          'To fix this:\n' +
+          '1. Go to brave://settings/privacy\n' +
+          '2. Enable "Use Google services for push messaging"\n' +
+          '3. Then try again.'
+        );
+      } else {
+        alert(
+          'Failed to connect to the push notification service.\n\n' +
+          'This can happen if:\n' +
+          '• Your browser blocks push services (check privacy settings)\n' +
+          '• You are behind a firewall that blocks FCM\n' +
+          '• Try using Chrome or Edge instead'
+        );
+      }
+    } else {
+      alert('Failed to enable push notifications: ' + error.message);
+    }
+    
     document.getElementById('pushNotifications').checked = false;
     localStorage.setItem('pushNotificationsEnabled', 'false');
   }

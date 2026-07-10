@@ -1,4 +1,5 @@
 """Push notification utilities for web push notifications."""
+import json
 from django.conf import settings
 from pywebpush import webpush, WebPushException
 from .models import PushSubscription
@@ -38,7 +39,7 @@ def send_push_notification(user, title, body, url=None):
         try:
             webpush(
                 subscription_info=subscription_info,
-                data=data,
+                data=json.dumps(data),
                 vapid_private_key=vapid_private_key,
                 vapid_claims=vapid_claims
             )
