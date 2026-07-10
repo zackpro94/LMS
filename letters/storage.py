@@ -20,6 +20,7 @@ class R2Storage(S3Boto3Storage):
                 print("WARNING: R2 storage enabled but missing required environment variables. Falling back to local storage.")
                 # Fall back to FileSystemStorage
                 self._use_r2 = False
+                self._fs_storage = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
             else:
                 self._use_r2 = True
                 super().__init__(
@@ -34,28 +35,31 @@ class R2Storage(S3Boto3Storage):
                 print(f"R2 Storage initialized: Bucket={AWS_STORAGE_BUCKET_NAME}")
         else:
             self._use_r2 = False
+            self._fs_storage = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
+    
+    @property
+    def location(self):
+        """Return the storage location for compatibility."""
+        if self._use_r2:
+            return ''
+        return self._fs_storage.location
     
     def _save(self, name, content):
         if not self._use_r2:
-            # Fall back to local storage
-            fs = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
-            return fs._save(name, content)
+            return self._fs_storage._save(name, content)
         return super()._save(name, content)
     
     def url(self, name):
         if not self._use_r2:
-            fs = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
-            return fs.url(name)
+            return self._fs_storage.url(name)
         return super().url(name)
     
     def exists(self, name):
         if not self._use_r2:
-            fs = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
-            return fs.exists(name)
+            return self._fs_storage.exists(name)
         return super().exists(name)
     
     def delete(self, name):
         if not self._use_r2:
-            fs = FileSystemStorage(location=str(settings.BASE_DIR / 'media'), base_url='/media/')
-            return fs.delete(name)
+            return self._fs_storage.delete(name)
         return super().delete(name)
