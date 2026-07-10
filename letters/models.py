@@ -127,7 +127,7 @@ class Letter(models.Model):
     letter_type = models.CharField(
         max_length=10,
         choices=LETTER_TYPE_CHOICES,
-        default=DIGITAL,
+        default=HARDCOPY,
         help_text='Format of the letter (Hardcopy or Digital)',
     )
     date = models.DateField(help_text='Date received or sent')
