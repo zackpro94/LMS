@@ -572,9 +572,10 @@ class UserPreferencesForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['avatar', 'dark_mode']
+        fields = ['avatar', 'dark_mode', 'email_notifications']
         widgets = {
             'dark_mode': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'email_notifications': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
     
     def __init__(self, *args, **kwargs):
@@ -585,6 +586,7 @@ class UserPreferencesForm(forms.ModelForm):
         self.helper.layout = Layout(
             'avatar',
             Field('dark_mode', css_class='form-check'),
+            Field('email_notifications', css_class='form-check'),
             Submit('submit', 'Save Preferences', css_class='btn btn-primary mt-3'),
         )
 

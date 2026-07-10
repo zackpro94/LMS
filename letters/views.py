@@ -18,7 +18,7 @@ from django.db import models
  
 from .filters import LetterFilter
 from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm
-from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile
+from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile, Notification
 from .permissions import (
     user_can_close, user_can_view_all_letters, CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
 )
@@ -27,6 +27,29 @@ from .email_utils import (
     send_overdue_notification, send_status_change_notification,
     send_assignment_notification, send_new_action_notification
 )
+
+
+# ---------------------------------------------------------------------------
+# Notification Helper Functions
+# ---------------------------------------------------------------------------
+def create_notification(recipient, notification_type, title, message, related_letter=None):
+    """Create a notification for a user."""
+    # Check if user has email notifications enabled
+    try:
+        profile = recipient.profile
+        if not profile.email_notifications:
+            return
+    except UserProfile.DoesNotExist:
+        # Create profile if it doesn't exist
+        profile = UserProfile.objects.create(user=recipient)
+    
+    Notification.objects.create(
+        recipient=recipient,
+        notification_type=notification_type,
+        title=title,
+        message=message,
+        related_letter=related_letter
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -296,6 +319,14 @@ class LetterCreateView(LoginRequiredMixin, CreateView):
         # Send assignment notification if assigned to someone
         if self.object.assigned_person:
             send_assignment_notification(self.object)
+            # Create in-app notification
+            create_notification(
+                recipient=self.object.assigned_person,
+                notification_type='letter_assigned',
+                title=f'Letter Assigned: {self.object.reference_no}',
+                message=f'You have been assigned to letter "{self.object.subject}"',
+                related_letter=self.object
+            )
         
         messages.success(
             self.request,
@@ -375,10 +406,27 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
         # Send assignment notification if assigned person changed
         if self.object.assigned_person and self.object.assigned_person != old_assigned_person:
             send_assignment_notification(self.object)
+            # Create in-app notification
+            create_notification(
+                recipient=self.object.assigned_person,
+                notification_type='letter_assigned',
+                title=f'Letter Assigned: {self.object.reference_no}',
+                message=f'You have been assigned to letter "{self.object.subject}"',
+                related_letter=self.object
+            )
         
         # Send status change notification if status changed
         if self.object.status != old_status:
             send_status_change_notification(self.object, old_status, self.object.status)
+            # Create in-app notification for assigned person
+            if self.object.assigned_person:
+                create_notification(
+                    recipient=self.object.assigned_person,
+                    notification_type='status_changed',
+                    title=f'Status Changed: {self.object.reference_no}',
+                    message=f'Letter status changed from {old_status} to {self.object.status}',
+                    related_letter=self.object
+                )
         
         messages.success(
             self.request,
@@ -430,6 +478,15 @@ class AddActionView(LoginRequiredMixin, View):
 
             # Send notification for new action
             send_new_action_notification(letter, action_log.action, request.user)
+            # Create in-app notification for assigned person
+            if letter.assigned_person and letter.assigned_person != request.user:
+                create_notification(
+                    recipient=letter.assigned_person,
+                    notification_type='action_added',
+                    title=f'Action Added: {letter.reference_no}',
+                    message=f'New action added: "{action_log.action}"',
+                    related_letter=letter
+                )
 
             # Optionally update letter status
             new_status = form.cleaned_data.get('new_status')
@@ -1148,4 +1205,121 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
             context['password_form'] = form
         
         return self.render_to_response(context)
+
+
+# ---------------------------------------------------------------------------
+# Notification Management
+# ---------------------------------------------------------------------------
+class NotificationListView(LoginRequiredMixin, ListView):
+    """List of user notifications."""
+    model = Notification
+    template_name = 'letters/notification_list.html'
+    context_object_name = 'notifications'
+    paginate_by = 20
+    
+    def get_queryset(self):
+        return Notification.objects.filter(
+            recipient=self.request.user
+        ).select_related('related_letter')
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['unread_count'] = Notification.objects.filter(
+            recipient=self.request.user, is_read=False
+        ).count()
+        return context
+
+
+class NotificationDetailView(LoginRequiredMixin, DetailView):
+    """View single notification and mark as read."""
+    model = Notification
+    template_name = 'letters/notification_detail.html'
+    
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+    
+    def get(self, request, *args, **kwargs):
+        response = super().get(request, *args, **kwargs)
+        notification = self.get_object()
+        notification.mark_as_read()
+        return response
+
+
+class MarkAsReadView(LoginRequiredMixin, View):
+    """Mark notification as read via AJAX."""
+    def post(self, request, pk):
+        notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        notification.mark_as_read()
+        return JsonResponse({'success': True})
+
+
+class MarkAllAsReadView(LoginRequiredMixin, View):
+    """Mark all notifications as read."""
+    def post(self, request):
+        Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).update(is_read=True, read_at=timezone.now())
+        return JsonResponse({'success': True})
+
+
+class NotificationAPIView(LoginRequiredMixin, View):
+    """API endpoint for loading notifications via AJAX."""
+    def get(self, request):
+        notifications = Notification.objects.filter(
+            recipient=request.user
+        ).select_related('related_letter')[:10]
+        
+        notification_data = []
+        for notification in notifications:
+            # Calculate time ago
+            from datetime import timedelta
+            time_diff = timezone.now() - notification.created_at
+            
+            if time_diff < timedelta(minutes=1):
+                time_ago = 'Just now'
+            elif time_diff < timedelta(hours=1):
+                time_ago = f'{int(time_diff.total_seconds() / 60)} min ago'
+            elif time_diff < timedelta(days=1):
+                time_ago = f'{int(time_diff.total_seconds() / 3600)} hours ago'
+            else:
+                time_ago = f'{time_diff.days} days ago'
+            
+            # Get icon based on notification type
+            icon_map = {
+                'letter_assigned': 'bi-envelope',
+                'status_changed': 'bi-arrow-repeat',
+                'action_added': 'bi-list-check',
+                'attachment_added': 'bi-paperclip',
+                'overdue_warning': 'bi-exclamation-triangle',
+                'comment_added': 'bi-chat',
+            }
+            
+            color_map = {
+                'letter_assigned': 'primary',
+                'status_changed': 'info',
+                'action_added': 'success',
+                'attachment_added': 'warning',
+                'overdue_warning': 'danger',
+                'comment_added': 'secondary',
+            }
+            
+            notification_data.append({
+                'id': notification.id,
+                'title': notification.title,
+                'message': notification.message,
+                'is_read': notification.is_read,
+                'time_ago': time_ago,
+                'icon': icon_map.get(notification.notification_type, 'bi-bell'),
+                'color': color_map.get(notification.notification_type, 'primary'),
+                'url': notification.related_letter.get_absolute_url() if notification.related_letter else '#',
+            })
+        
+        unread_count = Notification.objects.filter(
+            recipient=request.user, is_read=False
+        ).count()
+        
+        return JsonResponse({
+            'notifications': notification_data,
+            'unread_count': unread_count,
+        })
 

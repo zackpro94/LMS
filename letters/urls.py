@@ -65,4 +65,11 @@ urlpatterns = [
 
     # User profile
     path('profile/', views.UserProfileView.as_view(), name='user_profile'),
+
+    # Notifications
+    path('notifications/', views.NotificationListView.as_view(), name='notification_list'),
+    path('notifications/<int:pk>/', views.NotificationDetailView.as_view(), name='notification_detail'),
+    path('notifications/<int:pk>/mark-read/', views.MarkAsReadView.as_view(), name='mark_notification_read'),
+    path('notifications/mark-all-read/', views.MarkAllAsReadView.as_view(), name='mark_all_notifications_read'),
+    path('api/notifications/', views.NotificationAPIView.as_view(), name='notification_api'),
 ]

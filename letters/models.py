@@ -368,6 +368,7 @@ class UserProfile(models.Model):
         help_text='Profile picture'
     )
     dark_mode = models.BooleanField(default=False)
+    email_notifications = models.BooleanField(default=True, help_text='Receive email notifications')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -377,6 +378,50 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f'{self.user.username} Profile'
+
+
+class Notification(models.Model):
+    """User notifications for letter updates and assignments."""
+    
+    NOTIFICATION_TYPES = [
+        ('letter_assigned', 'Letter Assigned'),
+        ('status_changed', 'Status Changed'),
+        ('action_added', 'Action Added'),
+        ('attachment_added', 'Attachment Added'),
+        ('overdue_warning', 'Overdue Warning'),
+        ('comment_added', 'Comment Added'),
+    ]
+    
+    recipient = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='notifications'
+    )
+    notification_type = models.CharField(
+        max_length=50, choices=NOTIFICATION_TYPES, default='letter_assigned'
+    )
+    title = models.CharField(max_length=200)
+    message = models.TextField()
+    related_letter = models.ForeignKey(
+        'Letter', on_delete=models.CASCADE, related_name='notifications',
+        null=True, blank=True
+    )
+    is_read = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Notification'
+        verbose_name_plural = 'Notifications'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.title} - {self.recipient.username}'
+    
+    def mark_as_read(self):
+        """Mark notification as read."""
+        if not self.is_read:
+            self.is_read = True
+            self.read_at = timezone.now()
+            self.save(update_fields=['is_read', 'read_at'])
 
 
 class SavedSearch(models.Model):

@@ -103,7 +103,32 @@
         <h1 class="h5 mb-0">{% block page_title %}Dashboard{% endblock %}</h1>
         {% block page_subtitle %}{% endblock %}
       </div>
-      <div class="topbar-actions d-flex gap-2">
+      <div class="topbar-actions d-flex gap-2 align-items-center">
+        <!-- Notification Bell -->
+        <div class="position-relative">
+          <button class="btn btn-sm btn-outline-secondary position-relative" type="button" id="notificationBtn" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-bell fs-5"></i>
+            {% if request.user.is_authenticated %}
+              <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger notification-badge" id="notificationCount" style="display: none;">
+                0
+                <span class="visually-hidden">unread notifications</span>
+              </span>
+            {% endif %}
+          </button>
+          <!-- Notification Dropdown -->
+          <div class="dropdown-menu dropdown-menu-end p-0 shadow" id="notificationDropdown" style="width: 350px; max-height: 400px; overflow-y: auto;">
+            <div class="d-flex align-items-center justify-content-between p-3 border-bottom">
+              <h6 class="mb-0 fw-semibold">Notifications</h6>
+              <button class="btn btn-sm btn-link text-decoration-none" id="markAllReadBtn">Mark all read</button>
+            </div>
+            <div id="notificationList" class="notification-list">
+              <!-- Notifications will be loaded here via AJAX -->
+            </div>
+            <div class="p-2 border-top text-center">
+              <a href="{% url 'letters:notification_list' %}" class="btn btn-sm btn-outline-primary w-100">View All Notifications</a>
+            </div>
+          </div>
+        </div>
         <a href="{% url 'letters:outgoing_letter_create' %}" class="btn btn-accent fw-bold shadow-sm">
           <i class="bi bi-envelope-arrow-up me-2"></i><span class="d-none d-md-inline">New Outgoing</span>
         </a>
@@ -131,6 +156,101 @@
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="{% static 'js/main.js' %}"></script>
+  {% if request.user.is_authenticated %}
+  <script>
+    // Notification functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const notificationBtn = document.getElementById('notificationBtn');
+      const notificationDropdown = document.getElementById('notificationDropdown');
+      const notificationList = document.getElementById('notificationList');
+      const notificationCount = document.getElementById('notificationCount');
+      const markAllReadBtn = document.getElementById('markAllReadBtn');
+      
+      // Load notifications on page load
+      loadNotifications();
+      
+      // Refresh notifications every 30 seconds
+      setInterval(loadNotifications, 30000);
+      
+      function loadNotifications() {
+        fetch('/api/notifications/')
+          .then(response => response.json())
+          .then(data => {
+            updateNotificationBadge(data.unread_count);
+            renderNotifications(data.notifications);
+          })
+          .catch(error => console.error('Error loading notifications:', error));
+      }
+      
+      function updateNotificationBadge(count) {
+        if (count > 0) {
+          notificationCount.textContent = count > 99 ? '99+' : count;
+          notificationCount.style.display = 'block';
+        } else {
+          notificationCount.style.display = 'none';
+        }
+      }
+      
+      function renderNotifications(notifications) {
+        if (notifications.length === 0) {
+          notificationList.innerHTML = '<div class="p-4 text-center text-muted">No notifications</div>';
+          return;
+        }
+        
+        notificationList.innerHTML = notifications.map(notification => `
+          <a href="${notification.url}" class="dropdown-item notification-item ${notification.is_read ? '' : 'bg-light'}" data-id="${notification.id}">
+            <div class="d-flex gap-2">
+              <div class="notification-icon">
+                <i class="bi ${notification.icon} text-${notification.color}"></i>
+              </div>
+              <div class="flex-grow-1">
+                <div class="fw-semibold small">${notification.title}</div>
+                <div class="text-muted small text-truncate">${notification.message}</div>
+                <div class="text-muted small" style="font-size: 0.75rem;">${notification.time_ago}</div>
+              </div>
+              ${!notification.is_read ? '<div class="notification-dot"></div>' : ''}
+            </div>
+          </a>
+        `).join('');
+      }
+      
+      // Mark all as read
+      if (markAllReadBtn) {
+        markAllReadBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          fetch('/notifications/mark-all-read/', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCookie('csrftoken'),
+              'Content-Type': 'application/json',
+            }
+          })
+          .then(response => response.json())
+          .then(data => {
+            if (data.success) {
+              loadNotifications();
+            }
+          });
+        });
+      }
+      
+      function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+          const cookies = document.cookie.split(';');
+          for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+              cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+              break;
+            }
+          }
+        }
+        return cookieValue;
+      }
+    });
+  </script>
+  {% endif %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>
