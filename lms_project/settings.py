@@ -28,6 +28,11 @@ if 'CSRF_TRUSTED_ORIGINS' not in locals():
     CSRF_TRUSTED_ORIGINS = []
 CSRF_TRUSTED_ORIGINS.append('https://lms.pro.et')
 
+# Push Notification Settings (VAPID)
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+VAPID_CLAIMS = {'sub': 'mailto:admin@lms.pro.et'}
+
 # ---------------------------------------------------------------------------
 # Application definition
 # ---------------------------------------------------------------------------

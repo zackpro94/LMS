@@ -18,7 +18,7 @@ from django.db import models
  
 from .filters import LetterFilter
 from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm
-from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile, Notification
+from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile, Notification, PushSubscription
 from .permissions import (
     user_can_close, user_can_view_all_letters, CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
 )
@@ -27,6 +27,7 @@ from .email_utils import (
     send_overdue_notification, send_status_change_notification,
     send_assignment_notification, send_new_action_notification
 )
+from .push_utils import send_push_notification
 
 
 # ---------------------------------------------------------------------------
@@ -43,13 +44,18 @@ def create_notification(recipient, notification_type, title, message, related_le
         # Create profile if it doesn't exist
         profile = UserProfile.objects.create(user=recipient)
     
-    Notification.objects.create(
+    # Create in-app notification
+    notification = Notification.objects.create(
         recipient=recipient,
         notification_type=notification_type,
         title=title,
         message=message,
         related_letter=related_letter
     )
+    
+    # Send push notification
+    url = related_letter.get_absolute_url() if related_letter else None
+    send_push_notification(recipient, title, message, url)
 
 
 # ---------------------------------------------------------------------------
@@ -1384,4 +1390,48 @@ class NotificationAPIView(LoginRequiredMixin, View):
             'notifications': notification_data,
             'unread_count': unread_count,
         })
+
+
+class PushSubscriptionView(LoginRequiredMixin, View):
+    """Subscribe to push notifications."""
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            subscription = data.get('subscription')
+            
+            if not subscription:
+                return JsonResponse({'success': False, 'error': 'No subscription data'}, status=400)
+            
+            # Create or update subscription
+            PushSubscription.objects.update_or_create(
+                user=request.user,
+                endpoint=subscription['endpoint'],
+                defaults={
+                    'p256dh': subscription['keys']['p256dh'],
+                    'auth': subscription['keys']['auth'],
+                    'is_active': True
+                }
+            )
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class PushUnsubscribeView(LoginRequiredMixin, View):
+    """Unsubscribe from push notifications."""
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            endpoint = data.get('endpoint')
+            
+            if endpoint:
+                PushSubscription.objects.filter(
+                    user=request.user,
+                    endpoint=endpoint
+                ).delete()
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
 

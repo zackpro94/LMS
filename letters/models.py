@@ -424,6 +424,27 @@ class Notification(models.Model):
             self.save(update_fields=['is_read', 'read_at'])
 
 
+class PushSubscription(models.Model):
+    """Web push notification subscriptions for users."""
+    
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='push_subscriptions'
+    )
+    endpoint = models.URLField(max_length=500)
+    p256dh = models.CharField(max_length=255)
+    auth = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    class Meta:
+        verbose_name = 'Push Subscription'
+        verbose_name_plural = 'Push Subscriptions'
+        unique_together = ['user', 'endpoint']
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.endpoint[:50]}...'
+
+
 class SavedSearch(models.Model):
     """User-saved search queries for quick access."""
     user = models.ForeignKey(

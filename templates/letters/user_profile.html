@@ -253,6 +253,17 @@
               </label>
             </div>
             <small class="text-muted">Sound notifications play a gentle beep when you receive new notifications while on this page.</small>
+            
+            <hr class="my-3">
+            
+            <div class="form-check form-switch mb-3">
+              <input class="form-check-input" type="checkbox" id="pushNotifications" 
+                     onchange="togglePushNotifications(this.checked)">
+              <label class="form-check-label" for="pushNotifications">
+                Enable browser push notifications
+              </label>
+            </div>
+            <small class="text-muted">Receive notifications even when you're not on this page. Requires browser permission.</small>
           </div>
         </div>
       </div>
@@ -302,10 +313,134 @@ document.addEventListener('DOMContentLoaded', function() {
   if (soundToggle) {
     soundToggle.checked = soundEnabled;
   }
+  
+  // Initialize push notification toggle
+  const pushEnabled = localStorage.getItem('pushNotificationsEnabled') === 'true';
+  const pushToggle = document.getElementById('pushNotifications');
+  if (pushToggle) {
+    pushToggle.checked = pushEnabled;
+  }
+  
+  // Register service worker if push is enabled
+  if (pushEnabled && 'serviceWorker' in navigator) {
+    registerServiceWorker();
+  }
 });
 
 function toggleNotificationSound(enabled) {
   localStorage.setItem('notificationSoundEnabled', enabled);
+}
+
+function togglePushNotifications(enabled) {
+  localStorage.setItem('pushNotificationsEnabled', enabled);
+  
+  if (enabled) {
+    requestPushPermission();
+  } else {
+    unsubscribeFromPush();
+  }
+}
+
+async function requestPushPermission() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    alert('Push notifications are not supported in your browser.');
+    return;
+  }
+  
+  try {
+    const registration = await registerServiceWorker();
+    const permission = await Notification.requestPermission();
+    
+    if (permission === 'granted') {
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array('{{ settings.VAPID_PUBLIC_KEY|default:"" }}')
+      });
+      
+      await sendSubscriptionToServer(subscription);
+    } else {
+      document.getElementById('pushNotifications').checked = false;
+      localStorage.setItem('pushNotificationsEnabled', 'false');
+    }
+  } catch (error) {
+    console.error('Error requesting push permission:', error);
+    document.getElementById('pushNotifications').checked = false;
+    localStorage.setItem('pushNotificationsEnabled', 'false');
+  }
+}
+
+async function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return null;
+  
+  try {
+    const registration = await navigator.serviceWorker.register('/static/js/service-worker.js');
+    console.log('Service Worker registered:', registration);
+    return registration;
+  } catch (error) {
+    console.error('Service Worker registration failed:', error);
+    return null;
+  }
+}
+
+async function sendSubscriptionToServer(subscription) {
+  await fetch('/push/subscribe/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCookie('csrftoken'),
+    },
+    body: JSON.stringify({ subscription: subscription })
+  });
+}
+
+async function unsubscribeFromPush() {
+  try {
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (registration) {
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await subscription.unsubscribe();
+        await fetch('/push/unsubscribe/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken'),
+          },
+          body: JSON.stringify({ endpoint: subscription.endpoint })
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Error unsubscribing from push:', error);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  
+  return outputArray;
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== '') {
+    const cookies = document.cookie.split(';');
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === (name + '=')) {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
 }
 </script>
 {% endblock %}
