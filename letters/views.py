@@ -1,5 +1,6 @@
 import calendar
 import os
+import json
 
 from django.conf import settings
 from django.contrib import messages
@@ -1404,19 +1405,43 @@ class PushSubscriptionView(LoginRequiredMixin, View):
             if not subscription:
                 return JsonResponse({'success': False, 'error': 'No subscription data'}, status=400)
             
+            # Validate subscription structure
+            if not isinstance(subscription, dict):
+                return JsonResponse({'success': False, 'error': 'Invalid subscription format'}, status=400)
+            
+            endpoint = subscription.get('endpoint')
+            keys = subscription.get('keys', {})
+            
+            if not endpoint:
+                return JsonResponse({'success': False, 'error': 'Missing endpoint'}, status=400)
+            
+            if not isinstance(keys, dict):
+                return JsonResponse({'success': False, 'error': 'Invalid keys format'}, status=400)
+            
+            p256dh = keys.get('p256dh')
+            auth = keys.get('auth')
+            
+            if not p256dh or not auth:
+                return JsonResponse({'success': False, 'error': 'Missing p256dh or auth keys'}, status=400)
+            
             # Create or update subscription
             PushSubscription.objects.update_or_create(
                 user=request.user,
-                endpoint=subscription['endpoint'],
+                endpoint=endpoint,
                 defaults={
-                    'p256dh': subscription['keys']['p256dh'],
-                    'auth': subscription['keys']['auth'],
+                    'p256dh': p256dh,
+                    'auth': auth,
                     'is_active': True
                 }
             )
             
             return JsonResponse({'success': True})
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
         except Exception as e:
+            print(f"Push subscription error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
