@@ -36,6 +36,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('accounts/', include('accounts.urls')),
     path('', include('letters.urls')),
+    path('service-worker.js', serve, {'document_root': settings.BASE_DIR, 'path': 'service-worker.js'}),
 ]
 
 # Serve media files in both development and production

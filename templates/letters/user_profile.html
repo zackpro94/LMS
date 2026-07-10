@@ -369,6 +369,14 @@ async function requestPushPermission() {
   
   try {
     const registration = await registerServiceWorker();
+    
+    if (!registration) {
+      alert('Service worker registration failed. Push notifications require a service worker.');
+      document.getElementById('pushNotifications').checked = false;
+      localStorage.setItem('pushNotificationsEnabled', 'false');
+      return;
+    }
+    
     const permission = await Notification.requestPermission();
     
     if (permission === 'granted') {
