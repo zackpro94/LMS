@@ -70,15 +70,20 @@
 
     <div class="sidebar-footer">
       {% if user.is_authenticated %}
-      <a href="{% url 'letters:user_profile' %}" class="sidebar-user">
-        <i class="bi bi-person-circle"></i>
-        <div class="sidebar-user__meta">
-          <span class="sidebar-user__name">{{ user.get_full_name|default:user.username }}</span>
-          {% if user.groups.all %}
-          <small class="sidebar-user__role">{{ user.groups.all.0.name }}</small>
-          {% endif %}
-        </div>
-      </a>
+      <div class="d-flex align-items-center justify-content-between">
+        <a href="{% url 'letters:user_profile' %}" class="sidebar-user">
+          <i class="bi bi-person-circle"></i>
+          <div class="sidebar-user__meta">
+            <span class="sidebar-user__name">{{ user.get_full_name|default:user.username }}</span>
+            {% if user.groups.all %}
+            <small class="sidebar-user__role">{{ user.groups.all.0.name }}</small>
+            {% endif %}
+          </div>
+        </a>
+        <button class="btn btn-sm btn-outline-light theme-toggle" type="button" id="themeToggle" title="Toggle dark mode">
+          <i class="bi bi-moon"></i>
+        </button>
+      </div>
       <form method="post" action="{% url 'accounts:logout' %}" class="mt-2">
         {% csrf_token %}
         <button type="submit" class="btn btn-sm btn-outline-light w-100">
@@ -99,9 +104,6 @@
         {% block page_subtitle %}{% endblock %}
       </div>
       <div class="topbar-actions">
-        <button class="btn btn-sm btn-outline-secondary theme-toggle" type="button" id="themeToggle" title="Toggle dark mode">
-          <i class="bi bi-moon"></i>
-        </button>
         <a href="{% url 'letters:incoming_letter_create' %}" class="btn btn-primary fw-bold shadow-sm">
           <i class="bi bi-envelope-arrow-down me-2"></i><span class="d-none d-md-inline">New Incoming</span>
         </a>
