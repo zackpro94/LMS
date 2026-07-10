@@ -17,8 +17,8 @@ from django_filters.views import FilterView
 from django.db import models
  
 from .filters import LetterFilter
-from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm
-from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch
+from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm
+from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile
 from .permissions import (
     user_can_close, user_can_view_all_letters, CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
 )
@@ -1060,4 +1060,64 @@ class ShortUrlRedirectView(View):
         attachment.save(update_fields=['access_count', 'last_accessed'])
         
         return HttpResponseRedirect(attachment.file.url)
+
+
+# ---------------------------------------------------------------------------
+# User Profile Management
+# ---------------------------------------------------------------------------
+class UserProfileView(LoginRequiredMixin, TemplateView):
+    """User profile page with profile info, preferences, and password change."""
+    template_name = 'letters/user_profile.html'
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        user = self.request.user
+        
+        # Get or create user profile
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        
+        context['profile'] = profile
+        context['profile_form'] = UserProfileForm(instance=user)
+        context['preferences_form'] = UserPreferencesForm(instance=profile)
+        context['password_form'] = CustomPasswordChangeForm(user=user)
+        
+        return context
+    
+    def post(self, request, *args, **kwargs):
+        user = request.user
+        profile, created = UserProfile.objects.get_or_create(user=user)
+        
+        form_type = request.POST.get('form_type')
+        
+        if form_type == 'profile':
+            form = UserProfileForm(request.POST, instance=user)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('letters:user_profile')
+        
+        elif form_type == 'preferences':
+            form = UserPreferencesForm(request.POST, instance=profile)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Preferences saved successfully.')
+                return redirect('letters:user_profile')
+        
+        elif form_type == 'password':
+            form = CustomPasswordChangeForm(user=user, data=request.POST)
+            if form.is_valid():
+                form.save()
+                messages.success(request, 'Password changed successfully.')
+                return redirect('letters:user_profile')
+        
+        # If form is invalid, re-render with errors
+        context = self.get_context_data(**kwargs)
+        if form_type == 'profile':
+            context['profile_form'] = form
+        elif form_type == 'preferences':
+            context['preferences_form'] = form
+        elif form_type == 'password':
+            context['password_form'] = form
+        
+        return self.render_to_response(context)
 

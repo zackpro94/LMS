@@ -62,4 +62,7 @@ urlpatterns = [
     path('admin-dashboard/staff/create/', views.StaffCreateView.as_view(), name='admin_staff_create'),
     path('admin-dashboard/staff/<int:pk>/edit/', views.StaffUpdateView.as_view(), name='admin_staff_edit'),
     path('admin-dashboard/staff/<int:pk>/delete/', views.StaffDeleteView.as_view(), name='admin_staff_delete'),
+
+    # User profile
+    path('profile/', views.UserProfileView.as_view(), name='user_profile'),
 ]

@@ -70,7 +70,7 @@
 
     <div class="sidebar-footer">
       {% if user.is_authenticated %}
-      <div class="sidebar-user">
+      <a href="{% url 'letters:user_profile' %}" class="sidebar-user">
         <i class="bi bi-person-circle"></i>
         <div class="sidebar-user__meta">
           <span class="sidebar-user__name">{{ user.get_full_name|default:user.username }}</span>
@@ -78,7 +78,7 @@
           <small class="sidebar-user__role">{{ user.groups.all.0.name }}</small>
           {% endif %}
         </div>
-      </div>
+      </a>
       <form method="post" action="{% url 'accounts:logout' %}" class="mt-2">
         {% csrf_token %}
         <button type="submit" class="btn btn-sm btn-outline-light w-100">

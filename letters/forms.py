@@ -1,8 +1,9 @@
 from django import forms
 from django.contrib.auth.models import User, Group, Permission
+from django.contrib.auth.forms import PasswordChangeForm as DjangoPasswordChangeForm
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Field, Submit, Div, HTML
-from .models import Letter, ActionLog, Attachment, Department, Category
+from .models import Letter, ActionLog, Attachment, Department, Category, UserProfile
 
 
 class LetterForm(forms.ModelForm):
@@ -543,3 +544,59 @@ class StaffForm(forms.ModelForm):
                 raise forms.ValidationError(f'Error saving user: {str(e)}')
                 
         return user
+
+
+class UserProfileForm(forms.ModelForm):
+    """Form for editing user profile information."""
+    
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'email']
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Row(
+                Column('first_name', css_class='col-md-6'),
+                Column('last_name', css_class='col-md-6'),
+            ),
+            'email',
+            Submit('submit', 'Update Profile', css_class='btn btn-primary'),
+        )
+
+
+class UserPreferencesForm(forms.ModelForm):
+    """Form for editing user preferences."""
+    
+    class Meta:
+        model = UserProfile
+        fields = ['dark_mode']
+        widgets = {
+            'dark_mode': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            Field('dark_mode', css_class='form-check'),
+            Submit('submit', 'Save Preferences', css_class='btn btn-primary mt-3'),
+        )
+
+
+class CustomPasswordChangeForm(DjangoPasswordChangeForm):
+    """Custom password change form with crispy forms."""
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.helper = FormHelper()
+        self.helper.form_method = 'post'
+        self.helper.layout = Layout(
+            'old_password',
+            'new_password1',
+            'new_password2',
+            Submit('submit', 'Change Password', css_class='btn btn-warning'),
+        )
