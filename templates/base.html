@@ -103,12 +103,12 @@
         <h1 class="h5 mb-0">{% block page_title %}Dashboard{% endblock %}</h1>
         {% block page_subtitle %}{% endblock %}
       </div>
-      <div class="topbar-actions">
-        <a href="{% url 'letters:incoming_letter_create' %}" class="btn btn-primary fw-bold shadow-sm">
-          <i class="bi bi-envelope-arrow-down me-2"></i><span class="d-none d-md-inline">New Incoming</span>
-        </a>
+      <div class="topbar-actions d-flex gap-2">
         <a href="{% url 'letters:outgoing_letter_create' %}" class="btn btn-accent fw-bold shadow-sm">
           <i class="bi bi-envelope-arrow-up me-2"></i><span class="d-none d-md-inline">New Outgoing</span>
+        </a>
+        <a href="{% url 'letters:incoming_letter_create' %}" class="btn btn-primary fw-bold shadow-sm">
+          <i class="bi bi-envelope-arrow-down me-2"></i><span class="d-none d-md-inline">New Incoming</span>
         </a>
       </div>
     </header>

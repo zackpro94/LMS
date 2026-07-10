@@ -1031,5 +1031,35 @@ body.sidebar-open {
     font-size: 0.875rem;
     padding: 0.75rem 1rem;
   }
+  
+  /* Topbar action buttons - enhance mobile visibility */
+  .topbar-actions {
+    gap: 0.5rem !important;
+  }
+  
+  .topbar-actions .btn {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    min-width: auto;
+  }
+  
+  .topbar-actions .btn i {
+    font-size: 1.1rem;
+  }
+  
+  .topbar-actions .btn span {
+    display: inline !important;
+    font-size: 0.75rem;
+    margin-left: 0.25rem;
+  }
+  
+  .topbar-actions .btn-accent {
+    background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+    color: #0f172a;
+  }
+  
+  .topbar-actions .btn-primary {
+    background: linear-gradient(135deg, var(--primary), #4338ca);
+  }
 }
 
