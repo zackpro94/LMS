@@ -10,13 +10,37 @@ This LMS application supports web push notifications using the Web Push API and 
 
 ## VAPID Key Generation
 
-### Step 1: Install web-push package
+### Method 1: Using Python (Recommended for Railway/Production)
+
+Since you're in a Python environment, use the pywebpush package which is already installed:
+
 ```bash
-npm install -g web-push
+python -c "from pywebpush import WebPusher; import json; keys = WebPusher.generate_vapid_keys(); print('Public Key:', keys.public_key); print('Private Key:', keys.private_key)"
 ```
 
-### Step 2: Generate VAPID keys
+Or create a simple script:
+
+```python
+# generate_vapid_keys.py
+from pywebpush import WebPusher
+import json
+
+keys = WebPusher.generate_vapid_keys()
+print("Public Key:", keys.public_key)
+print("Private Key:", keys.private_key)
+```
+
+Run it:
 ```bash
+python generate_vapid_keys.py
+```
+
+### Method 2: Using Node.js/npm (Alternative)
+
+If you have Node.js installed:
+
+```bash
+npm install -g web-push
 npx web-push generate-vapid-keys
 ```
 
