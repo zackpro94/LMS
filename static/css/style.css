@@ -1105,5 +1105,58 @@ body.sidebar-open {
     flex-shrink: 0;
     margin-top: 4px;
   }
+  
+  /* Notification animations */
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  @keyframes pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+  
+  .notification-item {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  .notification-item:nth-child(1) { animation-delay: 0s; }
+  .notification-item:nth-child(2) { animation-delay: 0.05s; }
+  .notification-item:nth-child(3) { animation-delay: 0.1s; }
+  .notification-item:nth-child(4) { animation-delay: 0.15s; }
+  .notification-item:nth-child(5) { animation-delay: 0.2s; }
+  
+  .notification-badge {
+    animation: pulse 2s infinite;
+  }
+  
+  .notification-badge:hover {
+    animation: none;
+  }
+  
+  /* Dropdown animation */
+  .dropdown-menu {
+    animation: fadeIn 0.2s ease-out;
+  }
 }
 

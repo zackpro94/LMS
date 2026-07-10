@@ -7,22 +7,53 @@
 <div class="row">
   <div class="col-lg-8">
     <div class="card shadow-sm">
-      <div class="card-header bg-transparent d-flex align-items-center justify-content-between">
-        <div>
-          <h5 class="card-title mb-0">All Notifications</h5>
-          <p class="text-muted small mb-0">{{ unread_count }} unread</p>
+      <div class="card-header bg-transparent">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div>
+            <h5 class="card-title mb-0">All Notifications</h5>
+            <p class="text-muted small mb-0">{{ unread_count }} unread</p>
+          </div>
+          <div class="d-flex gap-2 align-items-center">
+            {% if unread_count > 0 %}
+            <button class="btn btn-sm btn-outline-primary" id="markAllReadBtn">Mark all as read</button>
+            {% endif %}
+          </div>
         </div>
-        {% if unread_count > 0 %}
-        <button class="btn btn-sm btn-outline-primary" id="markAllReadBtn">Mark all as read</button>
-        {% endif %}
       </div>
+      
+      <!-- Filters -->
+      <div class="border-top p-3 bg-light">
+        <div class="row g-2">
+          <div class="col-md-4">
+            <select class="form-select form-select-sm" id="typeFilter" onchange="applyFilters()">
+              <option value="">All Types</option>
+              {% for type_value, type_label in notification_types %}
+              <option value="{{ type_value }}" {% if current_type == type_value %}selected{% endif %}>{{ type_label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-4">
+            <select class="form-select form-select-sm" id="readFilter" onchange="applyFilters()">
+              <option value="">All Status</option>
+              <option value="unread" {% if current_read == 'unread' %}selected{% endif %}>Unread</option>
+              <option value="read" {% if current_read == 'read' %}selected{% endif %}>Read</option>
+            </select>
+          </div>
+          <div class="col-md-4">
+            <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
+              <i class="bi bi-x-circle me-1"></i>Clear Filters
+            </button>
+          </div>
+        </div>
+      </div>
+      
       <div class="card-body p-0">
         {% if notifications %}
           <div class="notification-list">
             {% for notification in notifications %}
-            <a href="{% if notification.related_letter %}{{ notification.related_letter.get_absolute_url }}{% else %}#{% endif %}" 
+            <a href="{% url 'letters:notification_detail' notification.id %}" 
                class="notification-item d-flex gap-3 p-3 {% if not notification.is_read %}bg-light{% endif %}"
-               data-id="{{ notification.id }}">
+               data-id="{{ notification.id }}}">
               <div class="notification-icon">
                 {% if notification.notification_type == 'letter_assigned' %}
                   <i class="bi bi-envelope text-primary"></i>
@@ -45,9 +76,17 @@
                   {{ notification.created_at|timesince }} ago
                 </div>
               </div>
-              {% if not notification.is_read %}
-              <div class="notification-dot"></div>
-              {% endif %}
+              <div class="d-flex flex-column align-items-center gap-1">
+                {% if not notification.is_read %}
+                <div class="notification-dot"></div>
+                {% endif %}
+                <button class="btn btn-sm btn-link text-muted p-0 delete-notification-btn" 
+                        data-id="{{ notification.id }}" 
+                        onclick="event.stopPropagation(); deleteNotification({{ notification.id }})"
+                        title="Delete notification">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
             </a>
             {% endfor %}
           </div>
@@ -181,5 +220,52 @@ document.addEventListener('DOMContentLoaded', function() {
     return cookieValue;
   }
 });
+
+function applyFilters() {
+  const typeFilter = document.getElementById('typeFilter').value;
+  const readFilter = document.getElementById('readFilter').value;
+  
+  const params = new URLSearchParams();
+  if (typeFilter) params.set('type', typeFilter);
+  if (readFilter) params.set('read', readFilter);
+  
+  window.location.href = '?' + params.toString();
+}
+
+function clearFilters() {
+  window.location.href = '{% url "letters:notification_list" %}';
+}
+
+function deleteNotification(notificationId) {
+  if (confirm('Are you sure you want to delete this notification?')) {
+    fetch(`/notifications/${notificationId}/delete/`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCookie('csrftoken'),
+        'Content-Type': 'application/json',
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        // Remove the notification item from DOM
+        const notificationItem = document.querySelector(`[data-id="${notificationId}"]`);
+        if (notificationItem) {
+          notificationItem.style.opacity = '0';
+          notificationItem.style.transform = 'translateX(-100%)';
+          setTimeout(() => {
+            notificationItem.remove();
+            // Check if no notifications left
+            const remainingItems = document.querySelectorAll('.notification-item');
+            if (remainingItems.length === 0) {
+              location.reload();
+            }
+          }, 300);
+        }
+      }
+    })
+    .catch(error => console.error('Error deleting notification:', error));
+  }
+}
 </script>
 {% endblock %}

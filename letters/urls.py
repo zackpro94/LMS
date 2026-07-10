@@ -70,6 +70,7 @@ urlpatterns = [
     path('notifications/', views.NotificationListView.as_view(), name='notification_list'),
     path('notifications/<int:pk>/', views.NotificationDetailView.as_view(), name='notification_detail'),
     path('notifications/<int:pk>/mark-read/', views.MarkAsReadView.as_view(), name='mark_notification_read'),
+    path('notifications/<int:pk>/delete/', views.NotificationDeleteView.as_view(), name='notification_delete'),
     path('notifications/mark-all-read/', views.MarkAllAsReadView.as_view(), name='mark_all_notifications_read'),
     path('api/notifications/', views.NotificationAPIView.as_view(), name='notification_api'),
 ]

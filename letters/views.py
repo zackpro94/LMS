@@ -1218,15 +1218,35 @@ class NotificationListView(LoginRequiredMixin, ListView):
     paginate_by = 20
     
     def get_queryset(self):
-        return Notification.objects.filter(
+        queryset = Notification.objects.filter(
             recipient=self.request.user
         ).select_related('related_letter')
+        
+        # Filter by notification type
+        notification_type = self.request.GET.get('type')
+        if notification_type:
+            queryset = queryset.filter(notification_type=notification_type)
+        
+        # Filter by read status
+        read_status = self.request.GET.get('read')
+        if read_status == 'unread':
+            queryset = queryset.filter(is_read=False)
+        elif read_status == 'read':
+            queryset = queryset.filter(is_read=True)
+        
+        return queryset
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['unread_count'] = Notification.objects.filter(
             recipient=self.request.user, is_read=False
         ).count()
+        
+        # Add filter context
+        context['current_type'] = self.request.GET.get('type', '')
+        context['current_read'] = self.request.GET.get('read', '')
+        context['notification_types'] = Notification.NOTIFICATION_TYPES
+        
         return context
 
 
@@ -1259,6 +1279,14 @@ class MarkAllAsReadView(LoginRequiredMixin, View):
         Notification.objects.filter(
             recipient=request.user, is_read=False
         ).update(is_read=True, read_at=timezone.now())
+        return JsonResponse({'success': True})
+
+
+class NotificationDeleteView(LoginRequiredMixin, View):
+    """Delete a notification."""
+    def post(self, request, pk):
+        notification = get_object_or_404(Notification, pk=pk, recipient=request.user)
+        notification.delete()
         return JsonResponse({'success': True})
 
 

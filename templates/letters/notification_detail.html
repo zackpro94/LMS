@@ -1,0 +1,192 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ notification.title }}{% endblock %}
+{% block page_title %}Notification Details{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent">
+        <div class="d-flex align-items-center gap-3">
+          <div class="notification-icon">
+            {% if notification.notification_type == 'letter_assigned' %}
+              <i class="bi bi-envelope text-primary"></i>
+            {% elif notification.notification_type == 'status_changed' %}
+              <i class="bi bi-arrow-repeat text-info"></i>
+            {% elif notification.notification_type == 'action_added' %}
+              <i class="bi bi-list-check text-success"></i>
+            {% elif notification.notification_type == 'attachment_added' %}
+              <i class="bi bi-paperclip text-warning"></i>
+            {% elif notification.notification_type == 'overdue_warning' %}
+              <i class="bi bi-exclamation-triangle text-danger"></i>
+            {% else %}
+              <i class="bi bi-bell text-secondary"></i>
+            {% endif %}
+          </div>
+          <div>
+            <h5 class="card-title mb-0">{{ notification.title }}</h5>
+            <p class="text-muted small mb-0">{{ notification.created_at|timesince }} ago</p>
+          </div>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="mb-4">
+          <h6 class="text-muted small text-uppercase mb-2">Message</h6>
+          <p class="mb-0">{{ notification.message }}</p>
+        </div>
+        
+        {% if notification.related_letter %}
+        <div class="mb-4">
+          <h6 class="text-muted small text-uppercase mb-2">Related Letter</h6>
+          <a href="{{ notification.related_letter.get_absolute_url }}" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-file-text me-2"></i>{{ notification.related_letter.reference_no }}
+          </a>
+        </div>
+        {% endif %}
+        
+        <div class="row g-3">
+          <div class="col-md-6">
+            <h6 class="text-muted small text-uppercase mb-2">Type</h6>
+            <span class="badge badge-status--{{ notification.notification_type }}">
+              {{ notification.get_notification_type_display }}
+            </span>
+          </div>
+          <div class="col-md-6">
+            <h6 class="text-muted small text-uppercase mb-2">Status</h6>
+            {% if notification.is_read %}
+              <span class="badge bg-success">Read</span>
+            {% else %}
+              <span class="badge bg-warning">Unread</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <hr class="my-4">
+        
+        <div class="d-flex gap-2">
+          <a href="{% url 'letters:notification_list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Notifications
+          </a>
+          {% if notification.related_letter %}
+          <a href="{{ notification.related_letter.get_absolute_url }}" class="btn btn-primary">
+            <i class="bi bi-file-text me-2"></i>View Letter
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="col-lg-4">
+    <div class="card shadow-sm mb-3">
+      <div class="card-header bg-transparent">
+        <h6 class="card-title mb-0">Quick Actions</h6>
+      </div>
+      <div class="card-body">
+        <div class="d-grid gap-2">
+          {% if not notification.is_read %}
+          <button class="btn btn-outline-primary" id="markReadBtn">
+            <i class="bi bi-check2 me-2"></i>Mark as Read
+          </button>
+          {% endif %}
+          <button class="btn btn-outline-danger" id="deleteBtn">
+            <i class="bi bi-trash me-2"></i>Delete Notification
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="card shadow-sm">
+      <div class="card-header bg-transparent">
+        <h6 class="card-title mb-0">Notification Info</h6>
+      </div>
+      <div class="card-body">
+        <div class="detail-field">
+          <label>Created</label>
+          <p>{{ notification.created_at|date:"F d, Y g:i A" }}</p>
+        </div>
+        {% if notification.read_at %}
+        <div class="detail-field">
+          <label>Read At</label>
+          <p>{{ notification.read_at|date:"F d, Y g:i A" }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.notification-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(99, 102, 241, 0.1);
+  font-size: 1.5rem;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const markReadBtn = document.getElementById('markReadBtn');
+  const deleteBtn = document.getElementById('deleteBtn');
+  
+  if (markReadBtn) {
+    markReadBtn.addEventListener('click', function() {
+      fetch(`/notifications/{{ notification.id }}/mark-read/`, {
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': getCookie('csrftoken'),
+          'Content-Type': 'application/json',
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          location.reload();
+        }
+      });
+    });
+  }
+  
+  if (deleteBtn) {
+    deleteBtn.addEventListener('click', function() {
+      if (confirm('Are you sure you want to delete this notification?')) {
+        fetch(`/notifications/{{ notification.id }}/delete/`, {
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            window.location.href = '{% url "letters:notification_list" %}';
+          }
+        });
+      }
+    });
+  }
+  
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+});
+</script>
+{% endblock %}
