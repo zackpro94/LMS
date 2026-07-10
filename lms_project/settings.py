@@ -95,14 +95,22 @@ WSGI_APPLICATION = 'lms_project.wsgi.application'
 ASGI_APPLICATION = 'lms_project.asgi.application'
 
 # Channels configuration
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [(os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))],
+# Use in-memory layer for local development, Redis for production
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                "hosts": [(os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))],
+            },
         },
-    },
-}
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
 
 # ---------------------------------------------------------------------------
 # Database
