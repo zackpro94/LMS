@@ -165,6 +165,7 @@
       const notificationList = document.getElementById('notificationList');
       const notificationCount = document.getElementById('notificationCount');
       const markAllReadBtn = document.getElementById('markAllReadBtn');
+      let previousUnreadCount = 0;
       
       // Load notifications on page load
       loadNotifications();
@@ -178,8 +179,41 @@
           .then(data => {
             updateNotificationBadge(data.unread_count);
             renderNotifications(data.notifications);
+            
+            // Play sound if unread count increased
+            if (data.unread_count > previousUnreadCount && data.unread_count > 0) {
+              playNotificationSound();
+            }
+            previousUnreadCount = data.unread_count;
           })
           .catch(error => console.error('Error loading notifications:', error));
+      }
+      
+      function playNotificationSound() {
+        // Check if sound is enabled in user preferences
+        const soundEnabled = localStorage.getItem('notificationSoundEnabled') !== 'false';
+        if (!soundEnabled) return;
+        
+        // Create audio context for beep sound
+        try {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.value = 800;
+          oscillator.type = 'sine';
+          
+          gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (e) {
+          console.error('Error playing notification sound:', e);
+        }
       }
       
       function updateNotificationBadge(count) {

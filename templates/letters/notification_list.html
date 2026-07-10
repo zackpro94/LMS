@@ -23,8 +23,9 @@
       
       <!-- Filters -->
       <div class="border-top p-3 bg-light">
-        <div class="row g-2">
-          <div class="col-md-4">
+        <div class="row g-2 align-items-end">
+          <div class="col-md-3">
+            <label class="form-label small mb-1">Type</label>
             <select class="form-select form-select-sm" id="typeFilter" onchange="applyFilters()">
               <option value="">All Types</option>
               {% for type_value, type_label in notification_types %}
@@ -32,16 +33,24 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label small mb-1">Status</label>
             <select class="form-select form-select-sm" id="readFilter" onchange="applyFilters()">
               <option value="">All Status</option>
               <option value="unread" {% if current_read == 'unread' %}selected{% endif %}>Unread</option>
               <option value="read" {% if current_read == 'read' %}selected{% endif %}>Read</option>
             </select>
           </div>
-          <div class="col-md-4">
+          <div class="col-md-3">
+            <label class="form-label small mb-1">Group By</label>
+            <select class="form-select form-select-sm" id="groupFilter" onchange="applyFilters()">
+              <option value="">None</option>
+              <option value="letter" {% if current_group == 'letter' %}selected{% endif %}>Letter</option>
+            </select>
+          </div>
+          <div class="col-md-3">
             <button class="btn btn-sm btn-outline-secondary w-100" onclick="clearFilters()">
-              <i class="bi bi-x-circle me-1"></i>Clear Filters
+              <i class="bi bi-x-circle me-1"></i>Clear
             </button>
           </div>
         </div>
@@ -50,45 +59,105 @@
       <div class="card-body p-0">
         {% if notifications %}
           <div class="notification-list">
-            {% for notification in notifications %}
-            <a href="{% url 'letters:notification_detail' notification.id %}" 
-               class="notification-item d-flex gap-3 p-3 {% if not notification.is_read %}bg-light{% endif %}"
-               data-id="{{ notification.id }}}">
-              <div class="notification-icon">
-                {% if notification.notification_type == 'letter_assigned' %}
-                  <i class="bi bi-envelope text-primary"></i>
-                {% elif notification.notification_type == 'status_changed' %}
-                  <i class="bi bi-arrow-repeat text-info"></i>
-                {% elif notification.notification_type == 'action_added' %}
-                  <i class="bi bi-list-check text-success"></i>
-                {% elif notification.notification_type == 'attachment_added' %}
-                  <i class="bi bi-paperclip text-warning"></i>
-                {% elif notification.notification_type == 'overdue_warning' %}
-                  <i class="bi bi-exclamation-triangle text-danger"></i>
+            {% if group_by_letter %}
+              {% for letter_id, letter_notifications in grouped_data.items %}
+                {% if letter_id %}
+                  <div class="notification-group-header p-2 bg-light border-bottom">
+                    <small class="fw-semibold text-muted">
+                      <i class="bi bi-file-text me-1"></i>
+                      {{ letter_notifications.0.related_letter.reference_no }} - {{ letter_notifications.0.related_letter.subject|truncatewords:5 }}
+                      <span class="badge bg-secondary ms-2">{{ letter_notifications|length }} notifications</span>
+                    </small>
+                  </div>
                 {% else %}
-                  <i class="bi bi-bell text-secondary"></i>
+                  <div class="notification-group-header p-2 bg-light border-bottom">
+                    <small class="fw-semibold text-muted">
+                      <i class="bi bi-bell me-1"></i>General Notifications
+                      <span class="badge bg-secondary ms-2">{{ letter_notifications|length }}</span>
+                    </small>
+                  </div>
                 {% endif %}
-              </div>
-              <div class="flex-grow-1">
-                <div class="fw-semibold">{{ notification.title }}</div>
-                <div class="text-muted small">{{ notification.message }}</div>
-                <div class="text-muted small" style="font-size: 0.75rem;">
-                  {{ notification.created_at|timesince }} ago
+                {% for notification in letter_notifications %}
+                <a href="{% url 'letters:notification_detail' notification.id %}" 
+                   class="notification-item d-flex gap-3 p-3 {% if not notification.is_read %}bg-light{% endif %}"
+                   data-id="{{ notification.id }}">
+                  <div class="notification-icon">
+                    {% if notification.notification_type == 'letter_assigned' %}
+                      <i class="bi bi-envelope text-primary"></i>
+                    {% elif notification.notification_type == 'status_changed' %}
+                      <i class="bi bi-arrow-repeat text-info"></i>
+                    {% elif notification.notification_type == 'action_added' %}
+                      <i class="bi bi-list-check text-success"></i>
+                    {% elif notification.notification_type == 'attachment_added' %}
+                      <i class="bi bi-paperclip text-warning"></i>
+                    {% elif notification.notification_type == 'overdue_warning' %}
+                      <i class="bi bi-exclamation-triangle text-danger"></i>
+                    {% else %}
+                      <i class="bi bi-bell text-secondary"></i>
+                    {% endif %}
+                  </div>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold">{{ notification.title }}</div>
+                    <div class="text-muted small">{{ notification.message }}</div>
+                    <div class="text-muted small" style="font-size: 0.75rem;">
+                      {{ notification.created_at|timesince }} ago
+                    </div>
+                  </div>
+                  <div class="d-flex flex-column align-items-center gap-1">
+                    {% if not notification.is_read %}
+                    <div class="notification-dot"></div>
+                    {% endif %}
+                    <button class="btn btn-sm btn-link text-muted p-0 delete-notification-btn" 
+                            data-id="{{ notification.id }}" 
+                            onclick="event.stopPropagation(); deleteNotification({{ notification.id }})"
+                            title="Delete notification">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </a>
+                {% endfor %}
+              {% endfor %}
+            {% else %}
+              {% for notification in notifications %}
+              <a href="{% url 'letters:notification_detail' notification.id %}" 
+                 class="notification-item d-flex gap-3 p-3 {% if not notification.is_read %}bg-light{% endif %}"
+                 data-id="{{ notification.id }}">
+                <div class="notification-icon">
+                  {% if notification.notification_type == 'letter_assigned' %}
+                    <i class="bi bi-envelope text-primary"></i>
+                  {% elif notification.notification_type == 'status_changed' %}
+                    <i class="bi bi-arrow-repeat text-info"></i>
+                  {% elif notification.notification_type == 'action_added' %}
+                    <i class="bi bi-list-check text-success"></i>
+                  {% elif notification.notification_type == 'attachment_added' %}
+                    <i class="bi bi-paperclip text-warning"></i>
+                  {% elif notification.notification_type == 'overdue_warning' %}
+                    <i class="bi bi-exclamation-triangle text-danger"></i>
+                  {% else %}
+                    <i class="bi bi-bell text-secondary"></i>
+                  {% endif %}
                 </div>
-              </div>
-              <div class="d-flex flex-column align-items-center gap-1">
-                {% if not notification.is_read %}
-                <div class="notification-dot"></div>
-                {% endif %}
-                <button class="btn btn-sm btn-link text-muted p-0 delete-notification-btn" 
-                        data-id="{{ notification.id }}" 
-                        onclick="event.stopPropagation(); deleteNotification({{ notification.id }})"
-                        title="Delete notification">
-                  <i class="bi bi-trash"></i>
-                </button>
-              </div>
-            </a>
-            {% endfor %}
+                <div class="flex-grow-1">
+                  <div class="fw-semibold">{{ notification.title }}</div>
+                  <div class="text-muted small">{{ notification.message }}</div>
+                  <div class="text-muted small" style="font-size: 0.75rem;">
+                    {{ notification.created_at|timesince }} ago
+                  </div>
+                </div>
+                <div class="d-flex flex-column align-items-center gap-1">
+                  {% if not notification.is_read %}
+                  <div class="notification-dot"></div>
+                  {% endif %}
+                  <button class="btn btn-sm btn-link text-muted p-0 delete-notification-btn" 
+                          data-id="{{ notification.id }}" 
+                          onclick="event.stopPropagation(); deleteNotification({{ notification.id }})"
+                          title="Delete notification">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </a>
+              {% endfor %}
+            {% endif %}
           </div>
           
           {% if is_paginated %}
@@ -224,10 +293,12 @@ document.addEventListener('DOMContentLoaded', function() {
 function applyFilters() {
   const typeFilter = document.getElementById('typeFilter').value;
   const readFilter = document.getElementById('readFilter').value;
+  const groupFilter = document.getElementById('groupFilter').value;
   
   const params = new URLSearchParams();
   if (typeFilter) params.set('type', typeFilter);
   if (readFilter) params.set('read', readFilter);
+  if (groupFilter) params.set('group', groupFilter);
   
   window.location.href = '?' + params.toString();
 }

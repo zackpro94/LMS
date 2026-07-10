@@ -1234,6 +1234,37 @@ class NotificationListView(LoginRequiredMixin, ListView):
         elif read_status == 'read':
             queryset = queryset.filter(is_read=True)
         
+        # Check if grouping is enabled
+        self.group_by_letter = self.request.GET.get('group') == 'letter'
+        
+        if self.group_by_letter:
+            # Group by related letter
+            from django.db.models import Max
+            grouped = {}
+            for notification in queryset:
+                letter_id = notification.related_letter.id if notification.related_letter else None
+                if letter_id not in grouped:
+                    grouped[letter_id] = []
+                grouped[letter_id].append(notification)
+            
+            # Sort groups by most recent notification
+            sorted_groups = sorted(
+                grouped.items(),
+                key=lambda x: max(n.created_at for n in x[1]),
+                reverse=True
+            )
+            
+            # Flatten back to queryset-like structure
+            grouped_notifications = []
+            for letter_id, notifications in sorted_groups:
+                # Sort notifications within group by created_at
+                notifications = sorted(notifications, key=lambda x: x.created_at, reverse=True)
+                grouped_notifications.extend(notifications)
+            
+            # Store grouped data for template
+            self.grouped_data = grouped
+            return grouped_notifications
+        
         return queryset
     
     def get_context_data(self, **kwargs):
@@ -1245,7 +1276,10 @@ class NotificationListView(LoginRequiredMixin, ListView):
         # Add filter context
         context['current_type'] = self.request.GET.get('type', '')
         context['current_read'] = self.request.GET.get('read', '')
+        context['current_group'] = self.request.GET.get('group', '')
         context['notification_types'] = Notification.NOTIFICATION_TYPES
+        context['group_by_letter'] = getattr(self, 'group_by_letter', False)
+        context['grouped_data'] = getattr(self, 'grouped_data', {})
         
         return context
 
