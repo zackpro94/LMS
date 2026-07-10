@@ -96,15 +96,25 @@ ASGI_APPLICATION = 'lms_project.asgi.application'
 
 # Channels configuration
 # Use in-memory layer for local development, Redis for production
+# Fallback to in-memory if Redis is not available
 if os.environ.get('RAILWAY_ENVIRONMENT'):
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {
-                "hosts": [(os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))],
+    redis_url = os.environ.get('REDIS_URL')
+    if redis_url:
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {
+                    "hosts": [redis_url],
+                },
             },
-        },
-    }
+        }
+    else:
+        # Fallback to in-memory if REDIS_URL not set
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels.layers.InMemoryChannelLayer',
+            },
+        }
 else:
     CHANNEL_LAYERS = {
         'default': {

@@ -102,6 +102,8 @@ def send_notification_to_user(notification):
                 'notification': notification_data
             }
         )
+    except ConnectionError as e:
+        print(f"Redis connection error in send_notification_to_user: {e}")
     except Exception as e:
         print(f"Error sending notification via WebSocket: {e}")
 
@@ -130,6 +132,8 @@ def send_letter_update_to_user(user, letter, action_type):
                 'letter': letter_data
             }
         )
+    except ConnectionError as e:
+        print(f"Redis connection error in send_letter_update_to_user: {e}")
     except Exception as e:
         print(f"Error sending letter update via WebSocket: {e}")
 
@@ -163,5 +167,7 @@ def send_action_notification_to_user(user, action):
                 }
             }
         )
+    except ConnectionError as e:
+        print(f"Redis connection error in send_action_notification_to_user: {e}")
     except Exception as e:
         print(f"Error sending action notification via WebSocket: {e}")
