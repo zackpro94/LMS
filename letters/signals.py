@@ -6,7 +6,12 @@ from channels.layers import get_channel_layer
 from .models import Letter, Notification, ActionLog
 import json
 
-channel_layer = get_channel_layer()
+try:
+    channel_layer = get_channel_layer()
+    CHANNELS_AVAILABLE = True
+except Exception:
+    channel_layer = None
+    CHANNELS_AVAILABLE = False
 
 
 @receiver(post_save, sender=Letter)
@@ -39,13 +44,13 @@ def notify_users_about_letter(letter, action_type):
     # Get users who should be notified
     users_to_notify = set()
     
-    # Add assigned user
-    if letter.assigned_to:
-        users_to_notify.add(letter.assigned_to)
+    # Add assigned person
+    if letter.assigned_person:
+        users_to_notify.add(letter.assigned_person)
     
     # Add department staff
-    if letter.department:
-        users_to_notify.update(letter.department.staff.all())
+    if letter.assigned_department:
+        users_to_notify.update(letter.assigned_department.users.all())
     
     # Add creator
     if letter.created_by:
@@ -53,7 +58,7 @@ def notify_users_about_letter(letter, action_type):
     
     # Send notification to each user
     for user in users_to_notify:
-        if user.id != letter.assigned_to_id or action_type == 'created':
+        if user.id != letter.assigned_person_id or action_type == 'created':
             send_letter_update_to_user(user, letter, action_type)
 
 
@@ -64,81 +69,99 @@ def notify_users_about_action(action):
         users_to_notify = set()
         if action.letter.created_by:
             users_to_notify.add(action.letter.created_by)
-        if action.letter.assigned_to:
-            users_to_notify.add(action.letter.assigned_to)
+        if action.letter.assigned_person:
+            users_to_notify.add(action.letter.assigned_person)
         
         for user in users_to_notify:
-            if user != action.performed_by:
+            if user != action.action_by:
                 send_action_notification_to_user(user, action)
 
 
 def send_notification_to_user(notification):
     """Send notification to user via WebSocket."""
-    group_name = f"user_{notification.recipient.id}"
+    if not CHANNELS_AVAILABLE:
+        return
     
-    notification_data = {
-        'id': notification.id,
-        'title': notification.title,
-        'message': notification.message,
-        'notification_type': notification.notification_type,
-        'is_read': notification.is_read,
-        'created_at': notification.created_at.isoformat(),
-        'related_letter_id': notification.related_letter.id if notification.related_letter else None,
-    }
-    
-    async_to_sync(channel_layer.group_send)(
-        group_name,
-        {
-            'type': 'notification_message',
-            'notification': notification_data
+    try:
+        group_name = f"user_{notification.recipient.id}"
+        
+        notification_data = {
+            'id': notification.id,
+            'title': notification.title,
+            'message': notification.message,
+            'notification_type': notification.notification_type,
+            'is_read': notification.is_read,
+            'created_at': notification.created_at.isoformat(),
+            'related_letter_id': notification.related_letter.id if notification.related_letter else None,
         }
-    )
+        
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'notification_message',
+                'notification': notification_data
+            }
+        )
+    except Exception as e:
+        print(f"Error sending notification via WebSocket: {e}")
 
 
 def send_letter_update_to_user(user, letter, action_type):
     """Send letter update to user via WebSocket."""
-    group_name = f"user_{user.id}"
+    if not CHANNELS_AVAILABLE:
+        return
     
-    letter_data = {
-        'id': letter.id,
-        'subject': letter.subject,
-        'action_type': action_type,
-        'status': letter.status,
-        'priority': letter.priority,
-        'updated_at': letter.updated_at.isoformat(),
-    }
-    
-    async_to_sync(channel_layer.group_send)(
-        group_name,
-        {
-            'type': 'letter_update',
-            'letter': letter_data
+    try:
+        group_name = f"user_{user.id}"
+        
+        letter_data = {
+            'id': letter.id,
+            'subject': letter.subject,
+            'action_type': action_type,
+            'status': letter.status,
+            'priority': letter.priority,
+            'updated_at': letter.updated_at.isoformat(),
         }
-    )
+        
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'letter_update',
+                'letter': letter_data
+            }
+        )
+    except Exception as e:
+        print(f"Error sending letter update via WebSocket: {e}")
 
 
 def send_action_notification_to_user(user, action):
     """Send action notification to user via WebSocket."""
-    group_name = f"user_{user.id}"
+    if not CHANNELS_AVAILABLE:
+        return
     
-    action_data = {
-        'id': action.id,
-        'action_type': action.action_type,
-        'letter_id': action.letter.id if action.letter else None,
-        'performed_by': action.performed_by.username,
-        'created_at': action.created_at.isoformat(),
-    }
-    
-    async_to_sync(channel_layer.group_send)(
-        group_name,
-        {
-            'type': 'notification_message',
-            'notification': {
-                'title': f'New Action: {action.get_action_type_display()}',
-                'message': f'{action.performed_by.username} performed {action.get_action_type_display()}',
-                'notification_type': 'action',
-                'is_read': False,
-                'created_at': action.created_at.isoformat(),
-            }
+    try:
+        group_name = f"user_{user.id}"
+        
+        action_data = {
+            'id': action.id,
+            'action_type': action.action,
+            'letter_id': action.letter.id if action.letter else None,
+            'performed_by': action.action_by.username if action.action_by else 'Unknown',
+            'created_at': action.action_date.isoformat(),
         }
-    )
+        
+        async_to_sync(channel_layer.group_send)(
+            group_name,
+            {
+                'type': 'notification_message',
+                'notification': {
+                    'title': f'New Action: {action.action}',
+                    'message': f'{action.action_by.username if action.action_by else "Unknown"} performed {action.action}',
+                    'notification_type': 'action',
+                    'is_read': False,
+                    'created_at': action.action_date.isoformat(),
+                }
+            }
+        )
+    except Exception as e:
+        print(f"Error sending action notification via WebSocket: {e}")
