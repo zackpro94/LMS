@@ -33,5 +33,5 @@ else
   echo "Warning: Static file collection failed, but continuing..."
 fi
 
-echo "Starting gunicorn"
-exec gunicorn lms_project.wsgi:application --bind 0.0.0.0:$PORT
+echo "Starting daphne (ASGI server for WebSocket support)"
+exec daphne -b 0.0.0.0 -p $PORT lms_project.asgi:application
