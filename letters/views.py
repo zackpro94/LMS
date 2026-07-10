@@ -1143,6 +1143,7 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
         context['profile_form'] = UserProfileForm(instance=user)
         context['preferences_form'] = UserPreferencesForm(instance=profile)
         context['password_form'] = CustomPasswordChangeForm(user=user)
+        context['vapid_public_key'] = getattr(settings, 'VAPID_PUBLIC_KEY', '')
         
         # Calculate profile completion
         completion = 0

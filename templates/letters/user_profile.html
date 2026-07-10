@@ -342,8 +342,28 @@ function togglePushNotifications(enabled) {
 }
 
 async function requestPushPermission() {
+  // Check if running on HTTPS or localhost
+  const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const isHttps = window.location.protocol === 'https:';
+  
+  if (!isLocalhost && !isHttps) {
+    alert('Push notifications require HTTPS. Please use HTTPS in production.');
+    document.getElementById('pushNotifications').checked = false;
+    localStorage.setItem('pushNotificationsEnabled', 'false');
+    return;
+  }
+  
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     alert('Push notifications are not supported in your browser.');
+    document.getElementById('pushNotifications').checked = false;
+    localStorage.setItem('pushNotificationsEnabled', 'false');
+    return;
+  }
+  
+  if (!'{{ vapid_public_key }}') {
+    alert('Push notifications are not configured. Please contact the administrator.');
+    document.getElementById('pushNotifications').checked = false;
+    localStorage.setItem('pushNotificationsEnabled', 'false');
     return;
   }
   
@@ -354,7 +374,7 @@ async function requestPushPermission() {
     if (permission === 'granted') {
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array('{{ settings.VAPID_PUBLIC_KEY|default:"" }}')
+        applicationServerKey: urlBase64ToUint8Array('{{ vapid_public_key }}')
       });
       
       await sendSubscriptionToServer(subscription);
@@ -364,6 +384,7 @@ async function requestPushPermission() {
     }
   } catch (error) {
     console.error('Error requesting push permission:', error);
+    alert('Failed to enable push notifications: ' + error.message);
     document.getElementById('pushNotifications').checked = false;
     localStorage.setItem('pushNotificationsEnabled', 'false');
   }
@@ -373,7 +394,7 @@ async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return null;
   
   try {
-    const registration = await navigator.serviceWorker.register('/static/js/service-worker.js');
+    const registration = await navigator.serviceWorker.register('/service-worker.js');
     console.log('Service Worker registered:', registration);
     return registration;
   } catch (error) {
