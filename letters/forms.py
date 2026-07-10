@@ -572,7 +572,7 @@ class UserPreferencesForm(forms.ModelForm):
     
     class Meta:
         model = UserProfile
-        fields = ['dark_mode']
+        fields = ['avatar', 'dark_mode']
         widgets = {
             'dark_mode': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
@@ -581,7 +581,9 @@ class UserPreferencesForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.helper = FormHelper()
         self.helper.form_method = 'post'
+        self.helper.form_enctype = 'multipart/form-data'
         self.helper.layout = Layout(
+            'avatar',
             Field('dark_mode', css_class='form-check'),
             Submit('submit', 'Save Preferences', css_class='btn btn-primary mt-3'),
         )

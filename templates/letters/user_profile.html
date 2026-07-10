@@ -5,83 +5,271 @@
 {% block page_title %}User Profile{% endblock %}
 
 {% block content %}
-<div class="row">
-  <div class="col-lg-4 mb-4">
+<style>
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.profile-avatar-placeholder {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 3rem;
+  font-weight: 600;
+  border: 4px solid #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.completion-ring {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+.completion-ring svg {
+  transform: rotate(-90deg);
+}
+.completion-ring circle {
+  fill: none;
+  stroke-width: 8;
+}
+.completion-ring .bg {
+  stroke: #e9ecef;
+}
+.completion-ring .progress {
+  stroke: #28a745;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+.stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+</style>
+
+<div class="row g-4">
+  <!-- Left Sidebar -->
+  <div class="col-lg-4">
     <!-- Profile Card -->
-    <div class="card">
-      <div class="card-body text-center">
-        <div class="mb-3">
-          <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center mx-auto" style="width: 100px; height: 100px; font-size: 2.5rem;">
-            {{ request.user.username|first|upper }}
-          </div>
+    <div class="card shadow-sm">
+      <div class="card-body text-center py-4">
+        <div class="mb-3 position-relative d-inline-block">
+          {% if profile.avatar %}
+            <img src="{{ profile.avatar.url }}" alt="Profile" class="rounded-circle profile-avatar">
+          {% else %}
+            <div class="profile-avatar-placeholder">
+              {{ request.user.username|first|upper }}
+            </div>
+          {% endif %}
         </div>
-        <h5 class="card-title">{{ request.user.get_full_name|default:request.user.username }}</h5>
-        <p class="text-muted">@{{ request.user.username }}</p>
-        <p class="text-muted small">{{ request.user.email|default:"No email set" }}</p>
-        <hr>
-        <div class="text-start small">
-          <p class="mb-1"><strong>Role:</strong> 
-            {% if request.user.is_superuser %}
-              Superuser
-            {% elif request.user.groups.all %}
-              {{ request.user.groups.all.0.name }}
-            {% else %}
-              Staff
-            {% endif %}
-          </p>
-          <p class="mb-1"><strong>Departments:</strong> 
-            {% if request.user.departments.all %}
-              {{ request.user.departments.all|join:", " }}
-            {% else %}
-              None
-            {% endif %}
-          </p>
-          <p class="mb-0"><strong>Member since:</strong> {{ request.user.date_joined|date:"M d, Y" }}</p>
+        <h4 class="card-title mb-1">{{ request.user.get_full_name|default:request.user.username }}</h4>
+        <p class="text-muted mb-2">@{{ request.user.username }}</p>
+        <span class="badge bg-primary mb-3">
+          {% if request.user.is_superuser %}
+            Superuser
+          {% elif request.user.groups.all %}
+            {{ request.user.groups.all.0.name }}
+          {% else %}
+            Staff
+          {% endif %}
+        </span>
+        
+        <!-- Profile Completion -->
+        <div class="mt-4 pt-4 border-top">
+          <div class="completion-ring mx-auto mb-2">
+            <svg width="140" height="140">
+              <circle class="bg" cx="70" cy="70" r="60"></circle>
+              <circle class="progress" cx="70" cy="70" r="60" 
+                stroke-dasharray="377" 
+                stroke-dashoffset="{% widthratio profile_completion 100 377 %}">
+              </circle>
+            </svg>
+            <div class="position-absolute top-50 start-50 translate-middle">
+              <span class="fw-bold">{{ profile_completion }}%</span>
+            </div>
+          </div>
+          <p class="text-muted small mb-0">Profile Complete</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Stats -->
+    <div class="card shadow-sm mt-4">
+      <div class="card-header bg-transparent">
+        <h6 class="card-title mb-0">Activity Stats</h6>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="stat-card text-center p-3 rounded bg-light">
+              <div class="text-primary fw-bold fs-4">{{ letters_assigned }}</div>
+              <div class="text-muted small">Assigned</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-card text-center p-3 rounded bg-light">
+              <div class="text-success fw-bold fs-4">{{ letters_completed }}</div>
+              <div class="text-muted small">Completed</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-card text-center p-3 rounded bg-light">
+              <div class="text-warning fw-bold fs-4">{{ letters_pending }}</div>
+              <div class="text-muted small">Pending</div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="stat-card text-center p-3 rounded bg-light">
+              <div class="text-info fw-bold fs-4">{{ attachments_count }}</div>
+              <div class="text-muted small">Attachments</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <!-- Main Content -->
   <div class="col-lg-8">
-    <!-- Profile Information -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Profile Information</h5>
-      </div>
-      <div class="card-body">
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="profile">
-          {% crispy profile_form %}
-        </form>
-      </div>
-    </div>
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" id="profileTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-content" type="button" role="tab">
+          <i class="bi bi-person me-2"></i>Profile Info
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="preferences-tab" data-bs-toggle="tab" data-bs-target="#preferences-content" type="button" role="tab">
+          <i class="bi bi-gear me-2"></i>Preferences
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-content" type="button" role="tab">
+          <i class="bi bi-shield-lock me-2"></i>Security
+        </button>
+      </li>
+    </ul>
 
-    <!-- Preferences -->
-    <div class="card mb-4">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Preferences</h5>
-      </div>
-      <div class="card-body">
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="preferences">
-          {% crispy preferences_form %}
-        </form>
-      </div>
-    </div>
+    <!-- Tab Content -->
+    <div class="tab-content" id="profileTabsContent">
+      <!-- Profile Info Tab -->
+      <div class="tab-pane fade show active" id="profile-content" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0">Personal Information</h5>
+            <p class="text-muted small mb-0">Update your personal details</p>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="profile">
+              {% crispy profile_form %}
+            </form>
+          </div>
+        </div>
 
-    <!-- Change Password -->
-    <div class="card">
-      <div class="card-header">
-        <h5 class="card-title mb-0">Change Password</h5>
+        <!-- Account Details -->
+        <div class="card shadow-sm mt-4">
+          <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0">Account Details</h5>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-6 mb-3">
+                <label class="text-muted small">Username</label>
+                <div class="fw-semibold">{{ request.user.username }}</div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="text-muted small">Email</label>
+                <div class="fw-semibold">{{ request.user.email|default:"Not set" }}</div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="text-muted small">Member Since</label>
+                <div class="fw-semibold">{{ request.user.date_joined|date:"F d, Y" }}</div>
+              </div>
+              <div class="col-md-6 mb-3">
+                <label class="text-muted small">Last Login</label>
+                <div class="fw-semibold">{{ request.user.last_login|date:"F d, Y H:i"|default:"Never" }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="card-body">
-        <form method="post">
-          {% csrf_token %}
-          <input type="hidden" name="form_type" value="password">
-          {% crispy password_form %}
-        </form>
+
+      <!-- Preferences Tab -->
+      <div class="tab-pane fade" id="preferences-content" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0">Appearance & Settings</h5>
+            <p class="text-muted small mb-0">Customize your experience</p>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="preferences">
+              {% crispy preferences_form %}
+            </form>
+          </div>
+        </div>
+
+        <!-- Department Info -->
+        <div class="card shadow-sm mt-4">
+          <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0">Department Access</h5>
+          </div>
+          <div class="card-body">
+            {% if request.user.departments.all %}
+              <div class="d-flex flex-wrap gap-2">
+                {% for dept in request.user.departments.all %}
+                  <span class="badge bg-secondary fs-6">{{ dept.name }}</span>
+                {% endfor %}
+              </div>
+            {% else %}
+              <p class="text-muted mb-0">No department assigned</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Security Tab -->
+      <div class="tab-pane fade" id="security-content" role="tabpanel">
+        <div class="card shadow-sm">
+          <div class="card-header bg-transparent">
+            <h5 class="card-title mb-0">Change Password</h5>
+            <p class="text-muted small mb-0">Ensure your account is secure</p>
+          </div>
+          <div class="card-body">
+            <form method="post">
+              {% csrf_token %}
+              <input type="hidden" name="form_type" value="password">
+              {% crispy password_form %}
+            </form>
+          </div>
+        </div>
+
+        <!-- Security Tips -->
+        <div class="card shadow-sm mt-4 border-info">
+          <div class="card-header bg-info text-white">
+            <h6 class="card-title mb-0"><i class="bi bi-info-circle me-2"></i>Security Tips</h6>
+          </div>
+          <div class="card-body">
+            <ul class="mb-0 small">
+              <li class="mb-2">Use a strong password with at least 8 characters</li>
+              <li class="mb-2">Include a mix of letters, numbers, and symbols</li>
+              <li class="mb-2">Don't reuse passwords from other sites</li>
+              <li class="mb-0">Change your password regularly</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -1081,6 +1081,34 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
         context['preferences_form'] = UserPreferencesForm(instance=profile)
         context['password_form'] = CustomPasswordChangeForm(user=user)
         
+        # Calculate profile completion
+        completion = 0
+        if user.first_name:
+            completion += 25
+        if user.last_name:
+            completion += 25
+        if user.email:
+            completion += 25
+        if profile.avatar:
+            completion += 25
+        context['profile_completion'] = completion
+        
+        # Calculate activity stats
+        from .models import Letter, Attachment
+        
+        letters_assigned = Letter.objects.filter(assigned_person=user).count()
+        letters_completed = Letter.objects.filter(
+            assigned_person=user,
+            status__in=['RESPONDED', 'CLOSED', 'ARCHIVED']
+        ).count()
+        letters_pending = letters_assigned - letters_completed
+        attachments_count = Attachment.objects.filter(uploaded_by=user).count()
+        
+        context['letters_assigned'] = letters_assigned
+        context['letters_completed'] = letters_completed
+        context['letters_pending'] = letters_pending
+        context['attachments_count'] = attachments_count
+        
         return context
     
     def post(self, request, *args, **kwargs):
@@ -1097,7 +1125,7 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
                 return redirect('letters:user_profile')
         
         elif form_type == 'preferences':
-            form = UserPreferencesForm(request.POST, instance=profile)
+            form = UserPreferencesForm(request.POST, request.FILES, instance=profile)
             if form.is_valid():
                 form.save()
                 messages.success(request, 'Preferences saved successfully.')
