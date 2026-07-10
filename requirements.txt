@@ -15,4 +15,6 @@ boto3>=1.34.0
 requests>=2.31.0
 qrcode>=7.4.0
 pywebpush>=1.14.0
+channels>=4.0.0
+channels-redis>=4.0.0
 

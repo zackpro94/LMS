@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'django_filters',
     'corsheaders',
     'storages',
+    'channels',
     # Local apps
     'letters.apps.LettersConfig',
     'accounts.apps.AccountsConfig',
@@ -91,6 +92,17 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'lms_project.wsgi.application'
+ASGI_APPLICATION = 'lms_project.asgi.application'
+
+# Channels configuration
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [(os.environ.get('REDIS_URL', 'redis://localhost:6379/1'))],
+        },
+    },
+}
 
 # ---------------------------------------------------------------------------
 # Database
