@@ -10,6 +10,8 @@ from django.http import JsonResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
 from django.views import View
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth.models import User, Group
 from django.views.generic import (
@@ -30,6 +32,7 @@ from .email_utils import (
     send_assignment_notification, send_new_action_notification
 )
 from .push_utils import send_push_notification
+from .telegram_utils import send_telegram_notification
 
 
 # ---------------------------------------------------------------------------
@@ -58,6 +61,9 @@ def create_notification(recipient, notification_type, title, message, related_le
     # Send push notification
     url = related_letter.get_absolute_url() if related_letter else None
     send_push_notification(recipient, title, message, url)
+    
+    # Send Telegram notification
+    send_telegram_notification(recipient, title, message, url)
 
 
 # ---------------------------------------------------------------------------
@@ -1460,5 +1466,143 @@ class PushUnsubscribeView(LoginRequiredMixin, View):
             
             return JsonResponse({'success': True})
         except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class TelegramSettingsView(LoginRequiredMixin, View):
+    """Save Telegram notification settings."""
+    def post(self, request):
+        try:
+            data = json.loads(request.body)
+            chat_id = data.get('chat_id', '').strip()
+            enabled = data.get('enabled', False)
+            
+            # Get or create user profile
+            profile, created = UserProfile.objects.get_or_create(user=request.user)
+            
+            # Update Telegram settings
+            profile.telegram_chat_id = chat_id if chat_id else None
+            profile.telegram_notifications = enabled and bool(chat_id)
+            profile.save()
+            
+            return JsonResponse({'success': True})
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            print(f"Telegram settings error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class TestTelegramView(LoginRequiredMixin, View):
+    """Send a test Telegram notification."""
+    def post(self, request):
+        try:
+            from .telegram_utils import verify_telegram_chat_id
+            
+            data = json.loads(request.body)
+            chat_id = data.get('chat_id', '').strip()
+            
+            if not chat_id:
+                return JsonResponse({'success': False, 'error': 'Chat ID is required'}, status=400)
+            
+            # Send test message
+            if verify_telegram_chat_id(chat_id):
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Failed to send test message. Check your chat ID and bot configuration.'}, status=400)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            print(f"Test Telegram error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class TelegramWebhookView(View):
+    """Handle Telegram webhook updates."""
+    
+    @method_decorator(csrf_exempt)
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+    
+    def post(self, request):
+        try:
+            # Validate webhook secret if configured
+            from django.conf import settings
+            secret = request.GET.get('secret')
+            if settings.TELEGRAM_WEBHOOK_SECRET and settings.TELEGRAM_WEBHOOK_SECRET != 'your-secret-token-here':
+                if secret != settings.TELEGRAM_WEBHOOK_SECRET:
+                    logger.error(f"Invalid webhook secret: {secret}")
+                    return JsonResponse({'ok': False, 'error': 'Invalid secret'}, status=403)
+            
+            from .telegram_utils import handle_telegram_webhook
+            
+            import json
+            update = json.loads(request.body)
+            result = handle_telegram_webhook(update)
+            
+            return JsonResponse(result)
+        except Exception as e:
+            logger.error(f"Telegram webhook error: {str(e)}")
+            return JsonResponse({'ok': False, 'error': str(e)}, status=500)
+    
+    def get(self, request):
+        # Telegram sends a GET request to verify the webhook
+        return JsonResponse({'status': 'ok'})
+
+
+class GenerateTelegramCodeView(LoginRequiredMixin, View):
+    """Generate a connection token for Telegram linking."""
+    def post(self, request):
+        try:
+            from .models import TelegramLinkToken
+            from django.utils import timezone
+            import secrets
+            
+            # Delete any previous unused tokens for this user
+            TelegramLinkToken.objects.filter(
+                user=request.user,
+                is_used=False
+            ).delete()
+            
+            # Generate new token
+            token = secrets.token_hex(8)
+            expires_at = timezone.now() + timezone.timedelta(minutes=10)
+            
+            # Create token record
+            TelegramLinkToken.objects.create(
+                user=request.user,
+                token=token,
+                expires_at=expires_at
+            )
+            
+            return JsonResponse({'success': True, 'token': token})
+        except Exception as e:
+            print(f"Generate token error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class DisconnectTelegramView(LoginRequiredMixin, View):
+    """Disconnect Telegram account."""
+    def post(self, request):
+        try:
+            # Get user profile
+            profile = request.user.profile
+            profile.telegram_chat_id = None
+            profile.telegram_connected_at = None
+            profile.telegram_notifications = False
+            profile.save()
+            
+            return JsonResponse({'success': True})
+        except Exception as e:
+            print(f"Disconnect Telegram error: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 

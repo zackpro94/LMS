@@ -1,9 +1,10 @@
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, pre_save, post_delete
 from django.dispatch import receiver
 from django.contrib.auth.models import User
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from .models import Letter, Notification, ActionLog
+from .telegram_utils import send_telegram_message
 import json
 
 try:
@@ -14,15 +15,31 @@ except Exception:
     CHANNELS_AVAILABLE = False
 
 
+@receiver(pre_save, sender=Letter)
+def track_old_status(sender, instance, **kwargs):
+    """Track the old status before save to detect changes."""
+    if instance.pk:
+        try:
+            instance._old_status = Letter.objects.get(pk=instance.pk).status
+        except Letter.DoesNotExist:
+            instance._old_status = None
+    else:
+        instance._old_status = None
+
+
 @receiver(post_save, sender=Letter)
 def letter_saved(sender, instance, created, **kwargs):
     """Send real-time notification when a letter is created or updated."""
     if created:
         # Notify relevant users about new letter
         notify_users_about_letter(instance, 'created')
+        # Send Telegram notification for new assignment
+        send_telegram_for_letter_assignment(instance)
     else:
         # Notify about letter update
         notify_users_about_letter(instance, 'updated')
+        # Send Telegram notification for status changes
+        send_telegram_for_status_change(instance)
 
 
 @receiver(post_save, sender=Notification)
@@ -171,3 +188,78 @@ def send_action_notification_to_user(user, action):
         print(f"Redis connection error in send_action_notification_to_user: {e}")
     except Exception as e:
         print(f"Error sending action notification via WebSocket: {e}")
+
+
+def send_telegram_for_letter_assignment(letter):
+    """Send Telegram notification when a letter is assigned to a user."""
+    if not letter.assigned_person:
+        return
+    
+    try:
+        profile = letter.assigned_person.profile
+        if profile.telegram_chat_id and profile.telegram_notifications:
+            # Determine sender/recipient based on direction
+            if letter.direction == 'INCOMING':
+                contact_info = f"From: {letter.sender}" if letter.sender else ""
+            else:
+                contact_info = f"To: {letter.recipient}" if letter.recipient else ""
+            
+            direction_emoji = "📥" if letter.direction == 'INCOMING' else "📤"
+            
+            message = (
+                f"{direction_emoji} New letter assigned\n"
+                f"Reference: {letter.reference_no}\n"
+                f"Subject: {letter.subject}\n"
+                f"Priority: {letter.priority}"
+            )
+            
+            if contact_info:
+                message += f"\n{contact_info}"
+            
+            # Add letter link
+            letter_url = f"https://lms.pro.et/letters/{letter.id}/"
+            message += f"\n\n<a href='{letter_url}'>View Letter</a>"
+            
+            send_telegram_message(profile.telegram_chat_id, message)
+    except Exception as e:
+        print(f"Error sending Telegram notification for letter assignment: {e}")
+
+
+def send_telegram_for_status_change(letter):
+    """Send Telegram notification when letter status changes to specific values."""
+    old_status = getattr(letter, '_old_status', None)
+    
+    # Only notify for specific status changes
+    status_changes_to_notify = ['RESPONDED', 'CLOSED', 'APPROVED', 'REJECTED']
+    
+    if old_status and letter.status in status_changes_to_notify and old_status != letter.status:
+        try:
+            # Notify the letter creator
+            if letter.created_by:
+                profile = letter.created_by.profile
+                if profile.telegram_chat_id and profile.telegram_notifications:
+                    # Determine sender/recipient based on direction
+                    if letter.direction == 'INCOMING':
+                        contact_info = f"From: {letter.sender}" if letter.sender else ""
+                    else:
+                        contact_info = f"To: {letter.recipient}" if letter.recipient else ""
+                    
+                    direction_emoji = "📥" if letter.direction == 'INCOMING' else "📤"
+                    
+                    message = (
+                        f"{direction_emoji} Letter status updated\n"
+                        f"Reference: {letter.reference_no}\n"
+                        f"Status: {old_status} → {letter.status}\n"
+                        f"Subject: {letter.subject}"
+                    )
+                    
+                    if contact_info:
+                        message += f"\n{contact_info}"
+                    
+                    # Add letter link
+                    letter_url = f"https://lms.pro.et/letters/{letter.id}/"
+                    message += f"\n\n<a href='{letter_url}'>View Letter</a>"
+                    
+                    send_telegram_message(profile.telegram_chat_id, message)
+        except Exception as e:
+            print(f"Error sending Telegram notification for status change: {e}")

@@ -264,6 +264,42 @@
               </label>
             </div>
             <small class="text-muted">Receive notifications even when you're not on this page. Requires browser permission.</small>
+            
+            <hr class="my-3">
+            
+            <h6 class="mb-3">Telegram Notifications</h6>
+            
+            {% if profile.telegram_chat_id %}
+              <div class="alert alert-success">
+                <i class="bi bi-check-circle"></i> Telegram account connected
+                <br><small class="text-muted">Chat ID: {{ profile.telegram_chat_id }}</small>
+              </div>
+              
+              <div class="form-check form-switch mb-3">
+                <input class="form-check-input" type="checkbox" id="telegramNotifications" 
+                       {% if profile.telegram_notifications %}checked{% endif %}
+                       onchange="toggleTelegramNotifications(this.checked)">
+                <label class="form-check-label" for="telegramNotifications">
+                  Enable Telegram notifications
+                </label>
+              </div>
+              
+              <button type="button" class="btn btn-sm btn-outline-danger" onclick="disconnectTelegram()">
+                <i class="bi bi-x-circle"></i> Disconnect
+              </button>
+            {% else %}
+              <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Connect your Telegram account to receive notifications
+              </div>
+              
+              <button type="button" class="btn btn-sm btn-primary" onclick="connectWithTelegram()">
+                <i class="bi bi-telegram"></i> Connect with Telegram
+              </button>
+              
+              <p class="text-muted small mt-2">
+                This will open Telegram and automatically link your account.
+              </p>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -486,6 +522,148 @@ async function unsubscribeFromPush() {
     }
   } catch (error) {
     console.error('Error unsubscribing from push:', error);
+  }
+}
+
+async function saveTelegramSettings() {
+  const chatId = document.getElementById('telegramChatId').value;
+  const enabled = document.getElementById('telegramNotifications').checked;
+  
+  try {
+    const response = await fetch('/profile/telegram-settings/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        enabled: enabled
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      alert('Telegram settings saved successfully!');
+    } else {
+      alert('Failed to save Telegram settings: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error saving Telegram settings:', error);
+    alert('Failed to save Telegram settings. Please try again.');
+  }
+}
+
+async function generateConnectionCode() {
+  try {
+    const response = await fetch('/profile/generate-telegram-code/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      document.getElementById('connectionCode').value = data.code;
+      document.getElementById('connectionCodeContainer').style.display = 'block';
+    } else {
+      alert('Failed to generate connection code: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error generating connection code:', error);
+    alert('Failed to generate connection code. Please try again.');
+  }
+}
+
+async function connectWithTelegram() {
+  try {
+    const response = await fetch('/profile/generate-telegram-code/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      // Open Telegram deep link with the token
+      const deepLink = `https://t.me/{{ settings.TELEGRAM_BOT_USERNAME|default:'aelms_bot' }}?start=${data.token}`;
+      window.open(deepLink, '_blank');
+      
+      // Show instructions
+      alert('Telegram should open automatically. If not, click the link that appears.\n\nYour account will be connected once you open the chat.');
+    } else {
+      alert('Failed to generate connection token: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error connecting with Telegram:', error);
+    alert('Failed to connect with Telegram. Please try again.');
+  }
+}
+
+function copyConnectionCode() {
+  const codeInput = document.getElementById('connectionCode');
+  codeInput.select();
+  document.execCommand('copy');
+  alert('Code copied to clipboard!');
+}
+
+async function toggleTelegramNotifications(enabled) {
+  try {
+    const response = await fetch('/profile/telegram-settings/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      },
+      body: JSON.stringify({
+        enabled: enabled
+      })
+    });
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      alert('Failed to update Telegram notifications: ' + (data.error || 'Unknown error'));
+      document.getElementById('telegramNotifications').checked = !enabled;
+    }
+  } catch (error) {
+    console.error('Error toggling Telegram notifications:', error);
+    alert('Failed to update Telegram notifications. Please try again.');
+    document.getElementById('telegramNotifications').checked = !enabled;
+  }
+}
+
+async function disconnectTelegram() {
+  if (!confirm('Are you sure you want to disconnect your Telegram account? You will stop receiving notifications.')) {
+    return;
+  }
+  
+  try {
+    const response = await fetch('/profile/disconnect-telegram/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken')
+      }
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      location.reload();
+    } else {
+      alert('Failed to disconnect Telegram: ' + (data.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error disconnecting Telegram:', error);
+    alert('Failed to disconnect Telegram. Please try again.');
   }
 }
 

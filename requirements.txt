@@ -18,4 +18,5 @@ qrcode>=7.4.0
 pywebpush>=1.14.0
 channels>=4.0.0
 channels-redis>=4.0.0
+python-telegram-bot>=21.0
 

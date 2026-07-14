@@ -369,6 +369,28 @@ class UserProfile(models.Model):
     )
     dark_mode = models.BooleanField(default=False)
     email_notifications = models.BooleanField(default=True, help_text='Receive email notifications')
+    telegram_chat_id = models.CharField(
+        max_length=100,
+        blank=True,
+        null=True,
+        help_text='Telegram chat ID for notifications'
+    )
+    telegram_notifications = models.BooleanField(
+        default=False,
+        help_text='Receive Telegram notifications'
+    )
+    telegram_connected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='When Telegram account was connected'
+    )
+    telegram_connection_code = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        unique=True,
+        help_text='Code for connecting Telegram account (deprecated, use TelegramLinkToken)'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -378,6 +400,34 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f'{self.user.username} Profile'
+
+
+class TelegramLinkToken(models.Model):
+    """Token for connecting Telegram accounts via deep links."""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='telegram_link_tokens'
+    )
+    token = models.CharField(max_length=32, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    
+    class Meta:
+        verbose_name = 'Telegram Link Token'
+        verbose_name_plural = 'Telegram Link Tokens'
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['expires_at', 'is_used']),
+        ]
+    
+    def __str__(self):
+        return f'{self.user.username} - {self.token[:8]}...'
+    
+    @property
+    def is_valid(self):
+        """Check if token is still valid (not used and not expired)."""
+        from django.utils import timezone
+        return not self.is_used and timezone.now() < self.expires_at
 
 
 class Notification(models.Model):

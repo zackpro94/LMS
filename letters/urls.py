@@ -77,4 +77,11 @@ urlpatterns = [
     # Push Notifications
     path('push/subscribe/', views.PushSubscriptionView.as_view(), name='push_subscribe'),
     path('push/unsubscribe/', views.PushUnsubscribeView.as_view(), name='push_unsubscribe'),
+    
+    # Telegram Notifications
+    path('profile/telegram-settings/', views.TelegramSettingsView.as_view(), name='telegram_settings'),
+    path('profile/test-telegram/', views.TestTelegramView.as_view(), name='test_telegram'),
+    path('profile/generate-telegram-code/', views.GenerateTelegramCodeView.as_view(), name='generate_telegram_code'),
+    path('profile/disconnect-telegram/', views.DisconnectTelegramView.as_view(), name='disconnect_telegram'),
+    path('telegram/webhook/', views.TelegramWebhookView.as_view(), name='telegram_webhook'),
 ]

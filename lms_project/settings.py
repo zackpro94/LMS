@@ -33,6 +33,11 @@ VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', 'BH0kCCgHsTcENSDsqsd6dMpMH
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', 'A-51wCdoiSEFBuJ1Hm6BjU6BQtRf1wwtS19BwZubxoo')
 VAPID_CLAIMS = {'sub': 'mailto:admin@lms.pro.et'}
 
+# Telegram Bot Settings
+TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN', '8847506148:AAFDA-6V54Gs1VxEp3eCwOnSRKOfEtSBx30')
+TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME', 'aelms_bot')
+TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET', 'your-secret-token-here')
+
 # ---------------------------------------------------------------------------
 # Application definition
 # ---------------------------------------------------------------------------
