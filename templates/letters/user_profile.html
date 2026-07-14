@@ -296,6 +296,12 @@
                 <i class="bi bi-telegram"></i> Connect with Telegram
               </button>
               
+              <div id="telegramManualLink" class="mt-3" style="display: none;">
+                <a href="#" id="manualTelegramLink" target="_blank" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-link-45deg"></i> Open Telegram manually
+                </a>
+              </div>
+              
               <p class="text-muted small mt-2">
                 This will open Telegram and automatically link your account.
               </p>
@@ -593,12 +599,21 @@ async function connectWithTelegram() {
     
     if (data.success) {
       // Open Telegram deep link with the token
-      const botUsername = '{{ telegram_bot_username|escapejs }}';
+      const botUsername = '{{ telegram_bot_username|escapejs }}' || 'aelms_bot';
       const deepLink = `https://t.me/${botUsername}?start=${data.token}`;
-      window.open(deepLink, '_blank');
+      console.log('Deep link:', deepLink);
+      
+      // Show manual link option
+      const manualLinkDiv = document.getElementById('telegramManualLink');
+      const manualLink = document.getElementById('manualTelegramLink');
+      manualLink.href = deepLink;
+      manualLinkDiv.style.display = 'block';
+      
+      // Try to open automatically
+      window.location.href = deepLink;
       
       // Show instructions
-      alert('Telegram should open automatically. If not, click the link that appears.\n\nYour account will be connected once you open the chat.');
+      alert('Telegram should open automatically. If not, click the "Open Telegram manually" button below.\n\nYour account will be connected once you open the chat.');
     } else {
       alert('Failed to generate connection token: ' + (data.error || 'Unknown error'));
     }
