@@ -593,7 +593,8 @@ async function connectWithTelegram() {
     
     if (data.success) {
       // Open Telegram deep link with the token
-      const deepLink = `https://t.me/{{ settings.TELEGRAM_BOT_USERNAME|default:'aelms_bot' }}?start=${data.token}`;
+      const botUsername = '{{ telegram_bot_username|escapejs }}';
+      const deepLink = `https://t.me/${botUsername}?start=${data.token}`;
       window.open(deepLink, '_blank');
       
       // Show instructions
