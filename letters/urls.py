@@ -30,6 +30,8 @@ urlpatterns = [
     path('letters/<int:pk>/action/', views.AddActionView.as_view(), name='add_action'),
     path('letters/<int:pk>/attach/', views.AddAttachmentView.as_view(), name='add_attachment'),
     path('letters/<int:letter_pk>/attachments/<int:attachment_pk>/delete/', views.AttachmentDeleteView.as_view(), name='delete_attachment'),
+    path('letters/attachments/<int:pk>/track/', views.TrackAttachmentView.as_view(), name='track_attachment'),
+    path('letters/attachments/<int:pk>/viewers/', views.AttachmentViewersListView.as_view(), name='attachment_viewers'),
     path('letters/<int:pk>/actions/export/', views.ExportActionsView.as_view(), name='export_actions'),
     
     # Short URL for file sharing

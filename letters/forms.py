@@ -12,7 +12,8 @@ class LetterForm(forms.ModelForm):
     class Meta:
         model = Letter
         fields = [
-            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'recipient', 'subject',
+            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'recipient',
+            'attention_to', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
             'status', 'related_letter', 'due_date',
         ]
@@ -53,6 +54,7 @@ class LetterForm(forms.ModelForm):
                 Column('sender', css_class='col-md-6'),
                 Column('recipient', css_class='col-md-6'),
             ),
+            'attention_to',
             'subject',
             Row(
                 Column('category', css_class='col-md-4'),
@@ -71,12 +73,24 @@ class LetterForm(forms.ModelForm):
             ),
         )
 
-        # Make related_letter searchable with autocomplete
-        self.fields['related_letter'].widget.attrs.update({
-            'class': 'form-control letter-search',
-            'placeholder': 'Search by reference, sender, subject...',
-            'data-search-url': '/api/letters/search/'
-        })
+        # Limit related_letter queryset to avoid loading all letters into dropdown,
+        # but ensure both current instance value and POSTed value are in the queryset for validation.
+        related_pks = set()
+        if self.instance and self.instance.pk and self.instance.related_letter_id:
+            related_pks.add(self.instance.related_letter_id)
+
+        if self.is_bound:
+            posted_val = self.data.get(self.add_prefix('related_letter')) or self.data.get('related_letter')
+            if posted_val:
+                try:
+                    related_pks.add(int(posted_val))
+                except (ValueError, TypeError):
+                    pass
+
+        if related_pks:
+            self.fields['related_letter'].queryset = Letter.objects.filter(pk__in=related_pks)
+        else:
+            self.fields['related_letter'].queryset = Letter.objects.none()
 
         # If user is not admin/superuser, restrict status choices for Front Desk
         if user and not user.is_superuser:
@@ -96,7 +110,8 @@ class IncomingLetterForm(LetterForm):
     class Meta:
         model = Letter
         fields = [
-            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'subject',
+            'reference_no', 'direction', 'letter_type', 'date', 'sender', 'attention_to',
+            'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
             'status', 'related_letter', 'due_date',
         ]
@@ -142,6 +157,7 @@ class IncomingLetterForm(LetterForm):
             ),
             'reference_no',
             'sender',
+            'attention_to',
             'subject',
             Row(
                 Column('category', css_class='col-md-4'),
@@ -167,7 +183,7 @@ class OutgoingLetterForm(LetterForm):
     class Meta:
         model = Letter
         fields = [
-            'direction', 'letter_type', 'date', 'recipient', 'subject',
+            'direction', 'letter_type', 'date', 'recipient', 'attention_to', 'subject',
             'category', 'priority', 'assigned_department', 'assigned_person',
             'status', 'related_letter', 'due_date',
         ]
@@ -206,6 +222,7 @@ class OutgoingLetterForm(LetterForm):
                 Column('priority', css_class='col-md-4'),
             ),
             'recipient',
+            'attention_to',
             'subject',
             Row(
                 Column('category', css_class='col-md-4'),
@@ -246,6 +263,7 @@ class ActionLogForm(forms.ModelForm):
 
     def __init__(self, *args, can_close=False, letter=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.fields['action'].required = False
         
         # Filter status choices based on letter direction
         if letter:
@@ -310,15 +328,17 @@ class AttachmentForm(forms.ModelForm):
     def clean_file(self):
         f = self.cleaned_data.get('file')
         if f:
-            if f.size > 2 * 1024 * 1024:
-                raise forms.ValidationError('File size must be under 2 MB. Your file is {:.2f} MB.'.format(f.size / (1024 * 1024)))
-            
-            # Check file extension
+            # Check file extension first
             allowed_extensions = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png', '.xls', '.xlsx']
             import os
             ext = os.path.splitext(f.name)[1].lower()
             if ext not in allowed_extensions:
                 raise forms.ValidationError('File type not allowed. Allowed types: PDF, DOC, DOCX, JPG, PNG, XLS, XLSX.')
+
+            # Automatically compress files over 2 MB
+            if f.size > 2 * 1024 * 1024:
+                from .utils import compress_attachment_file
+                f = compress_attachment_file(f, target_size_bytes=2 * 1024 * 1024)
         return f
 
 
@@ -404,6 +424,10 @@ class StaffForm(forms.ModelForm):
         required=False,
         help_text="Permission to access the Incoming Letters page."
     )
+    can_view_attachment_analytics = forms.BooleanField(
+        required=False,
+        help_text="Permission to view staff attachment view counters and activity logs."
+    )
 
     class Meta:
         model = User
@@ -430,6 +454,7 @@ class StaffForm(forms.ModelForm):
             self.fields['can_view_all_letters'].initial = self.instance.has_perm('letters.can_view_all_letters')
             self.fields['can_view_outgoing_letters'].initial = self.instance.has_perm('letters.can_view_outgoing_letters')
             self.fields['can_view_incoming_letters'].initial = self.instance.has_perm('letters.can_view_incoming_letters')
+            self.fields['can_view_attachment_analytics'].initial = self.instance.has_perm('letters.can_view_attachment_analytics')
             self.fields['password'].required = False
         else:
             self.fields['password'].required = True
@@ -454,6 +479,9 @@ class StaffForm(forms.ModelForm):
             Row(
                 Column('can_view_outgoing_letters', css_class='col-md-6 pt-2'),
                 Column('can_view_incoming_letters', css_class='col-md-6 pt-2'),
+            ),
+            Row(
+                Column('can_view_attachment_analytics', css_class='col-md-12 pt-2'),
             ),
             Row(
                 Column('is_superuser', css_class='col-md-12'),
@@ -519,19 +547,22 @@ class StaffForm(forms.ModelForm):
                 can_view_all = self.cleaned_data.get('can_view_all_letters')
                 can_view_outgoing = self.cleaned_data.get('can_view_outgoing_letters')
                 can_view_incoming = self.cleaned_data.get('can_view_incoming_letters')
+                can_view_analytics = self.cleaned_data.get('can_view_attachment_analytics')
                 from django.contrib.contenttypes.models import ContentType
-                from letters.models import Letter
+                from letters.models import Letter, AttachmentView
                 content_type = ContentType.objects.get_for_model(Letter)
+                att_content_type = ContentType.objects.get_for_model(AttachmentView)
 
-                perm_map = {
-                    'can_view_all_letters': can_view_all,
-                    'can_view_outgoing_letters': can_view_outgoing,
-                    'can_view_incoming_letters': can_view_incoming,
-                }
-                for codename, granted in perm_map.items():
+                perm_map = [
+                    ('can_view_all_letters', can_view_all, content_type),
+                    ('can_view_outgoing_letters', can_view_outgoing, content_type),
+                    ('can_view_incoming_letters', can_view_incoming, content_type),
+                    ('can_view_attachment_analytics', can_view_analytics, att_content_type),
+                ]
+                for codename, granted, ctype in perm_map:
                     perm_obj, _ = Permission.objects.get_or_create(
                         codename=codename,
-                        content_type=content_type,
+                        content_type=ctype,
                     )
                     if granted:
                         user.user_permissions.add(perm_obj)

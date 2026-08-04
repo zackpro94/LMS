@@ -148,6 +148,14 @@
             </div>
           </div>
           {% endif %}
+          {% if letter.attention_to %}
+          <div class="col-md-6">
+            <div class="detail-field">
+              <label><i class="bi bi-person-lines-fill"></i> Attention To</label>
+              <p>{{ letter.attention_to }}</p>
+            </div>
+          </div>
+          {% endif %}
           <div class="col-md-4">
             <div class="detail-field">
               <label><i class="bi bi-calendar3"></i> Date</label>
@@ -282,23 +290,38 @@
             {% include 'includes/attachment_icon.html' with filename=att.filename %}
             <div class="attachment-item__info flex-grow-1 min-w-0">
               <strong class="d-block text-truncate">{{ att.filename }}</strong>
-              <small class="text-muted">
+              <small class="text-muted d-block mt-1">
                 {{ att.file_size_display }}
                 · {{ att.uploaded_by.get_full_name|default:att.uploaded_by.username|default:"—" }}
                 · {{ att.uploaded_at|timesince }} ago
-                {% if att.access_count > 0 %}
-                · <i class="bi bi-eye"></i> {{ att.access_count }}
-                {% endif %}
                 {% if att.expires_at %}
-                · <i class="bi bi-clock"></i> Expires {{ att.expires_at|date:"M d, Y" }}
+                · <span class="text-warning"><i class="bi bi-clock"></i> Expires {{ att.expires_at|date:"M d, Y" }}</span>
                 {% endif %}
               </small>
+              <div class="mt-1 d-flex align-items-center gap-2 flex-wrap">
+                {% if can_view_attachment_logs %}
+                <button type="button" class="btn btn-sm btn-outline-info py-0 px-2 rounded-pill view-history-btn" 
+                        data-attachment-id="{{ att.pk }}" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#viewersModal" 
+                        style="font-size: 0.75rem;" 
+                        title="Click to see staff members who viewed or shared this attachment">
+                  <i class="bi bi-eye-fill me-1"></i>
+                  <span id="staff-view-count-{{ att.pk }}">{{ att.views.count }}</span> staff view{{ att.views.count|pluralize }}
+                </button>
+                {% endif %}
+                {% if att.access_count > 0 %}
+                <span class="badge bg-secondary-subtle text-secondary" style="font-size: 0.75rem;" title="External share link views">
+                  <i class="bi bi-link-45deg me-1"></i>{{ att.access_count }} public view{{ att.access_count|pluralize }}
+                </span>
+                {% endif %}
+              </div>
             </div>
             <div class="attachment-item__actions d-flex gap-2 flex-shrink-0">
-              <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}" data-short-url="{{ request.scheme }}://{{ request.get_host }}{{ att.get_short_url }}">
+              <button type="button" class="btn btn-sm btn-outline-secondary attachment-preview-btn" data-attachment-id="{{ att.pk }}" data-bs-toggle="modal" data-bs-target="#previewModal" data-preview-url="{{ att.file.url }}" data-preview-name="{{ att.filename }}" data-short-url="{{ request.scheme }}://{{ request.get_host }}{{ att.get_short_url }}">
                 <i class="bi bi-eye"></i><span class="d-none d-sm-inline ms-1">Preview</span>
               </button>
-              <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary" download>
+              <a href="{{ att.file.url }}" class="btn btn-sm btn-outline-primary attachment-download-btn" data-attachment-id="{{ att.pk }}" download>
                 <i class="bi bi-download"></i><span class="d-none d-sm-inline ms-1">Download</span>
               </a>
               {% if is_admin %}
@@ -328,7 +351,7 @@
           <div class="upload-dropzone" id="upload-dropzone">
             <i class="bi bi-cloud-arrow-up upload-dropzone__icon"></i>
             <p class="mb-1">Drag &amp; drop a file here, or click to browse</p>
-            <small class="text-muted">Max 2 MB per file</small>
+            <small class="text-muted">Files &gt; 2 MB are automatically compressed</small>
             <input type="file" name="file" id="attachment-file" class="upload-dropzone__input" required>
           </div>
           <div id="upload-filename" class="upload-filename d-none">
@@ -440,11 +463,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
   if (dropzone && fileInput) {
     function showFile(file) {
-      var maxSize = 2 * 1024 * 1024; // 2MB in bytes
+      var maxSize = 50 * 1024 * 1024; // 50MB in bytes (server compresses down to <2MB)
       
       if (file.size > maxSize) {
         var sizeMB = (file.size / (1024 * 1024)).toFixed(2);
-        alert('File size must be under 2 MB. Your file is ' + sizeMB + ' MB.');
+        alert('File size is ' + sizeMB + ' MB. Maximum allowed upload size is 50 MB.');
         clearFile();
         return;
       }
@@ -585,6 +608,34 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
 </div>
 
+<!-- Staff Viewers History Modal -->
+<div class="modal fade" id="viewersModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="viewersModalTitle">
+          <i class="bi bi-people-fill text-info me-2"></i>Staff Activity Log
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex align-items-center justify-content-between mb-3 pb-2 border-bottom">
+          <span class="text-muted small text-truncate me-2" id="viewersModalFilename">Filename</span>
+          <span class="badge bg-info-subtle text-info flex-shrink-0" id="viewersModalSummary">0 actions</span>
+        </div>
+        <div id="viewersListContainer" style="max-height: 350px; overflow-y: auto;">
+          <div class="text-center py-4 text-muted">
+            <div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading staff views...
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Email Share Modal -->
 <div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -640,18 +691,70 @@ document.addEventListener('DOMContentLoaded', function() {
   let currentPreviewUrl = '';
   let currentShortUrl = '';
   let currentFileName = '';
+  let currentAttachmentId = null;
   
+  function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+      const cookies = document.cookie.split(';');
+      for (let i = 0; i < cookies.length; i++) {
+        const cookie = cookies[i].trim();
+        if (cookie.substring(0, name.length + 1) === (name + '=')) {
+          cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+          break;
+        }
+      }
+    }
+    return cookieValue;
+  }
+
+  function trackAttachment(attId, action) {
+    if (!attId) return;
+    fetch('/letters/attachments/' + attId + '/track/', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCookie('csrftoken') || ''
+      },
+      body: JSON.stringify({ action: action || 'view' })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        const countEl = document.getElementById('staff-view-count-' + attId);
+        if (countEl) {
+          countEl.textContent = data.total_views;
+        }
+      }
+    })
+    .catch(err => console.error('Tracking error:', err));
+  }
+
+  // Download button tracking
+  document.querySelectorAll('.attachment-download-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+      const attId = this.getAttribute('data-attachment-id');
+      trackAttachment(attId, 'download');
+    });
+  });
+
   previewModal.addEventListener('show.bs.modal', function(event) {
     const button = event.relatedTarget;
     const url = button.getAttribute('data-preview-url');
     const name = button.getAttribute('data-preview-name');
     const shortUrl = button.getAttribute('data-short-url');
+    const attId = button.getAttribute('data-attachment-id');
     
     currentPreviewUrl = url;
     currentShortUrl = shortUrl || url;
     currentFileName = name;
+    currentAttachmentId = attId;
     previewTitle.textContent = name;
     previewDownload.href = url;
+    
+    if (attId) {
+      trackAttachment(attId, 'view');
+    }
     
     // Check if the file is an image
     const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
@@ -674,11 +777,21 @@ document.addEventListener('DOMContentLoaded', function() {
     currentPreviewUrl = '';
     currentShortUrl = '';
     currentFileName = '';
+    currentAttachmentId = null;
+  });
+
+  previewDownload.addEventListener('click', function() {
+    if (currentAttachmentId) {
+      trackAttachment(currentAttachmentId, 'download');
+    }
   });
   
   // Copy short URL to clipboard
   previewShare.addEventListener('click', function() {
     if (currentShortUrl) {
+      if (currentAttachmentId) {
+        trackAttachment(currentAttachmentId, 'share');
+      }
       navigator.clipboard.writeText(currentShortUrl).then(function() {
         const originalText = previewShare.innerHTML;
         previewShare.innerHTML = '<i class="bi bi-check"></i> Copied!';
@@ -715,7 +828,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // QR Code generation
   previewQR.addEventListener('click', function() {
     if (currentShortUrl) {
-      // Generate QR code using a simple API
+      if (currentAttachmentId) {
+        trackAttachment(currentAttachmentId, 'share');
+      }
       const qrContainer = document.getElementById('qrCodeContainer');
       qrContainer.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(currentShortUrl)}" alt="QR Code" class="img-fluid">`;
       new bootstrap.Modal(qrModal).show();
@@ -725,6 +840,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // Email sharing
   previewEmail.addEventListener('click', function() {
     if (currentShortUrl && currentFileName) {
+      if (currentAttachmentId) {
+        trackAttachment(currentAttachmentId, 'share');
+      }
       document.getElementById('emailTo').value = '';
       document.getElementById('emailSubject').value = `File: ${currentFileName}`;
       document.getElementById('emailMessage').value = 'Please find the attached file link below:';
@@ -749,6 +867,9 @@ document.addEventListener('DOMContentLoaded', function() {
   // WhatsApp sharing
   previewWhatsApp.addEventListener('click', function() {
     if (currentShortUrl && currentFileName) {
+      if (currentAttachmentId) {
+        trackAttachment(currentAttachmentId, 'share');
+      }
       const text = `File: ${currentFileName}\n${currentShortUrl}`;
       const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
       window.open(whatsappUrl, '_blank');
@@ -758,11 +879,75 @@ document.addEventListener('DOMContentLoaded', function() {
   // Telegram sharing
   previewTelegram.addEventListener('click', function() {
     if (currentShortUrl && currentFileName) {
+      if (currentAttachmentId) {
+        trackAttachment(currentAttachmentId, 'share');
+      }
       const text = `File: ${currentFileName}\n${currentShortUrl}`;
       const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(currentShortUrl)}&text=${encodeURIComponent(currentFileName)}`;
       window.open(telegramUrl, '_blank');
     }
   });
+
+  // Staff Viewers History Modal loader
+  const viewersModal = document.getElementById('viewersModal');
+  if (viewersModal) {
+    viewersModal.addEventListener('show.bs.modal', function(event) {
+      const button = event.relatedTarget;
+      if (!button) return;
+      const attId = button.getAttribute('data-attachment-id');
+      const container = document.getElementById('viewersListContainer');
+      const filenameEl = document.getElementById('viewersModalFilename');
+      const summaryEl = document.getElementById('viewersModalSummary');
+      
+      container.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2" role="status"></div> Loading staff views...</div>';
+      
+      fetch('/letters/attachments/' + attId + '/viewers/')
+        .then(response => response.json())
+        .then(data => {
+          if (!data.success) {
+            container.innerHTML = '<div class="alert alert-danger py-2 small">Failed to load viewer list</div>';
+            return;
+          }
+          filenameEl.textContent = data.attachment_filename;
+          summaryEl.textContent = data.total_count + ' action' + (data.total_count !== 1 ? 's' : '') + ' (' + data.unique_count + ' staff member' + (data.unique_count !== 1 ? 's' : '') + ')';
+          
+          if (data.viewers.length === 0) {
+            container.innerHTML = '<div class="text-center py-4"><i class="bi bi-eye-slash fs-3 d-block text-muted mb-2"></i><p class="mb-0 text-muted small">No staff actions recorded yet</p></div>';
+            return;
+          }
+          
+          container.innerHTML = '<div class="list-group list-group-flush">' + data.viewers.map(v => {
+            let badgeClass = 'bg-info-subtle text-info';
+            let iconClass = 'bi-eye';
+            if (v.action_code === 'download') {
+              badgeClass = 'bg-primary-subtle text-primary';
+              iconClass = 'bi-download';
+            } else if (v.action_code === 'share') {
+              badgeClass = 'bg-success-subtle text-success';
+              iconClass = 'bi-share';
+            }
+            const initial = v.user_name ? v.user_name.charAt(0).toUpperCase() : '?';
+            return `
+              <div class="list-group-item px-0 py-2 d-flex align-items-center justify-content-between border-bottom">
+                <div class="d-flex align-items-center gap-2">
+                  <div class="rounded-circle bg-primary-subtle text-primary d-flex align-items-center justify-content-center fw-bold" style="width:34px; height:34px; font-size:0.85rem;">
+                    ${initial}
+                  </div>
+                  <div>
+                    <div class="fw-semibold small">${v.user_name}</div>
+                    <div class="text-muted" style="font-size:0.75rem;"><i class="bi bi-clock me-1"></i>${v.time_ago} (${v.viewed_at})</div>
+                  </div>
+                </div>
+                <span class="badge ${badgeClass}"><i class="bi ${iconClass} me-1"></i>${v.action}</span>
+              </div>
+            `;
+          }).join('') + '</div>';
+        })
+        .catch(err => {
+          container.innerHTML = '<div class="alert alert-danger py-2 small">Error loading viewers</div>';
+        });
+    });
+  }
 });
 </script>
 {% endblock %}

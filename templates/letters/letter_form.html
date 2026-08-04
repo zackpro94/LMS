@@ -25,9 +25,78 @@
 {% endblock %}
 
 {% block extra_js %}
+<style>
+  .related-letter-search-wrapper {
+    position: relative;
+  }
+  .related-letter-search-wrapper input[type="text"] {
+    width: 100%;
+  }
+  .related-letter-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-top: none;
+    border-radius: 0 0 .375rem .375rem;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 1050;
+    display: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,.15);
+  }
+  .related-letter-results .rl-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: .875rem;
+    border-bottom: 1px solid var(--bs-border-color, #eee);
+    transition: background .15s;
+  }
+  .related-letter-results .rl-item:hover,
+  .related-letter-results .rl-item.active {
+    background: var(--bs-primary-bg-subtle, #e8f0fe);
+  }
+  .related-letter-results .rl-item .rl-ref {
+    font-weight: 600;
+    color: var(--bs-primary, #0d6efd);
+  }
+  .related-letter-results .rl-item .rl-subject {
+    color: var(--bs-secondary-color, #6c757d);
+    margin-left: 6px;
+  }
+  .related-letter-results .rl-empty {
+    padding: 10px 12px;
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: .875rem;
+    text-align: center;
+  }
+  .related-letter-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--bs-primary-bg-subtle, #e8f0fe);
+    border: 1px solid var(--bs-primary-border-subtle, #b6d4fe);
+    border-radius: .375rem;
+    font-size: .875rem;
+    margin-top: 4px;
+  }
+  .related-letter-selected .rl-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--bs-danger, #dc3545);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0 4px;
+    line-height: 1;
+  }
+</style>
 <script>
-  // Show/hide sender/recipient based on direction
   document.addEventListener('DOMContentLoaded', function() {
+    // === Direction-based field toggling ===
     const directionField = document.getElementById('id_direction');
     const senderGroup = document.getElementById('id_sender')?.closest('.col-md-6');
     const recipientGroup = document.getElementById('id_recipient')?.closest('.col-md-6');
@@ -52,95 +121,157 @@
       toggleFields();
     }
 
-    // Related letter autocomplete
-    const relatedLetterField = document.getElementById('id_related_letter');
-    if (relatedLetterField && relatedLetterField.classList.contains('letter-search')) {
-      let searchTimeout;
-      const searchUrl = relatedLetterField.getAttribute('data-search-url');
-      
-      // Create autocomplete dropdown
-      const dropdown = document.createElement('div');
-      dropdown.className = 'autocomplete-dropdown';
-      dropdown.style.cssText = 'position: absolute; background: white; border: 1px solid #ddd; border-radius: 4px; max-height: 200px; overflow-y: auto; z-index: 1000; width: 100%; display: none;';
-      relatedLetterField.parentNode.style.position = 'relative';
-      relatedLetterField.parentNode.appendChild(dropdown);
+    // === Related Letter Searchable Widget ===
+    const selectEl = document.getElementById('id_related_letter');
+    if (!selectEl) return;
 
-      relatedLetterField.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        const query = this.value;
-        
-        if (query.length < 2) {
-          dropdown.style.display = 'none';
-          return;
-        }
+    // Hide original select
+    selectEl.style.display = 'none';
 
-        searchTimeout = setTimeout(() => {
-          fetch(searchUrl + '?q=' + encodeURIComponent(query))
-            .then(response => response.json())
-            .then(data => {
-              dropdown.innerHTML = '';
-              if (data.results.length === 0) {
-                dropdown.style.display = 'none';
-                return;
-              }
-              
-              data.results.forEach(result => {
-                const item = document.createElement('div');
-                item.className = 'autocomplete-item';
-                item.style.cssText = 'padding: 8px 12px; cursor: pointer; border-bottom: 1px solid #eee;';
-                item.textContent = result.text;
-                item.addEventListener('click', function() {
-                  relatedLetterField.value = result.id;
-                  dropdown.style.display = 'none';
-                });
-                item.addEventListener('mouseenter', function() {
-                  this.style.background = '#f5f5f5';
-                });
-                item.addEventListener('mouseleave', function() {
-                  this.style.background = 'white';
-                });
-                dropdown.appendChild(item);
-              });
-              
-              dropdown.style.display = 'block';
-            })
-            .catch(error => console.error('Search error:', error));
-        }, 300);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'related-letter-search-wrapper';
+    selectEl.parentNode.insertBefore(wrapper, selectEl.nextSibling);
+
+    // Search input
+    const searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.className = 'form-control';
+    searchInput.placeholder = 'Search by reference, sender, subject…';
+    searchInput.autocomplete = 'off';
+    wrapper.appendChild(searchInput);
+
+    // Results dropdown
+    const resultsDiv = document.createElement('div');
+    resultsDiv.className = 'related-letter-results';
+    wrapper.appendChild(resultsDiv);
+
+    // Selected display
+    const selectedDiv = document.createElement('div');
+    selectedDiv.className = 'related-letter-selected';
+    selectedDiv.style.display = 'none';
+    wrapper.appendChild(selectedDiv);
+
+    // Show pre-selected value if editing
+    const currentOption = selectEl.options[selectEl.selectedIndex];
+    if (currentOption && currentOption.value) {
+      showSelected(currentOption.value, currentOption.textContent.trim());
+      searchInput.style.display = 'none';
+    }
+
+    let searchTimeout;
+    let activeIndex = -1;
+
+    searchInput.addEventListener('input', function() {
+      clearTimeout(searchTimeout);
+      const q = this.value.trim();
+      activeIndex = -1;
+
+      if (q.length < 2) {
+        resultsDiv.style.display = 'none';
+        return;
+      }
+
+      searchTimeout = setTimeout(() => {
+        fetch('/api/letters/search/?q=' + encodeURIComponent(q))
+          .then(r => r.json())
+          .then(data => {
+            resultsDiv.innerHTML = '';
+            if (!data.results || data.results.length === 0) {
+              resultsDiv.innerHTML = '<div class="rl-empty">No letters found</div>';
+              resultsDiv.style.display = 'block';
+              return;
+            }
+            data.results.forEach((item, idx) => {
+              const div = document.createElement('div');
+              div.className = 'rl-item';
+              div.dataset.id = item.id;
+              div.dataset.index = idx;
+              div.innerHTML =
+                '<span class="rl-ref">' + escapeHtml(item.reference_no) + '</span>' +
+                '<span class="rl-subject">— ' + escapeHtml(item.text.replace(item.reference_no + ' - ', '')) + '</span>';
+              div.addEventListener('click', () => pickResult(item.id, item.text));
+              resultsDiv.appendChild(div);
+            });
+            resultsDiv.style.display = 'block';
+          })
+          .catch(() => {
+            resultsDiv.innerHTML = '<div class="rl-empty">Search error</div>';
+            resultsDiv.style.display = 'block';
+          });
+      }, 300);
+    });
+
+    searchInput.addEventListener('keydown', function(e) {
+      const items = resultsDiv.querySelectorAll('.rl-item');
+      if (!items.length) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        activeIndex = Math.min(activeIndex + 1, items.length - 1);
+        highlightItem(items);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        activeIndex = Math.max(activeIndex - 1, 0);
+        highlightItem(items);
+      } else if (e.key === 'Enter' && activeIndex >= 0) {
+        e.preventDefault();
+        items[activeIndex].click();
+      } else if (e.key === 'Escape') {
+        resultsDiv.style.display = 'none';
+        activeIndex = -1;
+      }
+    });
+
+    // Close dropdown on outside click
+    document.addEventListener('click', function(e) {
+      if (!wrapper.contains(e.target)) {
+        resultsDiv.style.display = 'none';
+        activeIndex = -1;
+      }
+    });
+
+    function pickResult(id, text) {
+      // Add option to hidden select and select it
+      let opt = selectEl.querySelector('option[value="' + id + '"]');
+      if (!opt) {
+        opt = document.createElement('option');
+        opt.value = id;
+        opt.textContent = text;
+        selectEl.appendChild(opt);
+      }
+      selectEl.value = id;
+
+      resultsDiv.style.display = 'none';
+      searchInput.value = '';
+      searchInput.style.display = 'none';
+      showSelected(id, text);
+    }
+
+    function showSelected(id, text) {
+      selectedDiv.innerHTML =
+        '<i class="bi bi-link-45deg"></i> <span>' + escapeHtml(text) + '</span>' +
+        '<button type="button" class="rl-clear" title="Remove">&times;</button>';
+      selectedDiv.style.display = 'flex';
+
+      selectedDiv.querySelector('.rl-clear').addEventListener('click', function() {
+        selectEl.value = '';
+        selectedDiv.style.display = 'none';
+        searchInput.style.display = '';
+        searchInput.focus();
       });
+    }
 
-      // Hide dropdown when clicking outside
-      document.addEventListener('click', function(e) {
-        if (!relatedLetterField.contains(e.target) && !dropdown.contains(e.target)) {
-          dropdown.style.display = 'none';
-        }
+    function highlightItem(items) {
+      items.forEach((el, i) => {
+        el.classList.toggle('active', i === activeIndex);
+        if (i === activeIndex) el.scrollIntoView({ block: 'nearest' });
       });
+    }
 
-      // Handle keyboard navigation
-      relatedLetterField.addEventListener('keydown', function(e) {
-        const items = dropdown.querySelectorAll('.autocomplete-item');
-        const visibleItems = Array.from(items).filter(item => item.offsetParent !== null);
-        
-        if (e.key === 'ArrowDown' && visibleItems.length > 0) {
-          e.preventDefault();
-          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
-          const nextIndex = currentIndex < visibleItems.length - 1 ? currentIndex + 1 : 0;
-          visibleItems.forEach(item => item.style.background = 'white');
-          visibleItems[nextIndex].style.background = '#f5f5f5';
-        } else if (e.key === 'ArrowUp' && visibleItems.length > 0) {
-          e.preventDefault();
-          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
-          const prevIndex = currentIndex > 0 ? currentIndex - 1 : visibleItems.length - 1;
-          visibleItems.forEach(item => item.style.background = 'white');
-          visibleItems[prevIndex].style.background = '#f5f5f5';
-        } else if (e.key === 'Enter' && visibleItems.length > 0) {
-          e.preventDefault();
-          const currentIndex = visibleItems.findIndex(item => item.style.background === 'rgb(245, 245, 245)');
-          const targetIndex = currentIndex >= 0 ? currentIndex : 0;
-          visibleItems[targetIndex].click();
-        } else if (e.key === 'Escape') {
-          dropdown.style.display = 'none';
-        }
-      });
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str;
+      return d.innerHTML;
     }
   });
 </script>

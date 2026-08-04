@@ -4,6 +4,10 @@ from django.core.files.storage import FileSystemStorage
 import os
 
 
+from django.utils.deconstruct import deconstructible
+
+
+@deconstructible
 class R2Storage:
     """Custom storage backend for Cloudflare R2 with local fallback"""
     

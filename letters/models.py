@@ -139,6 +139,10 @@ class Letter(models.Model):
         max_length=200, blank=True,
         help_text='For outgoing letters',
     )
+    attention_to = models.CharField(
+        max_length=200, blank=True,
+        help_text='Attention to (specific person or office)',
+    )
     subject = models.CharField(max_length=300)
     category = models.ForeignKey(
         Category, on_delete=models.SET_NULL, null=True, blank=True,
@@ -337,12 +341,46 @@ class Attachment(models.Model):
         return f'{size:.1f} TB'
 
 
+class AttachmentView(models.Model):
+    """Tracks which staff member viewed or shared an attachment."""
+    VIEW = 'view'
+    DOWNLOAD = 'download'
+    SHARE = 'share'
+    ACTION_CHOICES = [
+        (VIEW, 'Viewed'),
+        (DOWNLOAD, 'Downloaded'),
+        (SHARE, 'Shared'),
+    ]
+
+    attachment = models.ForeignKey(
+        Attachment, on_delete=models.CASCADE, related_name='views',
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE,
+        related_name='attachment_views',
+    )
+    action = models.CharField(max_length=10, choices=ACTION_CHOICES, default=VIEW)
+    viewed_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-viewed_at']
+        indexes = [
+            models.Index(fields=['attachment', 'user']),
+        ]
+        permissions = [
+            ('can_view_attachment_analytics', 'Can view staff attachment interaction logs'),
+        ]
+
+    def __str__(self):
+        return f'{self.user.username} {self.get_action_display()} {self.attachment.filename}'
+
+
 class ActionLog(models.Model):
     """Audit trail of actions taken on a letter."""
     letter = models.ForeignKey(
         Letter, on_delete=models.CASCADE, related_name='actions',
     )
-    action = models.CharField(max_length=200)
+    action = models.CharField(max_length=200, blank=True)
     action_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True,
     )

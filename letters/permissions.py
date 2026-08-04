@@ -45,24 +45,40 @@ def user_can_view_all_letters(user):
     return False
 
 
+def user_can_view_letter(user, letter):
+    """Return True if user is authorized to view a specific letter."""
+    if not user.is_authenticated:
+        return False
+    if user_can_view_all_letters(user):
+        return True
+    user_depts = user.departments.all()
+    return (
+        (letter.assigned_department in user_depts) or
+        (letter.assigned_person == user) or
+        (letter.created_by == user)
+    )
+
+
+def user_can_view_attachment_logs(user, attachment=None):
+    """
+    Return True if user can view staff interaction/view logs for attachments.
+    Allowed for superusers, Admin group users, or users granted the 'can_view_attachment_analytics' permission.
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.groups.filter(name='Admin').exists():
+        return True
+    return user.has_perm('letters.can_view_attachment_analytics')
+
+
 class CanViewLetterMixin(UserPassesTestMixin):
     """Allow access if user can view all or belongs to the department, is assigned, or created the letter."""
 
     raise_exception = True
 
     def test_func(self):
-        user = self.request.user
-        if not user.is_authenticated:
-            return False
-        if user_can_view_all_letters(user):
-            return True
         letter = self.get_object()
-        user_depts = user.departments.all()
-        return (
-            (letter.assigned_department in user_depts) or
-            (letter.assigned_person == user) or
-            (letter.created_by == user)
-        )
+        return user_can_view_letter(self.request.user, letter)
 
 
 class SuperuserOrAdminRequiredMixin(UserPassesTestMixin):

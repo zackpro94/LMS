@@ -20,11 +20,14 @@ from django.views.generic import (
 from django_filters.views import FilterView
 from django.db import models
  
+from django.utils.timesince import timesince
+
 from .filters import LetterFilter
 from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm
-from .models import ActionLog, Attachment, Department, Letter, Category, SavedSearch, UserProfile, Notification, PushSubscription
+from .models import ActionLog, Attachment, AttachmentView, Department, Letter, Category, SavedSearch, UserProfile, Notification, PushSubscription
 from .permissions import (
-    user_can_close, user_can_view_all_letters, CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
+    user_can_close, user_can_view_all_letters, user_can_view_letter, user_can_view_attachment_logs,
+    CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
 )
 from .export_utils import export_letters_to_excel, export_letters_to_pdf
 from .email_utils import (
@@ -276,6 +279,7 @@ class LetterDetailView(LoginRequiredMixin, CanViewLetterMixin, DetailView):
         ctx['attachment_form'] = AttachmentForm()
         ctx['can_close'] = can_close
         ctx['is_admin'] = self.request.user.is_superuser or self.request.user.groups.filter(name='Admin').exists()
+        ctx['can_view_attachment_logs'] = user_can_view_attachment_logs(self.request.user)
         ctx['related_replies'] = letter.replies.select_related(
             'assigned_department', 'assigned_person',
         )
@@ -606,6 +610,73 @@ class AttachmentDeleteView(LoginRequiredMixin, View):
         messages.success(request, f'Attachment "{filename}" deleted successfully.')
         
         return redirect(letter.get_absolute_url())
+
+
+# ---------------------------------------------------------------------------
+# Track Attachment Interaction (View, Download, Share)
+# ---------------------------------------------------------------------------
+class TrackAttachmentView(LoginRequiredMixin, View):
+    """Record a view/download/share action on an attachment by staff."""
+    def post(self, request, pk):
+        attachment = get_object_or_404(Attachment, pk=pk)
+        if not user_can_view_letter(request.user, attachment.letter):
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        try:
+            data = json.loads(request.body)
+            action = data.get('action', AttachmentView.VIEW)
+        except (json.JSONDecodeError, AttributeError):
+            action = request.POST.get('action', AttachmentView.VIEW)
+
+        if action not in [AttachmentView.VIEW, AttachmentView.DOWNLOAD, AttachmentView.SHARE]:
+            action = AttachmentView.VIEW
+
+        # Create interaction log
+        AttachmentView.objects.create(
+            attachment=attachment,
+            user=request.user,
+            action=action
+        )
+
+        total_views = attachment.views.count()
+        unique_staff = attachment.views.values('user').distinct().count()
+
+        return JsonResponse({
+            'success': True,
+            'total_views': total_views,
+            'unique_staff': unique_staff,
+        })
+
+
+class AttachmentViewersListView(LoginRequiredMixin, View):
+    """Retrieve list of staff members who viewed/downloaded/shared an attachment."""
+    def get(self, request, pk):
+        attachment = get_object_or_404(Attachment, pk=pk)
+        if not user_can_view_attachment_logs(request.user, attachment):
+            return JsonResponse({'success': False, 'error': 'Permission denied.'}, status=403)
+        views_qs = attachment.views.select_related('user').order_by('-viewed_at')[:50]
+
+        viewers = []
+        for v in views_qs:
+            full_name = v.user.get_full_name() or v.user.username
+            viewers.append({
+                'user_name': full_name,
+                'username': v.user.username,
+                'action': v.get_action_display(),
+                'action_code': v.action,
+                'viewed_at': v.viewed_at.strftime('%b %d, %Y %I:%M %p'),
+                'time_ago': timesince(v.viewed_at) + ' ago',
+            })
+
+        total_count = attachment.views.count()
+        unique_count = attachment.views.values('user').distinct().count()
+
+        return JsonResponse({
+            'success': True,
+            'attachment_filename': attachment.filename,
+            'total_count': total_count,
+            'unique_count': unique_count,
+            'viewers': viewers,
+        })
 
 
 # ---------------------------------------------------------------------------
@@ -1129,6 +1200,13 @@ class ShortUrlRedirectView(View):
         attachment.access_count += 1
         attachment.last_accessed = timezone.now()
         attachment.save(update_fields=['access_count', 'last_accessed'])
+        
+        if request.user.is_authenticated:
+            AttachmentView.objects.create(
+                attachment=attachment,
+                user=request.user,
+                action=AttachmentView.SHARE
+            )
         
         return HttpResponseRedirect(attachment.file.url)
 

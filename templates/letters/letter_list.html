@@ -62,7 +62,7 @@
       </div>
       {% endif %}
 
-      <div class="collapse {% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.date_from or request.GET.date_to %}show{% endif %}" id="advanced-filters">
+      <div class="collapse {% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.assigned_department or request.GET.date_from or request.GET.date_to %}show{% endif %}" id="advanced-filters">
         <div class="row g-3 pt-2">
           {% if not is_outgoing_view and not is_incoming_view %}
           <div class="col-md-3 col-lg-2">
@@ -118,6 +118,15 @@
                 {% if val %}
                 <option value="{{ val }}" {% if request.GET.priority == val %}selected{% endif %}>{{ label }}</option>
                 {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 col-lg-2">
+            <label class="form-label small text-muted">Department</label>
+            <select name="assigned_department" class="form-select form-select-sm">
+              <option value="">All Departments</option>
+              {% for dept in filter.filters.assigned_department.queryset %}
+              <option value="{{ dept.pk }}" {% if request.GET.assigned_department == dept.pk|stringformat:"d" %}selected{% endif %}>{{ dept }}</option>
               {% endfor %}
             </select>
           </div>

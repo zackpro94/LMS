@@ -7,10 +7,12 @@
   <meta name="description" content="Auction Ethiopia — Letter Management System for tracking company correspondence.">
   <title>{% block title %}AE LMS{% endblock %} | Auction Ethiopia</title>
 
+  <link rel="icon" type="image/png" href="{% static 'img/logo.png' %}">
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link href="{% static 'css/style.css' %}" rel="stylesheet">
+  <link href="{% static 'css/style.css' %}?v=4" rel="stylesheet">
   {% block extra_css %}{% endblock %}
 </head>
 <body>
@@ -18,50 +20,53 @@
   <div id="sidebar-backdrop" class="sidebar-backdrop" aria-hidden="true"></div>
 
   <nav id="sidebar" class="sidebar" aria-label="Main navigation">
+    <button class="sidebar-collapse-btn" type="button" id="sidebarCollapseBtn" title="Collapse sidebar">
+      <i class="bi bi-chevron-left"></i>
+    </button>
     <div class="sidebar-brand">
-      <i class="bi bi-envelope-paper-fill"></i>
+      <img src="{% static 'img/logo.png' %}" alt="AE Logo" class="sidebar-brand__logo">
       <span>AE <strong>LMS</strong></span>
     </div>
 
     <ul class="sidebar-nav">
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:dashboard' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+        <a href="{% url 'letters:dashboard' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" data-tooltip="Dashboard">
           <i class="bi bi-speedometer2"></i> <span>Dashboard</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:incoming_letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'incoming_letter_list' %}active{% endif %}">
+        <a href="{% url 'letters:incoming_letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'incoming_letter_list' %}active{% endif %}" data-tooltip="Incoming">
           <i class="bi bi-arrow-down-left-circle"></i> <span>Incoming</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:outgoing_letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'outgoing_letter_list' %}active{% endif %}">
+        <a href="{% url 'letters:outgoing_letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'outgoing_letter_list' %}active{% endif %}" data-tooltip="Outgoing">
           <i class="bi bi-arrow-up-right-circle"></i> <span>Outgoing</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'letter_list' %}active{% endif %}">
+        <a href="{% url 'letters:letter_list' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'letter_list' %}active{% endif %}" data-tooltip="All Letters">
           <i class="bi bi-envelope-open"></i> <span>All Letters</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:overdue_letters' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'overdue_letters' %}active{% endif %}">
+        <a href="{% url 'letters:overdue_letters' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'overdue_letters' %}active{% endif %}" data-tooltip="Overdue">
           <i class="bi bi-exclamation-triangle"></i> <span>Overdue</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'letters:reports' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}">
+        <a href="{% url 'letters:reports' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'reports' %}active{% endif %}" data-tooltip="Reports">
           <i class="bi bi-graph-up"></i> <span>Reports</span>
         </a>
       </li>
       {% if lms_is_system_admin %}
       <li class="sidebar-nav-item mt-3">
-        <a href="{% url 'letters:admin_dashboard' %}" class="sidebar-nav-link {% if 'admin-dashboard' in request.path %}active{% endif %}">
+        <a href="{% url 'letters:admin_dashboard' %}" class="sidebar-nav-link {% if 'admin-dashboard' in request.path %}active{% endif %}" data-tooltip="System Settings">
           <i class="bi bi-sliders2-vertical"></i> <span>System Settings</span>
         </a>
       </li>
       <li class="sidebar-nav-item">
-        <a href="{% url 'admin:index' %}" class="sidebar-nav-link" target="_blank" rel="noopener">
+        <a href="{% url 'admin:index' %}" class="sidebar-nav-link" target="_blank" rel="noopener" data-tooltip="Admin Panel">
           <i class="bi bi-gear"></i> <span>Admin Panel</span>
         </a>
       </li>
@@ -155,7 +160,7 @@
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="{% static 'js/main.js' %}"></script>
+  <script src="{% static 'js/main.js' %}?v=4"></script>
   <script src="{% static 'js/websocket.js' %}"></script>
   {% if request.user.is_authenticated %}
   <script>
