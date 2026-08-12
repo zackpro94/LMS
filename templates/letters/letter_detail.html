@@ -252,27 +252,40 @@
             <div class="logged-actions-container d-flex flex-column gap-3">
               {% for log in action_logs %}
               <div class="logged-action-card p-3 rounded-3 border bg-body-tertiary shadow-sm">
+                <!-- Action Header & Timestamp -->
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                  <span class="fw-bold text-dark">
-                    {% if 'Status changed' in log.action %}
-                      <i class="bi bi-arrow-repeat text-info me-1"></i>
-                    {% else %}
-                      <i class="bi bi-check-circle-fill text-success me-1"></i>
-                    {% endif %}
-                    {{ log.action }}
-                  </span>
+                  <div>
+                    <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                      <i class="bi bi-lightning-charge-fill me-1"></i>Action
+                    </div>
+                    <span class="fw-bold text-dark fs-6">
+                      {% if 'Status changed' in log.action %}
+                        <i class="bi bi-arrow-repeat text-info me-1"></i>
+                      {% else %}
+                        <i class="bi bi-check-circle-fill text-success me-1"></i>
+                      {% endif %}
+                      {{ log.action }}
+                    </span>
+                  </div>
                   <small class="text-muted text-nowrap ms-2">
                     <i class="bi bi-clock me-1"></i>{{ log.action_date|date:"d M Y, H:i" }}
                   </small>
                 </div>
 
+                <!-- Bold & Visible Note Box -->
                 {% if log.notes %}
-                <div class="action-note-box p-2.5 px-3 rounded-2 bg-light border-start border-warning border-4 text-dark small mb-2">
-                  <i class="bi bi-sticky text-warning me-2"></i><strong>Note:</strong> {{ log.notes|linebreaksbr }}
+                <div class="action-note-box p-3 rounded-3 bg-warning-subtle border-start border-warning border-4 text-dark mb-2 shadow-sm">
+                  <div class="text-uppercase fw-bold text-warning-emphasis mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                    <i class="bi bi-sticky-fill me-1"></i>Note
+                  </div>
+                  <div class="fw-bold text-dark fs-6" style="line-height: 1.4;">
+                    {{ log.notes|linebreaksbr }}
+                  </div>
                 </div>
                 {% endif %}
 
-                <div class="d-flex align-items-center text-muted small">
+                <!-- Footer User Info -->
+                <div class="d-flex align-items-center text-muted small mt-2">
                   <i class="bi bi-person-circle me-1"></i>
                   Logged by <strong class="ms-1 text-dark">{{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}</strong>
                 </div>
