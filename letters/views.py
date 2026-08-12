@@ -489,7 +489,25 @@ class AddActionView(LoginRequiredMixin, View):
         form = ActionLogForm(request.POST)
 
         if form.is_valid():
+            action_text = form.cleaned_data.get('action', '').strip()
+            notes_text = form.cleaned_data.get('notes', '').strip()
+            new_status = form.cleaned_data.get('new_status')
+
+            # Prevent saving empty logs if no action, notes, or status change was given
+            if not action_text and not notes_text and not new_status:
+                messages.warning(request, 'Please provide an action, note, or status update.')
+                return redirect(letter.get_absolute_url())
+
+            # If action text is empty but notes or status change is present, provide a sensible default action title
+            if not action_text:
+                if notes_text:
+                    action_text = 'Note Added'
+                elif new_status:
+                    action_text = f'Status update to {dict(Letter.STATUS_CHOICES).get(new_status, new_status)}'
+
             action_log = form.save(commit=False)
+            action_log.action = action_text
+            action_log.notes = notes_text
             action_log.letter = letter
             action_log.action_by = request.user
             action_log.save()
@@ -507,7 +525,6 @@ class AddActionView(LoginRequiredMixin, View):
                 )
 
             # Optionally update letter status
-            new_status = form.cleaned_data.get('new_status')
             if new_status:
                 if new_status in ('CLOSED', 'ARCHIVED'):
                     if not user_can_close(request.user, letter):
@@ -532,7 +549,7 @@ class AddActionView(LoginRequiredMixin, View):
                 # Send status change notification
                 send_status_change_notification(letter, old_display, new_display)
 
-            messages.success(request, 'Action logged successfully.')
+            messages.success(request, 'Action and notes logged successfully.')
         else:
             messages.error(request, 'Error logging action. Please check the form.')
 
@@ -1684,4 +1701,39 @@ class DisconnectTelegramView(LoginRequiredMixin, View):
             import traceback
             traceback.print_exc()
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class OcrExtractView(LoginRequiredMixin, View):
+    """
+    API view for extracting letter metadata (sender, recipient, attention, subject, date, ref no)
+    from uploaded document (PDF or Image) using OCR and text parsing.
+    """
+    def post(self, request, *args, **kwargs):
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
+
+        # Check max file size (15MB)
+        if uploaded_file.size > 15 * 1024 * 1024:
+            return JsonResponse({'success': False, 'error': 'File size exceeds 15 MB limit.'}, status=400)
+
+        try:
+            from .ocr_utils import extract_text_from_file, parse_letter_fields
+
+            direction = request.POST.get('direction', 'INCOMING').upper()
+            raw_text, error_msg = extract_text_from_file(uploaded_file, uploaded_file.name)
+            if error_msg and not raw_text:
+                return JsonResponse({'success': False, 'error': error_msg}, status=400)
+
+            fields = parse_letter_fields(raw_text, direction=direction)
+            
+            return JsonResponse({
+                'success': True,
+                'fields': fields,
+                'raw_text_snippet': raw_text[:500] if raw_text else '',
+                'warning': error_msg if error_msg else None
+            })
+        except Exception as e:
+            logger.error(f"OCR extraction error: {str(e)}")
+            return JsonResponse({'success': False, 'error': f'Failed to process document: {str(e)}'}, status=500)
 
