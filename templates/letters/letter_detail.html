@@ -212,6 +212,65 @@
           </div>
         </div>
 
+        {% if action_logs %}
+        <hr class="my-4">
+        <div class="detail-field">
+          <div class="d-flex align-items-center justify-content-between cursor-pointer" 
+               data-bs-toggle="collapse" 
+               data-bs-target="#loggedActionsCollapse" 
+               aria-expanded="true" 
+               aria-controls="loggedActionsCollapse" 
+               style="cursor: pointer;">
+            <div class="d-flex align-items-center gap-2">
+              <label class="fw-bold fs-6 text-primary mb-0" style="cursor: pointer;">
+                <i class="bi bi-journal-check me-2"></i>Logged Actions &amp; Notes History
+              </label>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
+                {{ action_logs|length }} Logged
+              </span>
+            </div>
+            <button class="btn btn-sm btn-outline-secondary rounded-circle py-0 px-2" 
+                    type="button" 
+                    title="Toggle fold/unfold">
+              <i class="bi bi-chevron-down"></i>
+            </button>
+          </div>
+
+          <div class="collapse show mt-3" id="loggedActionsCollapse">
+            <div class="logged-actions-container d-flex flex-column gap-3">
+              {% for log in action_logs %}
+              <div class="logged-action-card p-3 rounded-3 border bg-body-tertiary shadow-sm">
+                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                  <span class="fw-bold text-dark">
+                    {% if 'Status changed' in log.action %}
+                      <i class="bi bi-arrow-repeat text-info me-1"></i>
+                    {% else %}
+                      <i class="bi bi-check-circle-fill text-success me-1"></i>
+                    {% endif %}
+                    {{ log.action }}
+                  </span>
+                  <small class="text-muted text-nowrap ms-2">
+                    <i class="bi bi-clock me-1"></i>{{ log.action_date|date:"d M Y, H:i" }}
+                  </small>
+                </div>
+
+                {% if log.notes %}
+                <div class="action-note-box p-2.5 px-3 rounded-2 bg-light border-start border-warning border-4 text-dark small mb-2">
+                  <i class="bi bi-sticky text-warning me-2"></i><strong>Note:</strong> {{ log.notes|linebreaksbr }}
+                </div>
+                {% endif %}
+
+                <div class="d-flex align-items-center text-muted small">
+                  <i class="bi bi-person-circle me-1"></i>
+                  Logged by <strong class="ms-1 text-dark">{{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}</strong>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
         <hr>
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
           <small class="text-muted">
@@ -353,15 +412,10 @@
 
   <!-- Right column -->
   <div class="col-lg-4">
-    <!-- Log Action, Status Change & Notes (Unified Card) -->
+    <!-- Log Action -->
     <div class="card card-glass mb-4">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0"><i class="bi bi-journal-plus me-2"></i>Log Action, Status &amp; Notes</h6>
-        {% if action_logs %}
-        <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
-          {{ action_logs|length }} Logged
-        </span>
-        {% endif %}
+      <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-plus-circle me-2"></i>Log Action</h6>
       </div>
       <div class="card-body">
         {% if not can_close %}
@@ -370,66 +424,10 @@
           Only the assigned person or an admin can close or archive this letter.
         </p>
         {% endif %}
-
-        <!-- Input fields for Action, Status Change, and Notes -->
         <form method="post" action="{% url 'letters:add_action' letter.pk %}">
           {% csrf_token %}
           {% crispy action_form %}
         </form>
-
-        {% if action_logs %}
-        <hr class="my-4">
-        
-        <!-- Foldable Logged Actions & Notes History on the SAME card -->
-        <div class="d-flex align-items-center justify-content-between cursor-pointer" 
-             data-bs-toggle="collapse" 
-             data-bs-target="#loggedActionsCollapse" 
-             aria-expanded="true" 
-             aria-controls="loggedActionsCollapse" 
-             style="cursor: pointer;">
-          <h6 class="mb-0 text-primary fw-bold">
-            <i class="bi bi-journal-check me-2"></i>Logged Actions &amp; Notes History
-          </h6>
-          <button class="btn btn-sm btn-outline-secondary rounded-circle py-0 px-2" 
-                  type="button" 
-                  title="Toggle fold/unfold">
-            <i class="bi bi-chevron-down"></i>
-          </button>
-        </div>
-
-        <div class="collapse show mt-3" id="loggedActionsCollapse">
-          <div class="logged-actions-container d-flex flex-column gap-3">
-            {% for log in action_logs %}
-            <div class="logged-action-card p-3 rounded-3 border bg-body-tertiary shadow-sm">
-              <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                <span class="fw-bold text-dark">
-                  {% if 'Status changed' in log.action %}
-                    <i class="bi bi-arrow-repeat text-info me-1"></i>
-                  {% else %}
-                    <i class="bi bi-check-circle-fill text-success me-1"></i>
-                  {% endif %}
-                  {{ log.action }}
-                </span>
-                <small class="text-muted text-nowrap ms-2">
-                  <i class="bi bi-clock me-1"></i>{{ log.action_date|date:"d M Y, H:i" }}
-                </small>
-              </div>
-
-              {% if log.notes %}
-              <div class="action-note-box p-2.5 px-3 rounded-2 bg-light border-start border-warning border-4 text-dark small mb-2">
-                <i class="bi bi-sticky text-warning me-2"></i><strong>Note:</strong> {{ log.notes|linebreaksbr }}
-              </div>
-              {% endif %}
-
-              <div class="d-flex align-items-center text-muted small">
-                <i class="bi bi-person-circle me-1"></i>
-                Logged by <strong class="ms-1 text-dark">{{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}</strong>
-              </div>
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-        {% endif %}
       </div>
     </div>
 
