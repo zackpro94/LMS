@@ -215,28 +215,40 @@
         {% if action_logs %}
         <hr class="my-4">
         <div class="detail-field">
-          <div class="d-flex align-items-center justify-content-between cursor-pointer" 
+          <!-- Modern attractive fold header & button (Default Folded) -->
+          <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 bg-body-tertiary border shadow-sm cursor-pointer action-history-toggle" 
                data-bs-toggle="collapse" 
                data-bs-target="#loggedActionsCollapse" 
-               aria-expanded="true" 
-               aria-controls="loggedActionsCollapse" 
-               style="cursor: pointer;">
+               aria-expanded="false" 
+               aria-controls="loggedActionsCollapse"
+               style="cursor: pointer; transition: all 0.2s ease-in-out;">
             <div class="d-flex align-items-center gap-2">
-              <label class="fw-bold fs-6 text-primary mb-0" style="cursor: pointer;">
-                <i class="bi bi-journal-check me-2"></i>Logged Actions &amp; Notes History
-              </label>
-              <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-2 py-1">
-                {{ action_logs|length }} Logged
+              <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow-sm" style="width: 32px; height: 32px; font-size: 0.9rem;">
+                <i class="bi bi-journal-check"></i>
+              </span>
+              <div>
+                <span class="fw-bold fs-6 text-dark d-block leading-tight">
+                  Logged Actions &amp; Notes History
+                </span>
+                <small class="text-muted" style="font-size: 0.75rem;">Click to expand/collapse past notes &amp; actions</small>
+              </div>
+              <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 ms-1">
+                {{ action_logs|length }}
               </span>
             </div>
-            <button class="btn btn-sm btn-outline-secondary rounded-circle py-0 px-2" 
+            
+            <!-- Modern Gradient Pill Fold Button -->
+            <button class="btn btn-sm text-white rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-sm border-0 fw-medium" 
+                    id="loggedActionsToggleBtn"
                     type="button" 
-                    title="Toggle fold/unfold">
-              <i class="bi bi-chevron-down"></i>
+                    style="font-size: 0.82rem; background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);">
+              <span id="loggedActionsToggleText">View History</span>
+              <i class="bi bi-chevron-down ms-1" id="loggedActionsToggleChevron" style="transition: transform 0.25s ease;"></i>
             </button>
           </div>
 
-          <div class="collapse show mt-3" id="loggedActionsCollapse">
+          <!-- Default Folded (no 'show' class) -->
+          <div class="collapse mt-3" id="loggedActionsCollapse">
             <div class="logged-actions-container d-flex flex-column gap-3">
               {% for log in action_logs %}
               <div class="logged-action-card p-3 rounded-3 border bg-body-tertiary shadow-sm">
@@ -989,6 +1001,20 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(err => {
           container.innerHTML = '<div class="alert alert-danger py-2 small">Error loading viewers</div>';
         });
+    });
+  }
+  // Logged Actions Collapse toggle animation & text update
+  const loggedActionsCollapse = document.getElementById('loggedActionsCollapse');
+  const toggleText = document.getElementById('loggedActionsToggleText');
+  const toggleChevron = document.getElementById('loggedActionsToggleChevron');
+  if (loggedActionsCollapse && toggleText && toggleChevron) {
+    loggedActionsCollapse.addEventListener('show.bs.collapse', function () {
+      toggleText.textContent = 'Hide History';
+      toggleChevron.style.transform = 'rotate(180deg)';
+    });
+    loggedActionsCollapse.addEventListener('hide.bs.collapse', function () {
+      toggleText.textContent = 'View History';
+      toggleChevron.style.transform = 'rotate(0deg)';
     });
   }
 });
