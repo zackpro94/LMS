@@ -1327,3 +1327,17 @@ body.sidebar-open {
   }
 }
 
+/* Action Note Box (Dark & Light Mode Adaptive) */
+.action-note-box {
+  background-color: rgba(245, 158, 11, 0.12);
+  border-left: 4px solid #f59e0b !important;
+  color: var(--text-primary);
+}
+
+[data-bs-theme="dark"] .action-note-box {
+  background-color: rgba(245, 158, 11, 0.2);
+  border-left: 4px solid #fbbf24 !important;
+  color: #f8fafc;
+}
+
+
