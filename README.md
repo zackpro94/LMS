@@ -188,6 +188,32 @@ R2_CUSTOM_DOMAIN=media.your-domain.com  # Optional: custom domain for serving fi
 
 ---
 
+## Free AI Assistant Integration
+
+AE LMS includes an interactive **AE AI Assistant** accessible both from a floating chat widget on every page and a dedicated full-page guide (`/ai-assistant/`).
+
+### Supported Free AI Providers:
+
+1. **Google Gemini 2.0 / 1.5 Flash (Recommended)**:
+   - Get a free API key at [Google AI Studio](https://aistudio.google.com/).
+   - Add to your `.env` file:
+     ```bash
+     GEMINI_API_KEY=your_gemini_api_key_here
+     AI_MODEL_PROVIDER=gemini
+     ```
+2. **Groq Llama 3 (Alternative)**:
+   - Get a free API key at [Groq Console](https://console.groq.com/).
+   - Add to your `.env` file:
+     ```bash
+     GROQ_API_KEY=your_groq_api_key_here
+     AI_MODEL_PROVIDER=groq
+     ```
+3. **Smart Offline FAQ Fallback (Built-in)**:
+   - If no API key is provided, the assistant automatically uses an intelligent local knowledge engine to accurately answer platform questions without requiring an external API connection.
+
+---
+
 ## License
 
 Internal use — Auction Ethiopia.
+

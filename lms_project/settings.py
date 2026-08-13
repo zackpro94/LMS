@@ -4,6 +4,21 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# Load .env file into environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env')
+except ImportError:
+    # Fallback: manually parse .env if python-dotenv is not installed
+    _env_path = BASE_DIR / '.env'
+    if _env_path.exists():
+        with open(_env_path) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith('#') and '=' in _line:
+                    _key, _, _val = _line.partition('=')
+                    os.environ.setdefault(_key.strip(), _val.strip())
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.environ.get(
     'DJANGO_SECRET_KEY',
@@ -427,3 +442,13 @@ if not logs_dir.exists():
         logs_dir.mkdir(exist_ok=True)
     except Exception as e:
         print(f"Warning: Could not create logs directory: {e}", file=sys.stderr)
+
+# ---------------------------------------------------------------------------
+# AI Assistant Settings (Multi-Provider: Gemini / Groq / DeepSeek / Cohere / Auto)
+# ---------------------------------------------------------------------------
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY', '')
+COHERE_API_KEY = os.environ.get('COHERE_API_KEY', '')
+AI_MODEL_PROVIDER = os.environ.get('AI_MODEL_PROVIDER', 'auto')  # 'gemini', 'groq', 'deepseek', 'cohere', or 'auto'
+

@@ -1,8 +1,12 @@
 import calendar
 import os
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 from django.conf import settings
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
@@ -1736,4 +1740,108 @@ class OcrExtractView(LoginRequiredMixin, View):
         except Exception as e:
             logger.error(f"OCR extraction error: {str(e)}")
             return JsonResponse({'success': False, 'error': f'Failed to process document: {str(e)}'}, status=500)
+
+
+# ---------------------------------------------------------------------------
+# AI Assistant Views
+# ---------------------------------------------------------------------------
+class AIAssistantPageView(LoginRequiredMixin, TemplateView):
+    """
+    Dedicated full page for AE LMS AI Platform Assistant & Guide.
+    """
+    template_name = 'letters/ai_assistant.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from .ai_assistant import AIAssistantService, FAQ_FALLBACK_DATABASE
+        context['page_title'] = 'AI Platform Assistant'
+        context['page_subtitle'] = 'Ask questions about AE LMS features, workflows, and tools'
+        context['faq_database'] = FAQ_FALLBACK_DATABASE
+        context['ai_provider'] = self.request.session.get('ai_provider', getattr(settings, 'AI_MODEL_PROVIDER', 'auto'))
+        context['has_gemini_key'] = bool(getattr(settings, 'GEMINI_API_KEY', '').strip() and getattr(settings, 'GEMINI_API_KEY', '') != 'your_free_gemini_api_key_here')
+        context['has_groq_key'] = bool(getattr(settings, 'GROQ_API_KEY', '').strip() and getattr(settings, 'GROQ_API_KEY', '') != 'your_free_groq_api_key_here')
+        context['has_openrouter_key'] = bool(getattr(settings, 'OPENROUTER_API_KEY', '').strip())
+        context['has_cohere_key'] = bool(getattr(settings, 'COHERE_API_KEY', '').strip())
+        return context
+
+
+class AIAssistantChatView(LoginRequiredMixin, View):
+    """
+    API endpoint for handling chat requests from floating widget or AI page.
+    """
+    def post(self, request, *args, **kwargs):
+        try:
+            data = json.loads(request.body.decode('utf-8'))
+            user_prompt = data.get('prompt', '').strip()
+            history = data.get('history', [])
+            selected_provider = data.get('provider', '').strip().lower()
+
+            # Store provider preference in session if specified
+            if selected_provider and selected_provider in ['auto', 'gemini', 'groq', 'deepseek', 'openrouter', 'cohere']:
+                request.session['ai_provider'] = selected_provider
+
+            if not user_prompt:
+                return JsonResponse({'success': False, 'error': 'Prompt cannot be empty.'}, status=400)
+
+            from .ai_assistant import AIAssistantService
+            provider_override = request.session.get('ai_provider', None)
+            result = AIAssistantService.ask_ai(user_prompt, conversation_history=history, user=request.user, provider_override=provider_override)
+
+            return JsonResponse({
+                'success': True,
+                'response': result['response'],
+                'provider': result['provider'],
+                'is_fallback': result.get('is_fallback', False),
+                'notice': result.get('notice', None)
+            })
+        except Exception as e:
+            logger.error(f"AI Assistant Chat View Error: {str(e)}")
+            return JsonResponse({
+                'success': False,
+                'error': f'Failed to process request: {str(e)}'
+            }, status=500)
+
+
+class AIAssistantStatusView(LoginRequiredMixin, View):
+    """
+    Returns AI provider status information.
+    """
+    def get(self, request, *args, **kwargs):
+        gemini_key = getattr(settings, 'GEMINI_API_KEY', '').strip()
+        groq_key = getattr(settings, 'GROQ_API_KEY', '').strip()
+        openrouter_key = getattr(settings, 'OPENROUTER_API_KEY', '').strip()
+        cohere_key = getattr(settings, 'COHERE_API_KEY', '').strip()
+        provider = request.session.get('ai_provider', getattr(settings, 'AI_MODEL_PROVIDER', 'auto'))
+
+        has_gemini = bool(gemini_key and gemini_key != 'your_free_gemini_api_key_here')
+        has_groq = bool(groq_key and groq_key != 'your_free_groq_api_key_here')
+        has_openrouter = bool(openrouter_key)
+        has_cohere = bool(cohere_key)
+
+        is_live = has_gemini or has_groq or has_openrouter or has_cohere
+
+        if provider == 'auto':
+            active_provider = "Auto (Multi-Provider Failover)"
+        elif provider == 'gemini':
+            active_provider = "Google Gemini"
+        elif provider == 'groq':
+            active_provider = "Groq Llama 3.3"
+        elif provider in ['deepseek', 'openrouter']:
+            active_provider = "DeepSeek / OpenRouter"
+        elif provider == 'cohere':
+            active_provider = "Cohere Command R+"
+        else:
+            active_provider = "Smart Offline FAQ"
+
+        return JsonResponse({
+            'success': True,
+            'provider': provider,
+            'active_engine': active_provider,
+            'has_gemini_key': has_gemini,
+            'has_groq_key': has_groq,
+            'has_openrouter_key': has_openrouter,
+            'has_cohere_key': has_cohere,
+            'is_live_ai_available': is_live
+        })
+
 

@@ -87,4 +87,10 @@ urlpatterns = [
     path('profile/generate-telegram-code/', views.GenerateTelegramCodeView.as_view(), name='generate_telegram_code'),
     path('profile/disconnect-telegram/', views.DisconnectTelegramView.as_view(), name='disconnect_telegram'),
     path('telegram/webhook/', views.TelegramWebhookView.as_view(), name='telegram_webhook'),
+
+    # AI Platform Assistant
+    path('ai-assistant/', views.AIAssistantPageView.as_view(), name='ai_assistant_page'),
+    path('api/ai-assistant/chat/', views.AIAssistantChatView.as_view(), name='ai_assistant_chat'),
+    path('api/ai-assistant/status/', views.AIAssistantStatusView.as_view(), name='ai_assistant_status'),
 ]
+

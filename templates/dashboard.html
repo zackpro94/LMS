@@ -139,7 +139,7 @@
             <div class="activity-content">
               <p class="mb-1"><strong>{{ log.action }}</strong></p>
               <small class="text-muted">
-                {{ log.action_by.get_full_name|default:log.action_by.username }} ·
+                {% if log.action_by %}{{ log.action_by.get_full_name|default:log.action_by.username }}{% else %}System{% endif %} ·
                 {{ log.action_date|timesince }} ago ·
                 <a href="{{ log.letter.get_absolute_url }}">{{ log.letter.reference_no|default:"Draft" }}</a>
               </small>

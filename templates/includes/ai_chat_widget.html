@@ -1,0 +1,93 @@
+{% load static %}
+{% if request.user.is_authenticated %}
+<!-- Floating AI Assistant Launcher Button -->
+<div id="ai-widget-launcher" class="ai-widget-launcher">
+  <button id="aiWidgetToggleBtn" class="ai-launcher-btn shadow-lg" type="button" title="AE AI Assistant" aria-label="Open AI Assistant">
+    <div class="ai-launcher-icon">
+      <img src="{% static 'img/orange.png' %}" alt="AE AI" style="width: 28px; height: 28px; object-fit: contain;">
+    </div>
+    <span class="ai-launcher-badge">AI</span>
+  </button>
+</div>
+
+<!-- Floating AI Chat Panel -->
+<div id="aiWidgetPanel" class="ai-widget-panel shadow-lg" style="display: none;" role="dialog" aria-labelledby="aiWidgetTitle">
+  <div class="ai-panel-header">
+    <div class="d-flex align-items-center gap-2">
+      <div class="ai-avatar-icon">
+        <img src="{% static 'img/orange.png' %}" alt="AE AI" style="width: 26px; height: 26px; object-fit: contain;">
+      </div>
+      <div>
+        <h6 id="aiWidgetTitle" class="mb-0 fw-bold d-flex align-items-center gap-2">
+          AE AI Assistant
+          <span id="aiProviderBadge" class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill" style="font-size: 0.7rem;">
+            Online
+          </span>
+        </h6>
+        <small class="text-muted" style="font-size: 0.75rem;" id="aiStatusSubtitle">AE LMS Platform Help</small>
+      </div>
+    </div>
+    <div class="d-flex gap-1 align-items-center">
+      <button id="aiWidgetClearBtn" class="btn btn-sm btn-link text-secondary p-1" title="Clear Chat History">
+        <i class="bi bi-trash3 fs-6"></i>
+      </button>
+      <a href="{% url 'letters:ai_assistant_page' %}" class="btn btn-sm btn-link text-secondary p-1" title="Full AI Page">
+        <i class="bi bi-box-arrow-up-right fs-6"></i>
+      </a>
+      <button id="aiWidgetCloseBtn" class="btn btn-sm btn-link text-secondary p-1" title="Close">
+        <i class="bi bi-x-lg fs-6"></i>
+      </button>
+    </div>
+  </div>
+
+  <div id="aiWidgetMessages" class="ai-panel-body">
+    <!-- Welcome message -->
+    <div class="ai-msg ai-msg-bot fade-in">
+      <div class="ai-msg-avatar">
+        <img src="{% static 'img/orange.png' %}" alt="AE AI" class="ai-avatar-img">
+      </div>
+      <div class="ai-msg-content">
+        <p class="mb-1"><strong>Hi {{ user.first_name|default:user.username }}! 👋</strong> I'm your AE LMS Assistant.</p>
+        <p class="mb-0">How can I help you with letter registration, reference codes, overdue tracking, or reports today?</p>
+      </div>
+    </div>
+
+    <!-- Quick Question Suggestions -->
+    <div class="ai-suggestions-container my-2 px-2" id="aiQuickSuggestions">
+      <small class="text-muted d-block mb-1 fw-semibold" style="font-size: 0.75rem;">Suggested Questions:</small>
+      <div class="d-flex flex-wrap gap-1">
+        <button class="btn btn-sm btn-outline-primary ai-suggestion-chip" data-prompt="How do reference numbers work in AE LMS?">
+          🔢 Reference Format
+        </button>
+        <button class="btn btn-sm btn-outline-primary ai-suggestion-chip" data-prompt="How do I register a new incoming letter?">
+          📩 Log Incoming Letter
+        </button>
+        <button class="btn btn-sm btn-outline-primary ai-suggestion-chip" data-prompt="How does overdue letter tracking work?">
+          ⚠️ Overdue Alerts
+        </button>
+        <button class="btn btn-sm btn-outline-primary ai-suggestion-chip" data-prompt="How do I connect Telegram notifications?">
+          📱 Telegram Setup
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Typing indicator -->
+  <div id="aiWidgetTyping" class="ai-typing-indicator px-3 py-1" style="display: none;">
+    <div class="ai-msg-avatar sm"><img src="{% static 'img/orange.png' %}" alt="AE AI" class="ai-avatar-img"></div>
+    <div class="typing-dots">
+      <span></span><span></span><span></span>
+    </div>
+    <small class="text-muted ms-2">AE AI is thinking...</small>
+  </div>
+
+  <div class="ai-panel-footer">
+    <form id="aiWidgetForm" class="d-flex gap-2 align-items-center">
+      <input type="text" id="aiWidgetInput" class="form-control form-control-sm rounded-pill" placeholder="Ask AE AI anything about LMS..." autocomplete="off">
+      <button type="submit" id="aiWidgetSendBtn" class="btn btn-sm btn-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 34px; height: 34px; flex-shrink: 0;">
+        <i class="bi bi-send-fill" style="font-size: 0.85rem;"></i>
+      </button>
+    </form>
+  </div>
+</div>
+{% endif %}

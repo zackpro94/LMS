@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}AI Platform Assistant | AE LMS{% endblock %}
+
+{% block page_title %}AI Platform Assistant{% endblock %}
+{% block page_subtitle %}Smart AI guidance, letter management actions, and live platform analytics{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3 px-xxl-4">
+  <div class="row justify-content-center">
+    <div class="col-12 col-lg-10 col-xl-9">
+      
+      <!-- Elegant AI Container Card -->
+      <div class="card border-0 shadow-lg rounded-4 overflow-hidden ai-assistant-card elegant-ai-container">
+        
+        <!-- Header Bar -->
+        <div class="card-header border-bottom py-3.5 px-4 d-flex align-items-center justify-content-between ai-header-gradient">
+          <div class="d-flex align-items-center gap-3">
+            <div class="ai-avatar-glow">
+              <img src="{% static 'img/orange.png' %}" alt="AE AI" style="width: 26px; height: 26px; object-fit: contain;">
+            </div>
+            <div>
+              <div class="d-flex align-items-center gap-2.5">
+                <h5 class="fw-bold mb-0 text-body tracking-tight fs-6">AE AI Assistant</h5>
+                <span class="pulse-indicator pulse-online" title="Real-Time Engine Active"></span>
+                <span id="aiProviderBadge" class="badge bg-indigo-subtle text-indigo border border-indigo-subtle rounded-pill px-2.5 py-1" style="font-size: 0.73rem; background-color: rgba(99, 102, 241, 0.1); color: #4f46e5;">
+                  <i class="bi bi-stars me-1 text-primary"></i>Live Engine
+                </span>
+              </div>
+              <div class="d-flex align-items-center gap-2 mt-0.5">
+                <small class="text-muted" style="font-size: 0.77rem;">Role-secured platform guidance &amp; letter management</small>
+                <span class="text-muted opacity-50">•</span>
+                <small class="text-muted text-truncate" style="font-size: 0.75rem;"><i class="bi bi-shield-check me-1 text-success"></i>Signed in as <strong>@{{ user.username }}</strong></small>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-2.5">
+            <!-- Feature Capability Pills (Desktop) -->
+            <div class="d-none d-md-flex align-items-center gap-2 me-2">
+              <span class="badge bg-body-tertiary text-secondary border rounded-pill px-2.5 py-1 fw-normal" style="font-size: 0.72rem;">
+                <i class="bi bi-search me-1 text-primary"></i>DB Intelligence
+              </span>
+              <span class="badge bg-body-tertiary text-secondary border rounded-pill px-2.5 py-1 fw-normal" style="font-size: 0.72rem;">
+                <i class="bi bi-shield-lock me-1 text-indigo"></i>RBAC Secured
+              </span>
+            </div>
+
+            <!-- Model Selector Dropdown -->
+            <div class="dropdown">
+              <button class="btn btn-sm btn-white border shadow-sm text-secondary rounded-pill px-3 py-1.5 dropdown-toggle d-flex align-items-center gap-1.5" type="button" id="modelSelectorBtn" data-bs-toggle="dropdown" aria-expanded="false" title="Switch AI Engine">
+                <i class="bi bi-cpu-fill text-primary"></i>
+                <span id="modelSelectorLabel" class="fw-semibold" style="font-size: 0.82rem;">Auto Engine</span>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end shadow-lg border-0 rounded-4 p-2 mt-1" aria-labelledby="modelSelectorBtn" style="min-width: 240px;">
+                <li><h6 class="dropdown-header text-uppercase small text-muted fw-bold" style="font-size: 0.68rem; letter-spacing: 0.5px;"><i class="bi bi-stars me-1"></i>Available Models</h6></li>
+                <li><a class="dropdown-item ai-model-option rounded-3 d-flex align-items-center gap-2.5 py-2 active" href="#" data-provider="auto">
+                  <i class="bi bi-magic text-primary fs-6"></i> <span><strong>Auto</strong> <small class="text-muted d-block" style="font-size: 0.7rem;">Multi-Provider Failover</small></span>
+                </a></li>
+                <li><hr class="dropdown-divider my-1"></li>
+                <li><a class="dropdown-item ai-model-option rounded-3 d-flex align-items-center gap-2.5 py-2 {% if not has_gemini_key %}disabled text-muted{% endif %}" href="#" data-provider="gemini">
+                  <i class="bi bi-google text-danger fs-6"></i> <span>Google Gemini 3.5 {% if not has_gemini_key %}<small class="text-muted d-block" style="font-size: 0.7rem;">(No Key)</small>{% endif %}</span>
+                </a></li>
+                <li><a class="dropdown-item ai-model-option rounded-3 d-flex align-items-center gap-2.5 py-2 {% if not has_groq_key %}disabled text-muted{% endif %}" href="#" data-provider="groq">
+                  <i class="bi bi-lightning-charge-fill text-warning fs-6"></i> <span>Groq Llama 3.3 70B {% if not has_groq_key %}<small class="text-muted d-block" style="font-size: 0.7rem;">(No Key)</small>{% endif %}</span>
+                </a></li>
+                <li><a class="dropdown-item ai-model-option rounded-3 d-flex align-items-center gap-2.5 py-2 {% if not has_openrouter_key %}disabled text-muted{% endif %}" href="#" data-provider="deepseek">
+                  <i class="bi bi-braces text-info fs-6"></i> <span>DeepSeek R1 {% if not has_openrouter_key %}<small class="text-muted d-block" style="font-size: 0.7rem;">(No Key)</small>{% endif %}</span>
+                </a></li>
+                <li><a class="dropdown-item ai-model-option rounded-3 d-flex align-items-center gap-2.5 py-2 {% if not has_cohere_key %}disabled text-muted{% endif %}" href="#" data-provider="cohere">
+                  <i class="bi bi-chat-quote-fill text-success fs-6"></i> <span>Cohere Command R+ {% if not has_cohere_key %}<small class="text-muted d-block" style="font-size: 0.7rem;">(No Key)</small>{% endif %}</span>
+                </a></li>
+              </ul>
+            </div>
+
+            <button id="fullPageClearBtn" class="btn btn-sm btn-light border text-secondary rounded-pill px-3 py-1.5 d-flex align-items-center gap-1" title="Clear chat history" style="font-size: 0.82rem;">
+              <i class="bi bi-trash3"></i> <span class="d-none d-sm-inline">Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Chat Viewport -->
+        <div class="card-body p-3.5 d-flex flex-column flex-grow-1 elegant-chat-body">
+          <div id="fullPageChatMessages" class="flex-grow-1 overflow-y-auto pe-2 mb-3 custom-chat-scrollbar" style="max-height: 450px; min-height: 380px;">
+            <!-- Welcome Message -->
+            <div class="ai-msg ai-msg-bot mb-3.5">
+              <div class="ai-msg-avatar shadow-sm"><img src="{% static 'img/orange.png' %}" alt="AE AI" class="ai-avatar-img"></div>
+              <div class="ai-msg-content shadow-sm">
+                <div class="d-flex align-items-center gap-2 mb-1.5">
+                  <span class="fw-bold text-primary fs-6">Welcome, {{ user.first_name|default:user.username }}! 👋</span>
+                  <span class="badge bg-primary-subtle text-primary border rounded-pill px-2 py-0.5" style="font-size: 0.68rem;">AE AI Assistant</span>
+                </div>
+                <p class="mb-0 text-secondary leading-relaxed" style="font-size: 0.92rem;">
+                  I am your intelligent platform assistant. Ask me questions about <strong>AE LMS</strong>, query live statistics, or command actions like <strong>registering letters, updating statuses, or reassigning items</strong> based on your account permissions!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Typing Indicator -->
+          <div id="fullPageTyping" class="ai-typing-indicator px-4 py-2 mb-3 rounded-pill bg-body-tertiary border align-self-start shadow-sm" style="display: none;">
+            <div class="d-flex align-items-center gap-2.5">
+              <div class="typing-dots"><span></span><span></span><span></span></div>
+              <span class="small text-muted fw-semibold" style="font-size: 0.78rem;">AE AI is processing &amp; querying database...</span>
+            </div>
+          </div>
+
+          <!-- Floating Input Form -->
+          <form id="fullPageChatForm" class="mt-auto">
+            <div class="input-group ai-input-group p-1.5 shadow-sm">
+              <input type="text" id="fullPageInput" class="form-control px-4 py-2.5" placeholder="Type a prompt or action command (e.g., 'Register incoming letter from Revenue Authority...')" autocomplete="off">
+              <button type="submit" id="fullPageSendBtn" class="btn btn-primary ai-send-btn px-4 d-flex align-items-center gap-2">
+                <span class="fw-semibold">Send</span>
+                <i class="bi bi-send-fill" style="font-size: 0.85rem;"></i>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
+
