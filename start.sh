@@ -1,12 +1,49 @@
 #!/bin/bash
 set -e
 
-# Wait for PostgreSQL to be ready
-echo "Waiting for PostgreSQL to be ready..."
-until python -c "import django; django.setup(); from django.db import connection; connection.cursor()" 2>/dev/null; do
-  echo "PostgreSQL is unavailable - sleeping"
-  sleep 2
-done
+# Print resolved database engine for debugging
+echo "=== Database Configuration ==="
+python -c "
+import django, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'lms_project.settings')
+django.setup()
+from django.conf import settings
+db = settings.DATABASES.get('default', {})
+print(f'  ENGINE: {db.get(\"ENGINE\", \"unknown\")}')
+print(f'  NAME:   {db.get(\"NAME\", \"unknown\")}')
+print(f'  HOST:   {db.get(\"HOST\", \"N/A\")}')
+print(f'  PORT:   {db.get(\"PORT\", \"N/A\")}')
+" 2>&1 || echo "  (could not read settings)"
+echo "=============================="
+
+# Check if using PostgreSQL or SQLite
+DB_ENGINE=$(python -c "
+import django, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'lms_project.settings')
+django.setup()
+from django.conf import settings
+print(settings.DATABASES.get('default', {}).get('ENGINE', ''))
+" 2>/dev/null || echo "unknown")
+
+if echo "$DB_ENGINE" | grep -q "postgresql"; then
+  # Wait for PostgreSQL to be ready (max 60 seconds)
+  echo "Waiting for PostgreSQL to be ready..."
+  RETRIES=0
+  MAX_RETRIES=30
+  until python -c "import django; django.setup(); from django.db import connection; connection.cursor()" 2>/dev/null; do
+    RETRIES=$((RETRIES + 1))
+    if [ $RETRIES -ge $MAX_RETRIES ]; then
+      echo "ERROR: PostgreSQL did not become available after 60 seconds."
+      echo "Check that your PostgreSQL service is running and RAILWAY_POSTGRES_* env vars are set."
+      exit 1
+    fi
+    echo "PostgreSQL is unavailable - sleeping (attempt $RETRIES/$MAX_RETRIES)"
+    sleep 2
+  done
+  echo "PostgreSQL is up!"
+else
+  echo "Using non-PostgreSQL database ($DB_ENGINE) - skipping wait"
+fi
 
 echo "PostgreSQL is up - running migrations"
 if python manage.py migrate --noinput; then
