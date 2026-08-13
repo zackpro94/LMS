@@ -1,6 +1,9 @@
 [build]
 builder = "nixpacks"
 
+[deploy]
+startCommand = "bash start.sh"
+
 [env]
 PYTHON_VERSION = "3.11"
 DJANGO_SETTINGS_MODULE = "lms_project.settings"

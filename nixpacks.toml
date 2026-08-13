@@ -1,3 +1,6 @@
 [phases.setup]
 aptPkgs = ["postgresql-client"]
 nixPkgs = ["postgresql"]
+
+[start]
+cmd = "bash start.sh"
