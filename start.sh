@@ -3,7 +3,7 @@ set -e
 
 # Wait for PostgreSQL to be ready
 echo "Waiting for PostgreSQL to be ready..."
-until python -c "import django; django.setup(); from django.db import connection; connection.cursor()" 2>/dev/null; do
+until pg_isready -h "$PGHOST" -p "$PGPORT" -U "$PGUSER" 2>/dev/null; do
   echo "PostgreSQL is unavailable - sleeping"
   sleep 2
 done
