@@ -30,17 +30,26 @@ if echo "$DB_ENGINE" | grep -q "postgresql"; then
   echo "Waiting for PostgreSQL to be ready..."
   RETRIES=0
   MAX_RETRIES=30
-  until python -c "import django; django.setup(); from django.db import connection; connection.cursor()" 2>/dev/null; do
-    RETRIES=$((RETRIES + 1))
-    if [ $RETRIES -ge $MAX_RETRIES ]; then
-      echo "ERROR: PostgreSQL did not become available after 60 seconds."
-      echo "Check that your PostgreSQL service is running and RAILWAY_POSTGRES_* env vars are set."
-      exit 1
+  DB_READY=false
+  while [ $RETRIES -lt $MAX_RETRIES ]; do
+    # Show the actual error on each attempt
+    DB_ERROR=$(python -c "import django; django.setup(); from django.db import connection; connection.cursor(); print('OK')" 2>&1)
+    if echo "$DB_ERROR" | grep -q "OK"; then
+      DB_READY=true
+      break
     fi
-    echo "PostgreSQL is unavailable - sleeping (attempt $RETRIES/$MAX_RETRIES)"
+    RETRIES=$((RETRIES + 1))
+    echo "PostgreSQL is unavailable (attempt $RETRIES/$MAX_RETRIES): $DB_ERROR"
     sleep 2
   done
-  echo "PostgreSQL is up!"
+
+  if [ "$DB_READY" = true ]; then
+    echo "PostgreSQL is up!"
+  else
+    echo "WARNING: PostgreSQL did not become available after 60 seconds."
+    echo "Last error: $DB_ERROR"
+    echo "Continuing anyway — daphne will retry connections lazily..."
+  fi
 else
   echo "Using non-PostgreSQL database ($DB_ENGINE) - skipping wait"
 fi
