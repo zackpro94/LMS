@@ -54,6 +54,9 @@ def get_r2_client():
             '  R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_ENDPOINT_URL, R2_BUCKET_NAME'
         )
 
+    if endpoint and not endpoint.startswith(('http://', 'https://')):
+        endpoint = f'https://{endpoint}'
+
     client = boto3.client(
         's3',
         endpoint_url=endpoint,
@@ -72,8 +75,7 @@ def get_db_config():
 
     if 'postgresql' not in engine:
         raise CommandError(
-            f'Auto-backup only supports PostgreSQL. Current engine: {engine}\n'
-            'Your local SQLite database can be backed up by simply copying db.sqlite3.'
+            f'Auto-backup only supports PostgreSQL natively for pg_dump. Current engine: {engine}'
         )
 
     return {
@@ -85,12 +87,59 @@ def get_db_config():
     }
 
 
+def create_django_dumpdata_backup():
+    """
+    Fallback backup method using Django's built-in dumpdata command.
+    Generates a gzipped JSON export of the database and uploads to R2.
+    """
+    from django.core.management import call_command
+
+    client, bucket = get_r2_client()
+
+    timestamp = timezone.now().strftime('%Y-%m-%d_%H-%M-%S')
+    filename = f'lms_backup_{timestamp}.json.gz'
+    r2_key = f'{BACKUP_PREFIX}{filename}'
+
+    logger.info('Starting Django dumpdata JSON backup: %s', filename)
+
+    out = io.StringIO()
+    call_command('dumpdata', exclude=['contenttypes', 'auth.Permission', 'sessions.Session'], stdout=out)
+
+    json_bytes = out.getvalue().encode('utf-8')
+    compressed = gzip.compress(json_bytes, compresslevel=9)
+    compressed_size = len(compressed)
+
+    try:
+        client.put_object(
+            Bucket=bucket,
+            Key=r2_key,
+            Body=compressed,
+            ContentType='application/gzip',
+            Metadata={
+                'backup-type': 'django-dumpdata',
+                'created-at': timezone.now().isoformat(),
+                'uncompressed-size': str(len(json_bytes)),
+            },
+        )
+    except Exception as exc:
+        raise CommandError(f'Failed to upload JSON backup to R2: {exc}')
+
+    logger.info('Django dumpdata backup uploaded to R2: %s (%s)', r2_key, _human_size(compressed_size))
+    return filename, compressed_size
+
+
 def create_backup():
     """
     Run pg_dump, gzip the output, and upload to R2.
+    If pg_dump is missing or fails, falls back to Django's dumpdata.
     Returns (filename, size_bytes) on success.
     """
-    db = get_db_config()
+    try:
+        db = get_db_config()
+    except CommandError:
+        logger.info('Non-PostgreSQL engine detected. Falling back to Django dumpdata JSON backup...')
+        return create_django_dumpdata_backup()
+
     client, bucket = get_r2_client()
 
     timestamp = timezone.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -123,32 +172,15 @@ def create_backup():
             env=env,
             timeout=300,  # 5 minute timeout
         )
-    except FileNotFoundError:
-        raise CommandError(
-            'pg_dump not found. Make sure PostgreSQL client tools are installed.\n'
-            'On Railway, add "postgresql-client" to your Aptfile or Nixpacks config.'
-        )
-    except subprocess.TimeoutExpired:
-        raise CommandError('pg_dump timed out after 5 minutes.')
+        if result.returncode != 0:
+            stderr = result.stderr.decode('utf-8', errors='replace')
+            logger.warning('pg_dump returned non-zero code (%d): %s. Falling back to Django dumpdata...', result.returncode, stderr)
+            return create_django_dumpdata_backup()
 
-    if result.returncode != 0:
-        stderr = result.stderr.decode('utf-8', errors='replace')
-        raise CommandError(f'pg_dump failed:\n{stderr}')
+        sql_bytes = result.stdout
+        compressed = gzip.compress(sql_bytes, compresslevel=9)
+        compressed_size = len(compressed)
 
-    # Compress the SQL dump
-    sql_bytes = result.stdout
-    compressed = gzip.compress(sql_bytes, compresslevel=9)
-    compressed_size = len(compressed)
-
-    logger.info(
-        'Backup compressed: %s → %s (%.1f%% reduction)',
-        _human_size(len(sql_bytes)),
-        _human_size(compressed_size),
-        (1 - compressed_size / max(len(sql_bytes), 1)) * 100,
-    )
-
-    # Upload to R2
-    try:
         client.put_object(
             Bucket=bucket,
             Key=r2_key,
@@ -161,11 +193,16 @@ def create_backup():
                 'uncompressed-size': str(len(sql_bytes)),
             },
         )
-    except Exception as exc:
-        raise CommandError(f'Failed to upload backup to R2: {exc}')
 
-    logger.info('Backup uploaded to R2: %s (%s)', r2_key, _human_size(compressed_size))
-    return filename, compressed_size
+        logger.info('Backup uploaded to R2: %s (%s)', r2_key, _human_size(compressed_size))
+        return filename, compressed_size
+
+    except (FileNotFoundError, PermissionError):
+        logger.warning('pg_dump command not available in environment. Falling back to Django dumpdata JSON backup...')
+        return create_django_dumpdata_backup()
+    except subprocess.TimeoutExpired:
+        logger.warning('pg_dump timed out after 5 minutes. Falling back to Django dumpdata JSON backup...')
+        return create_django_dumpdata_backup()
 
 
 def list_backups():
@@ -183,7 +220,7 @@ def list_backups():
     backups = []
     for obj in response.get('Contents', []):
         key = obj['Key']
-        if key.endswith('.sql.gz'):
+        if key.endswith('.sql.gz') or key.endswith('.json.gz'):
             backups.append({
                 'key': key,
                 'filename': key.replace(BACKUP_PREFIX, ''),
@@ -221,7 +258,6 @@ def cleanup_old_backups(keep=30):
 
 def restore_backup(filename):
     """Download a backup from R2 and restore it to the database."""
-    db = get_db_config()
     client, bucket = get_r2_client()
 
     # Resolve "latest"
@@ -243,7 +279,27 @@ def restore_backup(filename):
     except Exception as exc:
         raise CommandError(f'Failed to download backup: {exc}')
 
-    # Decompress
+    # Handle JSON backup restoration
+    if filename.endswith('.json.gz'):
+        from django.core.management import call_command
+        import tempfile
+
+        logger.info('Restoring JSON dumpdata backup: %s', filename)
+        json_str = gzip.decompress(compressed).decode('utf-8')
+        with tempfile.NamedTemporaryFile(suffix='.json', mode='w', delete=False, encoding='utf-8') as tmp:
+            tmp.write(json_str)
+            tmp_path = tmp.name
+
+        try:
+            call_command('loaddata', tmp_path)
+            logger.info('Database restored from JSON dump: %s', filename)
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        return filename
+
+    # Handle SQL backup restoration
+    db = get_db_config()
     sql_bytes = gzip.decompress(compressed)
     logger.info('Backup decompressed: %s', _human_size(len(sql_bytes)))
 
@@ -275,7 +331,6 @@ def restore_backup(filename):
 
     if result.returncode != 0:
         stderr = result.stderr.decode('utf-8', errors='replace')
-        # psql often returns warnings that are not fatal
         logger.warning('psql warnings:\n%s', stderr)
 
     logger.info('Database restored from: %s', filename)
