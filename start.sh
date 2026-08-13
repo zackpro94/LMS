@@ -25,36 +25,7 @@ from django.conf import settings
 print(settings.DATABASES.get('default', {}).get('ENGINE', ''))
 " 2>/dev/null || echo "unknown")
 
-if echo "$DB_ENGINE" | grep -q "postgresql"; then
-  # Wait for PostgreSQL to be ready (max 60 seconds)
-  echo "Waiting for PostgreSQL to be ready..."
-  RETRIES=0
-  MAX_RETRIES=30
-  DB_READY=false
-  while [ $RETRIES -lt $MAX_RETRIES ]; do
-    # Show the actual error on each attempt
-    DB_ERROR=$(python -c "import django; django.setup(); from django.db import connection; connection.cursor(); print('OK')" 2>&1)
-    if echo "$DB_ERROR" | grep -q "OK"; then
-      DB_READY=true
-      break
-    fi
-    RETRIES=$((RETRIES + 1))
-    echo "PostgreSQL is unavailable (attempt $RETRIES/$MAX_RETRIES): $DB_ERROR"
-    sleep 2
-  done
-
-  if [ "$DB_READY" = true ]; then
-    echo "PostgreSQL is up!"
-  else
-    echo "WARNING: PostgreSQL did not become available after 60 seconds."
-    echo "Last error: $DB_ERROR"
-    echo "Continuing anyway — daphne will retry connections lazily..."
-  fi
-else
-  echo "Using non-PostgreSQL database ($DB_ENGINE) - skipping wait"
-fi
-
-echo "PostgreSQL is up - running migrations"
+echo "Using database engine: $DB_ENGINE - running migrations"
 if python manage.py migrate --noinput; then
   echo "Migrations completed successfully"
 else
