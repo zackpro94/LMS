@@ -1340,4 +1340,52 @@ body.sidebar-open {
   color: #f8fafc;
 }
 
+/* ── Logged Actions Trigger Card ── */
+.action-history-toggle {
+  transition: all 0.2s ease-in-out;
+}
+.action-history-toggle:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15) !important;
+  border-color: rgba(79, 70, 229, 0.3) !important;
+}
 
+/* ── Logged Actions Modal ── */
+#loggedActionsModal .modal-content {
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+#loggedActionsModal .modal-header {
+  border-bottom: 1px solid var(--bs-border-color-translucent);
+}
+
+/* ── Action Cards inside modal ── */
+#loggedActionsModal .logged-action-card {
+  border-left: 3px solid var(--bs-primary) !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+#loggedActionsModal .logged-action-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08) !important;
+}
+
+[data-bs-theme="dark"] #loggedActionsModal .logged-action-card:hover {
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Staggered fade-in animation for cards */
+@keyframes logCardSlideIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+#loggedActionsModal.show .logged-action-card {
+  animation: logCardSlideIn 0.25s ease-out both;
+}
+#loggedActionsModal.show .logged-action-card:nth-child(1) { animation-delay: 0s; }
+#loggedActionsModal.show .logged-action-card:nth-child(2) { animation-delay: 0.05s; }
+#loggedActionsModal.show .logged-action-card:nth-child(3) { animation-delay: 0.07s; }
+#loggedActionsModal.show .logged-action-card:nth-child(4) { animation-delay: 0.1s; }
+#loggedActionsModal.show .logged-action-card:nth-child(5) { animation-delay: 0.12s; }

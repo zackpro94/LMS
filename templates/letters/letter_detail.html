@@ -215,12 +215,10 @@
         {% if action_logs %}
         <hr class="my-4">
         <div class="detail-field">
-          <!-- Modern attractive fold header & button (Default Folded) -->
+          <!-- Trigger bar to open popup -->
           <div class="d-flex align-items-center justify-content-between p-2 px-3 rounded-3 bg-body-secondary border shadow-sm cursor-pointer action-history-toggle" 
-               data-bs-toggle="collapse" 
-               data-bs-target="#loggedActionsCollapse" 
-               aria-expanded="false" 
-               aria-controls="loggedActionsCollapse"
+               data-bs-toggle="modal" 
+               data-bs-target="#loggedActionsModal"
                style="cursor: pointer; transition: all 0.2s ease-in-out;">
             <div class="d-flex align-items-center gap-2">
               <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow-sm" style="width: 32px; height: 32px; font-size: 0.9rem;">
@@ -230,66 +228,21 @@
                 <span class="fw-bold fs-6 text-body d-block leading-tight">
                   Logged Actions &amp; Notes History
                 </span>
-                <small class="text-muted" style="font-size: 0.75rem;">Click to expand/collapse past notes &amp; actions</small>
+                <small class="text-muted" style="font-size: 0.75rem;">Click to view past notes &amp; actions</small>
               </div>
               <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 ms-1">
                 {{ action_logs|length }}
               </span>
             </div>
             
-            <!-- Modern Gradient Pill Fold Button -->
             <button class="btn btn-sm text-white rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 shadow-sm border-0 fw-medium" 
-                    id="loggedActionsToggleBtn"
-                    type="button" 
+                    type="button"
+                    data-bs-toggle="modal"
+                    data-bs-target="#loggedActionsModal" 
                     style="font-size: 0.82rem; background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);">
-              <span id="loggedActionsToggleText">View History</span>
-              <i class="bi bi-chevron-down ms-1" id="loggedActionsToggleChevron" style="transition: transform 0.25s ease;"></i>
+              <span>View History</span>
+              <i class="bi bi-box-arrow-up-right ms-1"></i>
             </button>
-          </div>
-
-          <!-- Default Folded (no 'show' class) -->
-          <div class="collapse mt-3" id="loggedActionsCollapse">
-            <div class="logged-actions-container d-flex flex-column gap-3">
-              {% for log in action_logs %}
-              <div class="logged-action-card p-3 rounded-3 border bg-body-secondary shadow-sm">
-                <!-- Action Header & Timestamp -->
-                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
-                  <div>
-                    <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
-                      <i class="bi bi-lightning-charge-fill me-1"></i>Action
-                    </div>
-                    <span class="fw-bold text-body fs-6">
-                      {% if 'Status changed' in log.action %}
-                        <i class="bi bi-arrow-repeat text-info me-1"></i>
-                      {% else %}
-                        <i class="bi bi-check-circle-fill text-success me-1"></i>
-                      {% endif %}
-                      {{ log.action }}
-                    </span>
-                  </div>
-                  <small class="text-muted text-nowrap ms-2">
-                    <i class="bi bi-clock me-1"></i>{{ log.action_date|date:"d M Y, H:i" }}
-                  </small>
-                </div>
-
-                <!-- Bold & Visible Note Box (Theme Adaptive) -->
-                {% if log.notes %}
-                <div class="action-note-box p-3 rounded-3 border-start border-warning border-4 mb-2 shadow-sm">
-                  <div class="text-uppercase fw-bold text-warning mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
-                    <i class="bi bi-sticky-fill me-1"></i>Note
-                  </div>
-                  <div class="fw-bold text-body fs-6" style="line-height: 1.5; white-space: pre-wrap;">{{ log.notes }}</div>
-                </div>
-                {% endif %}
-
-                <!-- Footer User Info -->
-                <div class="d-flex align-items-center text-muted small mt-2">
-                  <i class="bi bi-person-circle me-1"></i>
-                  Logged by <strong class="ms-1 text-body">{{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}</strong>
-                </div>
-              </div>
-              {% endfor %}
-            </div>
           </div>
         </div>
         {% endif %}
@@ -702,6 +655,79 @@ document.addEventListener('DOMContentLoaded', function () {
   </div>
 </div>
 
+<!-- Logged Actions & Notes History Popup Modal -->
+{% if action_logs %}
+<div class="modal fade" id="loggedActionsModal" tabindex="-1" aria-labelledby="loggedActionsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content card-glass border-0 shadow-lg">
+      <div class="modal-header py-3 bg-body-tertiary border-bottom">
+        <div class="d-flex align-items-center gap-2">
+          <span class="d-inline-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow-sm" style="width: 32px; height: 32px; font-size: 0.9rem;">
+            <i class="bi bi-journal-check"></i>
+          </span>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 fs-6 text-body" id="loggedActionsModalLabel">
+              Logged Actions &amp; Notes History
+            </h5>
+            <small class="text-muted" style="font-size: 0.75rem;">Past notes &amp; recorded actions</small>
+          </div>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill px-2.5 py-1 ms-1">
+            {{ action_logs|length }}
+          </span>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-3 p-md-4" style="max-height: 70vh; overflow-y: auto;">
+        <div class="logged-actions-container d-flex flex-column gap-3">
+          {% for log in action_logs %}
+          <div class="logged-action-card p-3 rounded-3 border bg-body-secondary shadow-sm">
+            <!-- Action Header & Timestamp -->
+            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+              <div>
+                <div class="text-uppercase text-primary fw-bold mb-1" style="font-size: 0.72rem; letter-spacing: 0.5px;">
+                  <i class="bi bi-lightning-charge-fill me-1"></i>Action
+                </div>
+                <span class="fw-bold text-body fs-6">
+                  {% if 'Status changed' in log.action %}
+                    <i class="bi bi-arrow-repeat text-info me-1"></i>
+                  {% else %}
+                    <i class="bi bi-check-circle-fill text-success me-1"></i>
+                  {% endif %}
+                  {{ log.action }}
+                </span>
+              </div>
+              <small class="text-muted text-nowrap ms-2">
+                <i class="bi bi-clock me-1"></i>{{ log.action_date|date:"d M Y, H:i" }}
+              </small>
+            </div>
+
+            <!-- Bold & Visible Note Box (Theme Adaptive) -->
+            {% if log.notes %}
+            <div class="action-note-box p-3 rounded-3 border-start border-warning border-4 mb-2 shadow-sm">
+              <div class="text-uppercase fw-bold text-warning mb-1" style="font-size: 0.75rem; letter-spacing: 0.5px;">
+                <i class="bi bi-sticky-fill me-1"></i>Note
+              </div>
+              <div class="fw-bold text-body fs-6" style="line-height: 1.5; white-space: pre-wrap;">{{ log.notes }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Footer User Info -->
+            <div class="d-flex align-items-center text-muted small mt-2">
+              <i class="bi bi-person-circle me-1"></i>
+              Logged by <strong class="ms-1 text-body">{{ log.action_by.get_full_name|default:log.action_by.username|default:"System" }}</strong>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="modal-footer py-2 bg-body-tertiary">
+        <button type="button" class="btn btn-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Email Share Modal -->
 <div class="modal fade" id="emailModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
@@ -1014,20 +1040,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
   }
-  // Logged Actions Collapse toggle animation & text update
-  const loggedActionsCollapse = document.getElementById('loggedActionsCollapse');
-  const toggleText = document.getElementById('loggedActionsToggleText');
-  const toggleChevron = document.getElementById('loggedActionsToggleChevron');
-  if (loggedActionsCollapse && toggleText && toggleChevron) {
-    loggedActionsCollapse.addEventListener('show.bs.collapse', function () {
-      toggleText.textContent = 'Hide History';
-      toggleChevron.style.transform = 'rotate(180deg)';
-    });
-    loggedActionsCollapse.addEventListener('hide.bs.collapse', function () {
-      toggleText.textContent = 'View History';
-      toggleChevron.style.transform = 'rotate(0deg)';
-    });
-  }
+
+
 });
 </script>
 {% endblock %}

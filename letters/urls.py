@@ -19,8 +19,9 @@ urlpatterns = [
     path('letters/<int:pk>/delete/', views.LetterDeleteView.as_view(), name='letter_delete'),
     path('letters/bulk-action/', views.BulkActionView.as_view(), name='bulk_action'),
     
-    # Letter search API
+    # Letter search & OCR API
     path('api/letters/search/', views.LetterSearchView.as_view(), name='letter_search'),
+    path('api/letters/ocr-extract/', views.OcrExtractView.as_view(), name='ocr_extract'),
     
     # Saved searches
     path('letters/search/save/', views.SaveSearchView.as_view(), name='save_search'),

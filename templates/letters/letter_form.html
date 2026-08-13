@@ -7,17 +7,98 @@
 {% block content %}
 <div class="row justify-content-center">
   <div class="col-lg-10">
-    <div class="card card-glass">
-      <div class="card-header">
-        <h5 class="mb-0">
-          <i class="bi bi-envelope-plus me-2"></i>{{ form_title|default:"Register New Letter" }}
+    
+    <!-- Letter Form Card -->
+    <div class="card card-glass shadow-sm border-0">
+      <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <h5 class="mb-0 fw-semibold">
+          <i class="bi bi-envelope-plus me-2 text-primary"></i>{{ form_title|default:"Register New Letter" }}
         </h5>
+        
+        <!-- Compact OCR Scan Button -->
+        <div>
+          <input type="file" id="ocr-file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.bmp" class="d-none">
+          <button type="button" id="btn-ocr-scan" class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-xs d-inline-flex align-items-center gap-1.5" title="Scan document to auto-fill fields">
+            <i class="bi bi-lightning-charge-fill text-warning"></i>
+            <span id="ocr-btn-text">Auto-Fill via OCR</span>
+            <span id="ocr-spinner" class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+          </button>
+        </div>
       </div>
+
       <div class="card-body">
+        <!-- Compact OCR Result Toast Banner -->
+        <div id="ocr-result-alert" class="alert alert-dismissible fade show mb-3 d-none p-2.5 ps-3 pe-4 small" role="alert">
+          <span id="ocr-result-message"></span>
+          <button type="button" class="btn-close p-2" onclick="document.getElementById('ocr-result-alert').classList.add('d-none');" aria-label="Close"></button>
+        </div>
+
         <form method="post" novalidate>
           {% csrf_token %}
           {% crispy form %}
         </form>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- OCR Preview & Verification Modal -->
+<div class="modal fade" id="ocrPreviewModal" tabindex="-1" aria-labelledby="ocrPreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content card-glass border-0 shadow-lg">
+      <div class="modal-header bg-primary-subtle py-3">
+        <h6 class="modal-title fw-bold text-primary mb-0" id="ocrPreviewModalLabel">
+          <i class="bi bi-eye-fill me-2"></i>Review Extracted Document Information
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div class="alert alert-info py-2 px-3 small mb-3">
+          <i class="bi bi-info-circle-fill me-1.5"></i>Review and edit the values below before applying them to your registration form.
+        </div>
+        
+        <div class="row g-3">
+          <div class="col-md-6" id="preview-group-sender">
+            <label class="form-label small fw-semibold text-secondary mb-1">Sender</label>
+            <input type="text" id="preview-sender" class="form-control form-control-sm" placeholder="Not detected">
+          </div>
+          <div class="col-md-6" id="preview-group-recipient">
+            <label class="form-label small fw-semibold text-secondary mb-1">Recipient</label>
+            <input type="text" id="preview-recipient" class="form-control form-control-sm" placeholder="Not detected">
+          </div>
+          <div class="col-md-6" id="preview-group-attention">
+            <label class="form-label small fw-semibold text-secondary mb-1">Attention To</label>
+            <input type="text" id="preview-attention" class="form-control form-control-sm" placeholder="Not detected">
+          </div>
+          <div class="col-md-6" id="preview-group-date">
+            <label class="form-label small fw-semibold text-secondary mb-1">Date</label>
+            <input type="date" id="preview-date" class="form-control form-control-sm">
+          </div>
+          <div class="col-12" id="preview-group-subject">
+            <label class="form-label small fw-semibold text-secondary mb-1">Subject</label>
+            <textarea id="preview-subject" class="form-control form-control-sm" rows="2" placeholder="Not detected"></textarea>
+          </div>
+          <div class="col-md-6" id="preview-group-refno">
+            <label class="form-label small fw-semibold text-secondary mb-1">Reference Number</label>
+            <input type="text" id="preview-refno" class="form-control form-control-sm" placeholder="Not detected">
+          </div>
+        </div>
+
+        <div class="mt-4 pt-2 border-top">
+          <button class="btn btn-sm btn-link text-decoration-none p-0 text-secondary fw-medium" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRawText" aria-expanded="false" aria-controls="collapseRawText">
+            <i class="bi bi-file-earmark-text me-1"></i>View Extracted Raw Text
+          </button>
+          <div class="collapse mt-2" id="collapseRawText">
+            <pre id="preview-raw-text" class="bg-body-tertiary p-3 rounded small text-wrap border mb-0" style="max-height: 180px; overflow-y: auto; font-size: 0.8rem;"></pre>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer py-2.5 bg-body-tertiary">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="btn-apply-ocr" class="btn btn-sm btn-primary px-4 fw-medium">
+          <i class="bi bi-check2-circle me-1"></i>Apply to Form
+        </button>
       </div>
     </div>
   </div>
@@ -26,6 +107,16 @@
 
 {% block extra_js %}
 <style>
+  .ocr-field-highlight {
+    animation: ocrPulse 2.5s ease-out;
+    border-color: #198754 !important;
+    box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25) !important;
+  }
+  @keyframes ocrPulse {
+    0% { background-color: rgba(25, 135, 84, 0.25); }
+    50% { background-color: rgba(25, 135, 84, 0.1); }
+    100% { background-color: transparent; }
+  }
   .related-letter-search-wrapper {
     position: relative;
   }
@@ -96,6 +187,177 @@
 </style>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    // === Compact OCR Button, File Upload & Preview Modal ===
+    const btnScan = document.getElementById('btn-ocr-scan');
+    const fileInput = document.getElementById('ocr-file-input');
+    const btnText = document.getElementById('ocr-btn-text');
+    const spinner = document.getElementById('ocr-spinner');
+    const resultAlert = document.getElementById('ocr-result-alert');
+    const resultMessage = document.getElementById('ocr-result-message');
+    const btnApply = document.getElementById('btn-apply-ocr');
+
+    const previewModalEl = document.getElementById('ocrPreviewModal');
+    let previewModal = null;
+    if (previewModalEl && typeof bootstrap !== 'undefined') {
+      previewModal = new bootstrap.Modal(previewModalEl);
+    }
+
+    if (btnScan) {
+      btnScan.addEventListener('click', function(e) {
+        e.preventDefault();
+        showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>OCR Auto-Fill feature is currently not available.');
+      });
+    }
+
+      // Drag & Drop on card header
+      const cardHeader = btnScan.closest('.card-header');
+      if (cardHeader) {
+        ['dragenter', 'dragover'].forEach(evt => {
+          cardHeader.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            btnScan.classList.add('btn-primary');
+            btnScan.classList.remove('btn-outline-primary');
+          });
+        });
+        ['dragleave', 'drop'].forEach(evt => {
+          cardHeader.addEventListener(evt, (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            btnScan.classList.remove('btn-primary');
+            btnScan.classList.add('btn-outline-primary');
+          });
+        });
+        cardHeader.addEventListener('drop', (e) => {
+          showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>OCR Auto-Fill feature is currently not available.');
+        });
+      }
+
+    function handleOcrFile(file) {
+      if (!btnScan) return;
+      btnScan.disabled = true;
+      spinner.classList.remove('d-none');
+      btnText.textContent = 'Scanning...';
+      resultAlert.classList.add('d-none');
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Detect letter direction
+      const directionInput = document.getElementById('id_direction');
+      const letterDirection = directionInput ? directionInput.value : 'INCOMING';
+      formData.append('direction', letterDirection);
+
+      const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
+      const csrfToken = csrfInput ? csrfInput.value : '';
+
+      fetch('{% url "letters:ocr_extract" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-CSRFToken': csrfToken
+        }
+      })
+      .then(response => response.json())
+      .then(data => {
+        btnScan.disabled = false;
+        spinner.classList.add('d-none');
+        btnText.textContent = 'Auto-Fill via OCR';
+
+        if (!data.success) {
+          showOcrAlert('danger', '<i class="bi bi-exclamation-triangle-fill me-2"></i>' + (data.error || 'OCR extraction failed.'));
+          return;
+        }
+
+        const fields = data.fields || {};
+
+        // Populate preview modal input fields
+        document.getElementById('preview-sender').value = fields.sender || '';
+        document.getElementById('preview-recipient').value = fields.recipient || '';
+        document.getElementById('preview-attention').value = fields.attention_to || '';
+        document.getElementById('preview-subject').value = fields.subject || '';
+        document.getElementById('preview-date').value = fields.date || '';
+
+        const refGroup = document.getElementById('preview-group-refno');
+        if (letterDirection === 'OUTGOING') {
+          if (refGroup) refGroup.style.display = 'none';
+        } else {
+          if (refGroup) refGroup.style.display = '';
+          document.getElementById('preview-refno').value = fields.reference_no || '';
+        }
+
+        document.getElementById('preview-raw-text').textContent = data.raw_text_snippet || 'No raw text snippet available.';
+
+        // Open preview modal
+        if (previewModal) {
+          previewModal.show();
+        } else {
+          // Fallback if bootstrap modal instance not initialized
+          const bsModal = new bootstrap.Modal(previewModalEl);
+          bsModal.show();
+        }
+      })
+      .catch(err => {
+        btnScan.disabled = false;
+        spinner.classList.add('d-none');
+        btnText.textContent = 'Auto-Fill via OCR';
+        showOcrAlert('danger', '<i class="bi bi-exclamation-octagon-fill me-2"></i>Error processing file: ' + err.message);
+      });
+    }
+
+    // Apply values from preview modal to main form
+    if (btnApply) {
+      btnApply.addEventListener('click', function() {
+        const directionInput = document.getElementById('id_direction');
+        const letterDirection = directionInput ? directionInput.value : 'INCOMING';
+
+        let filledCount = 0;
+        const filledNames = [];
+
+        function applyVal(id, val, label) {
+          if (!val) return;
+          const input = document.getElementById(id);
+          if (input) {
+            input.value = val;
+            input.classList.remove('ocr-field-highlight');
+            void input.offsetWidth; // trigger reflow
+            input.classList.add('ocr-field-highlight');
+            filledCount++;
+            filledNames.push(label);
+          }
+        }
+
+        applyVal('id_sender', document.getElementById('preview-sender').value.trim(), 'Sender');
+        applyVal('id_recipient', document.getElementById('preview-recipient').value.trim(), 'Recipient');
+        applyVal('id_attention_to', document.getElementById('preview-attention').value.trim(), 'Attention');
+        applyVal('id_subject', document.getElementById('preview-subject').value.trim(), 'Subject');
+        applyVal('id_date', document.getElementById('preview-date').value.trim(), 'Date');
+
+        if (letterDirection !== 'OUTGOING') {
+          applyVal('id_reference_no', document.getElementById('preview-refno').value.trim(), 'Reference No');
+        }
+
+        // Close modal
+        const modalInst = bootstrap.Modal.getInstance(previewModalEl);
+        if (modalInst) modalInst.hide();
+
+        if (filledCount > 0) {
+          showOcrAlert('success', '<i class="bi bi-check-circle-fill me-2"></i>Applied <strong>' + filledCount + '</strong> field(s): ' + filledNames.join(', ') + '.');
+        } else {
+          showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>No values were applied to form fields.');
+        }
+      });
+    }
+
+    function showOcrAlert(type, htmlContent) {
+      if (resultAlert && resultMessage) {
+        resultAlert.className = 'alert alert-' + type + ' alert-dismissible fade show mb-3 p-2.5 ps-3 pe-4 small';
+        resultMessage.innerHTML = htmlContent;
+        resultAlert.classList.remove('d-none');
+        resultAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
+
     // === Direction-based field toggling ===
     const directionField = document.getElementById('id_direction');
     const senderGroup = document.getElementById('id_sender')?.closest('.col-md-6');
@@ -231,7 +493,6 @@
     });
 
     function pickResult(id, text) {
-      // Add option to hidden select and select it
       let opt = selectEl.querySelector('option[value="' + id + '"]');
       if (!opt) {
         opt = document.createElement('option');
