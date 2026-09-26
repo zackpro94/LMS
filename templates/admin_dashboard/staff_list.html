@@ -43,7 +43,12 @@
                 </div>
                 <div>
                   <strong>{{ member.username }}</strong>
-                  <div class="text-muted" style="font-size: 0.75rem;">{{ member.get_full_name|default:"—" }} · {{ member.email|default:"No email" }}</div>
+                  <div class="text-muted" style="font-size: 0.75rem;">
+                    {{ member.get_full_name|default:"—" }} · {{ member.email|default:"No email" }}
+                    {% if member.profile.phone_number %}
+                      · <span title="SMS Notifications {% if member.profile.sms_notifications %}Enabled{% else %}Disabled{% endif %}"><i class="bi bi-telephone{% if member.profile.sms_notifications %}-fill text-success{% endif %}"></i> {{ member.profile.phone_number }}</span>
+                    {% endif %}
+                  </div>
                 </div>
               </div>
             </td>

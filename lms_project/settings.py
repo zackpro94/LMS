@@ -53,6 +53,14 @@ TELEGRAM_BOT_TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 TELEGRAM_BOT_USERNAME = os.environ.get('TELEGRAM_BOT_USERNAME')
 TELEGRAM_WEBHOOK_SECRET = os.environ.get('TELEGRAM_WEBHOOK_SECRET')
 
+# AfroMessage SMS Settings
+AFROMESSAGE_API_TOKEN = os.environ.get('AFROMESSAGE_API_TOKEN')
+AFROMESSAGE_SENDER_NAME = os.environ.get('AFROMESSAGE_SENDER_NAME', '')
+AFROMESSAGE_IDENTIFIER_ID = os.environ.get('AFROMESSAGE_IDENTIFIER_ID', '')
+AFROMESSAGE_API_URL = os.environ.get('AFROMESSAGE_API_URL', 'https://api.afromessage.com/api/send')
+AFROMESSAGE_CALLBACK_URL = os.environ.get('AFROMESSAGE_CALLBACK_URL', '')
+
+
 # ---------------------------------------------------------------------------
 # Application definition
 # ---------------------------------------------------------------------------

@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load ethiopian_date_tags %}
 
 {% block title %}{{ letter.reference_no|default:"Letter Detail" }}{% endblock %}
 {% block page_title %}{{ letter.reference_no|default:"Letter Detail" }}{% endblock %}
@@ -22,7 +23,7 @@
   <i class="bi bi-exclamation-triangle-fill fs-5"></i>
   <div>
     <strong>This letter is overdue.</strong>
-    Due date was {{ letter.due_date|date:"d M Y" }}
+    Due date was {{ letter.due_date|date:"d M Y" }} ({{ letter.ethiopian_due_date }})
     ({{ letter.days_until_due|floatformat:0|cut:"-" }} day{{ letter.days_until_due|floatformat:0|cut:"-"|pluralize }} past due).
   </div>
 </div>
@@ -158,8 +159,13 @@
           {% endif %}
           <div class="col-md-4">
             <div class="detail-field">
-              <label><i class="bi bi-calendar3"></i> Date</label>
-              <p>{{ letter.date|date:"d M Y" }}</p>
+              <label><i class="bi bi-calendar3"></i> Date (G.C. / E.C.)</label>
+              <p class="mb-0 fw-bold text-dark">{{ letter.date|date:"d M Y" }}</p>
+              <small class="text-primary d-inline-flex align-items-center gap-1 mt-0.5" style="font-size: 0.78rem;">
+                <i class="bi bi-calendar2-event text-primary opacity-75"></i>
+                <strong>{{ letter.ethiopian_date }}</strong>
+                <span class="text-muted">({{ letter.ethiopian_date_amharic }})</span>
+              </small>
             </div>
           </div>
           <div class="col-md-4">
@@ -182,15 +188,23 @@
           </div>
           <div class="col-md-4">
             <div class="detail-field">
-              <label><i class="bi bi-calendar-event"></i> Due Date</label>
-              <p>
+              <label><i class="bi bi-calendar-event"></i> Due Date (G.C. / E.C.)</label>
+              <p class="mb-0">
                 {% if letter.is_overdue %}
                   <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> {{ letter.due_date|date:"d M Y" }} (OVERDUE)</span>
+                  <small class="text-danger d-block mt-0.5" style="font-size: 0.78rem;">
+                    {{ letter.ethiopian_due_date }} ({{ letter.ethiopian_due_date_amharic }})
+                  </small>
                 {% elif letter.due_date %}
-                  {{ letter.due_date|date:"d M Y" }}
+                  <span class="fw-bold text-dark">{{ letter.due_date|date:"d M Y" }}</span>
                   {% if letter.days_until_due is not None %}
                     <small class="text-muted">({{ letter.days_until_due }} day{{ letter.days_until_due|pluralize }} left)</small>
                   {% endif %}
+                  <small class="text-primary d-inline-flex align-items-center gap-1 mt-0.5" style="font-size: 0.78rem;">
+                    <i class="bi bi-calendar2-event text-primary opacity-75"></i>
+                    <strong>{{ letter.ethiopian_due_date }}</strong>
+                    <span class="text-muted">({{ letter.ethiopian_due_date_amharic }})</span>
+                  </small>
                 {% else %}
                   —
                 {% endif %}

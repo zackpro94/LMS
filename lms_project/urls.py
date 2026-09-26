@@ -15,15 +15,21 @@ admin.site.index_title = 'Letter Management System'
 def r2_media_proxy(request, path):
     """Proxy R2 files through Django to avoid CORB errors"""
     if settings.USE_R2_STORAGE:
-        # Construct the R2 URL
-        r2_url = f"{settings.MEDIA_URL}{path}"
+        # Construct the R2 URL using the proper endpoint
+        r2_endpoint = settings.AWS_S3_ENDPOINT_URL
+        r2_bucket = settings.AWS_STORAGE_BUCKET_NAME
+        r2_url = f"{r2_endpoint}/{r2_bucket}/{path}"
+        
         try:
-            response = requests.get(r2_url, stream=True)
+            response = requests.get(r2_url, stream=True, timeout=10)
+            response.raise_for_status()
             content_type = response.headers.get('Content-Type', 'application/octet-stream')
             
             # Create Django response with proper headers
             django_response = HttpResponse(response.content, content_type=content_type)
             django_response['Content-Disposition'] = response.headers.get('Content-Disposition', f'inline; filename="{path.split("/")[-1]}"')
+            # Cache for 1 hour
+            django_response['Cache-Control'] = 'public, max-age=3600'
             return django_response
         except Exception as e:
             # Fallback to serving locally if R2 fails

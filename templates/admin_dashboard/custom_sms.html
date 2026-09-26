@@ -1,0 +1,1716 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Custom SMS Studio | LMS Administration{% endblock %}
+{% block page_title %}Custom SMS Broadcast Studio{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ===== Custom SMS Broadcast Studio — Design System ===== */
+  .sms-page {
+    --sms-gold: #d4a843;
+    --sms-gold-rgb: 212, 168, 67;
+    --sms-gold-dark: #b8892e;
+    --sms-radius: 16px;
+    --sms-radius-sm: 10px;
+  }
+
+  /* ---- Header Card ---- */
+  .sms-header {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--sms-radius);
+    padding: 1.25rem 1.5rem;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  [data-bs-theme="dark"] .sms-header {
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .sms-header-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(var(--sms-gold-rgb), 0.12);
+    color: var(--sms-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(var(--sms-gold-rgb), 0.15);
+  }
+
+  .sms-header h5 {
+    margin: 0;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 1.15rem;
+  }
+
+  .sms-header .sms-subtitle {
+    color: var(--text-secondary);
+    font-size: 0.82rem;
+    margin: 0;
+  }
+
+  .sms-badge-admin {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(var(--sms-gold-rgb), 0.15);
+    color: var(--sms-gold);
+    border: 1px solid rgba(var(--sms-gold-rgb), 0.3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .sms-gateway-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 15px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+  }
+
+  .sms-gateway-pill.connected {
+    background: rgba(34, 197, 94, 0.08);
+    border: 1px solid rgba(34, 197, 94, 0.25);
+    color: #16a34a;
+  }
+
+  [data-bs-theme="dark"] .sms-gateway-pill.connected {
+    background: rgba(34, 197, 94, 0.12);
+    color: #4ade80;
+  }
+
+  .sms-gateway-pill.disconnected {
+    background: rgba(234, 179, 8, 0.08);
+    border: 1px solid rgba(234, 179, 8, 0.25);
+    color: #ca8a04;
+  }
+
+  .sms-gateway-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  .sms-gateway-pill.connected .sms-gateway-dot {
+    background: #22c55e;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.6);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .sms-gateway-pill.disconnected .sms-gateway-dot {
+    background: #eab308;
+  }
+
+  @keyframes pulse-dot {
+
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.4;
+      transform: scale(0.85);
+    }
+  }
+
+  /* ---- Card Containers ---- */
+  .sms-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--sms-radius);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+    overflow: hidden;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  [data-bs-theme="dark"] .sms-card {
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+  }
+
+  .sms-card-body {
+    padding: 1.5rem;
+  }
+
+  /* ---- Segmented Audience Tabs ---- */
+  .sms-tabs {
+    display: flex;
+    background: rgba(15, 23, 42, 0.04);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 4px;
+    gap: 4px;
+  }
+
+  [data-bs-theme="dark"] .sms-tabs {
+    background: rgba(15, 23, 42, 0.6);
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .sms-tab-btn {
+    flex: 1;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    border-radius: 9px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+
+  .sms-tab-btn:hover {
+    color: var(--text-primary);
+    background: rgba(var(--sms-gold-rgb), 0.08);
+  }
+
+  .sms-tab-btn.active {
+    background: linear-gradient(135deg, #d4a843, #c49235);
+    color: #0f172a;
+    box-shadow: 0 2px 10px rgba(var(--sms-gold-rgb), 0.35);
+    font-weight: 700;
+  }
+
+  .sms-tab-btn .badge {
+    font-size: 0.68rem;
+    padding: 2px 7px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+
+  .sms-tab-btn.active .badge {
+    background: rgba(15, 23, 42, 0.22);
+    color: #0f172a;
+  }
+
+  .sms-tab-btn:not(.active) .badge {
+    background: rgba(100, 116, 139, 0.15);
+    color: var(--text-secondary);
+  }
+
+  /* ---- Section Labels ---- */
+  .sms-section-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sms-section-label i {
+    color: var(--sms-gold);
+  }
+
+  /* ---- Audience Panels (Strict Display Controls) ---- */
+  .sms-panel {
+    display: none !important;
+  }
+
+  .sms-panel.active {
+    display: block !important;
+    animation: smsFadeIn 0.25s ease-out;
+  }
+
+  @keyframes smsFadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* All Staff Info Box */
+  .sms-info-box {
+    padding: 1.1rem 1.25rem;
+    border-radius: 12px;
+    background: rgba(var(--sms-gold-rgb), 0.06);
+    border: 1px solid rgba(var(--sms-gold-rgb), 0.22);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+  }
+
+  [data-bs-theme="dark"] .sms-info-box {
+    background: rgba(var(--sms-gold-rgb), 0.08);
+    border-color: rgba(var(--sms-gold-rgb), 0.2);
+  }
+
+  .sms-info-box .info-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(var(--sms-gold-rgb), 0.14);
+    color: var(--sms-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+
+  .sms-info-box .info-title {
+    font-weight: 700;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+  }
+
+  .sms-info-box .info-desc {
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    margin: 0;
+  }
+
+  /* Department Chips Grid */
+  .sms-dept-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+  }
+
+  .sms-dept-chip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.7rem 0.85rem;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    user-select: none;
+  }
+
+  .sms-dept-chip:hover {
+    border-color: rgba(var(--sms-gold-rgb), 0.45);
+    background: rgba(var(--sms-gold-rgb), 0.05);
+    transform: translateY(-1px);
+  }
+
+  .sms-dept-chip.selected {
+    border-color: var(--sms-gold);
+    background: rgba(var(--sms-gold-rgb), 0.12);
+    box-shadow: 0 0 0 1px var(--sms-gold);
+  }
+
+  .sms-dept-chip .dept-name {
+    font-weight: 600;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sms-dept-chip .dept-check {
+    color: var(--sms-gold);
+    display: none;
+  }
+
+  .sms-dept-chip.selected .dept-check {
+    display: inline;
+  }
+
+  .sms-dept-chip .dept-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(100, 116, 139, 0.12);
+    color: var(--text-secondary);
+  }
+
+  .sms-dept-chip.selected .dept-count {
+    background: rgba(var(--sms-gold-rgb), 0.22);
+    color: var(--sms-gold);
+  }
+
+  /* Staff Picker */
+  .sms-staff-search {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.55rem 0.85rem 0.55rem 2.2rem;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+    width: 100%;
+    transition: all 0.2s ease;
+  }
+
+  .sms-staff-search:focus {
+    outline: none;
+    border-color: var(--sms-gold);
+    box-shadow: 0 0 0 3px rgba(var(--sms-gold-rgb), 0.12);
+  }
+
+  .sms-staff-list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: var(--input-bg);
+  }
+
+  .sms-staff-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.65rem 0.9rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s ease;
+    cursor: pointer;
+  }
+
+  .sms-staff-row:last-child {
+    border-bottom: none;
+  }
+
+  .sms-staff-row:hover {
+    background: rgba(var(--sms-gold-rgb), 0.05);
+  }
+
+  .sms-staff-row.selected {
+    background: rgba(var(--sms-gold-rgb), 0.1);
+  }
+
+  .sms-staff-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(var(--sms-gold-rgb), 0.14);
+    color: var(--sms-gold);
+    font-weight: 700;
+    font-size: 0.72rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .sms-staff-name {
+    font-weight: 600;
+    font-size: 0.84rem;
+    color: var(--text-primary);
+  }
+
+  .sms-staff-meta {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+  }
+
+  .sms-phone-badge {
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 6px;
+  }
+
+  .sms-phone-badge.has-phone {
+    background: rgba(34, 197, 94, 0.1);
+    color: #16a34a;
+    border: 1px solid rgba(34, 197, 94, 0.25);
+  }
+
+  [data-bs-theme="dark"] .sms-phone-badge.has-phone {
+    color: #4ade80;
+  }
+
+  .sms-phone-badge.no-phone {
+    background: rgba(100, 116, 139, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+  }
+
+  /* External Numbers Box */
+  .sms-external-box {
+    padding: 1.1rem;
+    border-radius: 12px;
+    background: rgba(var(--sms-gold-rgb), 0.04);
+    border: 1px solid rgba(var(--sms-gold-rgb), 0.2);
+  }
+
+  .sms-external-box textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 10px;
+    padding: 0.75rem 0.95rem;
+    font-size: 0.86rem;
+    resize: vertical;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .sms-external-box textarea:focus {
+    outline: none;
+    border-color: var(--sms-gold);
+    box-shadow: 0 0 0 3px rgba(var(--sms-gold-rgb), 0.12);
+  }
+
+  .sms-ext-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--sms-gold);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .sms-ext-toggle:hover {
+    opacity: 0.85;
+    color: var(--sms-gold-dark);
+  }
+
+  /* ---- Composer Section ---- */
+  .sms-composer {
+    padding: 1.35rem;
+    border-radius: 12px;
+    background: rgba(var(--sms-gold-rgb), 0.025);
+    border: 1px solid var(--border-color);
+    margin-top: 1.25rem;
+  }
+
+  .sms-composer textarea {
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 12px;
+    padding: 0.9rem 1.1rem;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    resize: vertical;
+    width: 100%;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+
+  .sms-composer textarea:focus {
+    outline: none;
+    border-color: var(--sms-gold);
+    box-shadow: 0 0 0 3px rgba(var(--sms-gold-rgb), 0.12);
+  }
+
+  .sms-composer textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
+  }
+
+  /* Quick Template Chips */
+  .sms-template-chip {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+  }
+
+  .sms-template-chip:hover {
+    border-color: var(--sms-gold);
+    color: var(--sms-gold);
+    background: rgba(var(--sms-gold-rgb), 0.08);
+    transform: translateY(-1px);
+  }
+
+  /* SMS Meter Bar */
+  .sms-meter-bar {
+    height: 5px;
+    background: var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .sms-meter-fill {
+    height: 100%;
+    background: var(--sms-gold);
+    width: 0%;
+    border-radius: 10px;
+    transition: width 0.2s ease, background-color 0.2s ease;
+  }
+
+  .sms-char-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 6px;
+  }
+
+  .sms-char-info .char-num {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .sms-part-badge {
+    font-size: 0.68rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(var(--sms-gold-rgb), 0.12);
+    color: var(--sms-gold);
+  }
+
+  /* ---- Action Bar ---- */
+  .sms-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border-color);
+  }
+
+  .sms-send-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0.7rem 1.6rem;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    background: linear-gradient(135deg, #d4a843, #c49235);
+    color: #0f172a;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(var(--sms-gold-rgb), 0.35);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sms-send-btn:hover {
+    box-shadow: 0 6px 22px rgba(var(--sms-gold-rgb), 0.5);
+    transform: translateY(-1px);
+    color: #0f172a;
+  }
+
+  .sms-send-btn:active {
+    transform: translateY(0);
+  }
+
+  .sms-send-btn .send-count {
+    font-size: 0.74rem;
+    padding: 2px 8px;
+    border-radius: 6px;
+    background: rgba(15, 23, 42, 0.2);
+    color: #0f172a;
+    font-weight: 700;
+  }
+
+  /* ---- Phone Preview Mockup ---- */
+  .sms-preview-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+
+  .sms-preview-label i {
+    color: var(--sms-gold);
+  }
+
+  .sms-phone {
+    background: #090d16;
+    border: 4px solid #1e293b;
+    border-radius: 36px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+    max-width: 290px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  .sms-phone-inner {
+    padding: 1rem 0.9rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+  }
+
+  .sms-phone-notch {
+    width: 76px;
+    height: 18px;
+    background: #000;
+    border-radius: 10px;
+    margin: 0 auto 0.6rem;
+  }
+
+  .sms-phone-status {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.65rem;
+    color: rgba(255, 255, 255, 0.65);
+    padding: 0 0.4rem 0.6rem;
+  }
+
+  .sms-phone-contact {
+    text-align: center;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    margin-bottom: 0.85rem;
+  }
+
+  .sms-phone-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4a843, #996515);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 0 auto 4px;
+    box-shadow: 0 3px 8px rgba(212, 168, 67, 0.35);
+  }
+
+  .sms-phone-sender {
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+
+  .sms-phone-verified {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.62rem;
+  }
+
+  .sms-phone-chat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+  }
+
+  .sms-phone-bubble {
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.25), rgba(212, 168, 67, 0.12));
+    border: 1px solid rgba(212, 168, 67, 0.35);
+    color: #f8fafc;
+    border-radius: 18px 18px 4px 18px;
+    padding: 0.8rem 0.95rem;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    word-break: break-word;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+    max-width: 94%;
+    align-self: flex-end;
+    text-align: left;
+  }
+
+  .sms-phone-time {
+    font-size: 0.62rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: right;
+    margin-top: 5px;
+    align-self: flex-end;
+  }
+
+  /* Preview Summary Box */
+  .sms-preview-summary {
+    margin-top: 1.25rem;
+    padding: 0.95rem;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.03);
+    border: 1px solid var(--border-color);
+    font-size: 0.82rem;
+  }
+
+  [data-bs-theme="dark"] .sms-preview-summary {
+    background: rgba(15, 23, 42, 0.4);
+  }
+
+  .sms-preview-summary .sum-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 0;
+  }
+
+  .sms-preview-summary .sum-label {
+    color: var(--text-secondary);
+  }
+
+  .sms-preview-summary .sum-value {
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .sms-preview-summary .sum-value.gold {
+    color: var(--sms-gold);
+    font-weight: 700;
+  }
+
+  /* ---- History Table ---- */
+  .sms-history-header {
+    padding: 1.1rem 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .sms-history-header h6 {
+    margin: 0;
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sms-history-header h6 i {
+    color: var(--info, #06b6d4);
+  }
+
+  .sms-history-header span {
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+  }
+
+  .sms-table {
+    width: 100%;
+    font-size: 0.84rem;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .sms-table thead th {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+    padding: 0.85rem 1.1rem;
+    border-bottom: 2px solid var(--border-color);
+    background: transparent;
+    white-space: nowrap;
+  }
+
+  .sms-table tbody td {
+    padding: 0.85rem 1.1rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    vertical-align: middle;
+  }
+
+  .sms-table tbody tr:hover {
+    background: rgba(var(--sms-gold-rgb), 0.04);
+  }
+
+  .sms-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .sms-table .date-main {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.84rem;
+  }
+
+  .sms-table .date-time {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+  }
+
+  .sms-table .sender-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sms-table .msg-preview {
+    max-width: 320px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-secondary);
+  }
+
+  .sms-table .status-badge {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .sms-table .detail-btn {
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .sms-table .detail-btn:hover {
+    border-color: var(--sms-gold);
+    color: var(--sms-gold);
+    background: rgba(var(--sms-gold-rgb), 0.08);
+  }
+
+  .sms-table .empty-state {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-secondary);
+  }
+
+  .sms-table .empty-state i {
+    font-size: 2.2rem;
+    color: var(--border-color);
+    display: block;
+    margin-bottom: 0.6rem;
+  }
+
+  /* ---- Modal Overrides ---- */
+  .sms-modal .modal-content {
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    border-radius: 18px;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
+  }
+
+  .sms-modal .modal-header {
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem 1.4rem;
+  }
+
+  .sms-modal .modal-title {
+    font-weight: 700;
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sms-modal .modal-title i {
+    color: var(--sms-gold);
+  }
+
+  .sms-modal .modal-body {
+    padding: 1.4rem;
+  }
+
+  .sms-modal .modal-footer {
+    border-top: 1px solid var(--border-color);
+    padding: 0.85rem 1.4rem;
+  }
+
+  .sms-modal .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+    padding: 0.95rem;
+    border-radius: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    margin-bottom: 1.1rem;
+  }
+
+  .sms-modal .detail-grid small {
+    color: var(--text-secondary);
+    font-size: 0.72rem;
+  }
+
+  .sms-modal .detail-grid strong {
+    color: var(--text-primary);
+    font-size: 0.88rem;
+    display: block;
+  }
+
+  .sms-modal .msg-box {
+    padding: 0.95rem;
+    border-radius: 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    margin-bottom: 1.1rem;
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+
+  .sms-modal .log-table {
+    width: 100%;
+    font-size: 0.8rem;
+  }
+
+  .sms-modal .log-table th {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.6rem 0.5rem;
+  }
+
+  .sms-modal .log-table td {
+    padding: 0.6rem 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+
+  /* ---- Responsive Adjustments ---- */
+  @media (max-width: 991px) {
+    .sms-tabs {
+      flex-wrap: wrap;
+    }
+
+    .sms-tab-btn {
+      flex: 0 0 calc(50% - 3px);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sms-page">
+
+  <!-- ===== Header Card ===== -->
+  <div class="sms-header">
+    <div class="d-flex align-items-center gap-3">
+      <div class="sms-header-icon">
+        <i class="bi bi-broadcast"></i>
+      </div>
+      <div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <h5>SMS Broadcast Studio</h5>
+          <span class="sms-badge-admin">Super Admin</span>
+        </div>
+        <p class="sms-subtitle">Send instant custom SMS notifications to staff, departments, or external contacts via
+          AfroMessage.</p>
+      </div>
+    </div>
+    <div>
+      {% if is_configured %}
+      <div class="sms-gateway-pill connected">
+        <span class="sms-gateway-dot"></span>
+        AfroMessage Connected
+        {% if sender_name %}
+        <span class="sms-badge-admin">{{ sender_name }}</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="sms-gateway-pill disconnected">
+        <span class="sms-gateway-dot"></span>
+        Token Not Configured
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- ===== Left Column: Broadcast Composer ===== -->
+    <div class="col-xl-8 col-lg-7">
+      <div class="sms-card">
+        <div class="sms-card-body">
+          <form method="post" id="customSmsForm">
+            {% csrf_token %}
+            <input type="hidden" name="recipient_mode" id="recipientModeInput" value="all_staff">
+
+            <!-- 1. Audience Selector -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="sms-section-label mb-0">
+                <i class="bi bi-people-fill"></i> Select Audience
+              </div>
+              <span class="sms-part-badge" id="activeAudienceBadge">All Active Staff</span>
+            </div>
+
+            <div class="sms-tabs mb-3">
+              <button type="button" class="sms-tab-btn active" data-mode="all_staff"
+                onclick="switchAudienceMode('all_staff')">
+                <i class="bi bi-people-fill"></i> All Staff
+                <span class="badge">{{ staff_with_phone_count }}</span>
+              </button>
+              <button type="button" class="sms-tab-btn" data-mode="by_department"
+                onclick="switchAudienceMode('by_department')">
+                <i class="bi bi-building"></i> By Dept
+              </button>
+              <button type="button" class="sms-tab-btn" data-mode="selected_staff"
+                onclick="switchAudienceMode('selected_staff')">
+                <i class="bi bi-person-check-fill"></i> Pick Staff
+              </button>
+              <button type="button" class="sms-tab-btn" data-mode="external_only"
+                onclick="switchAudienceMode('external_only')">
+                <i class="bi bi-telephone-plus-fill"></i> External
+              </button>
+            </div>
+
+            <!-- Panel: All Staff -->
+            <div class="sms-panel active" id="panel_all_staff">
+              <div class="sms-info-box">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="info-icon"><i class="bi bi-send-check"></i></div>
+                  <div>
+                    <div class="info-title">Company-wide Broadcast</div>
+                    <p class="info-desc">SMS will reach all <strong>{{ staff_with_phone_count }}</strong> verified staff
+                      members simultaneously.</p>
+                  </div>
+                </div>
+                <span class="sms-phone-badge has-phone" style="padding: 4px 12px;">
+                  <i class="bi bi-check-all me-1"></i>Ready
+                </span>
+              </div>
+            </div>
+
+            <!-- Panel: By Department -->
+            <div class="sms-panel" id="panel_by_department">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span style="font-size: 0.8rem; color: var(--text-secondary);">Select one or more departments:</span>
+                <span style="font-size: 0.8rem; font-weight: 700; color: var(--sms-gold);" id="deptSelectionSummary">0
+                  selected</span>
+              </div>
+              <div class="sms-dept-grid">
+                {% for dept in departments %}
+                <div class="sms-dept-chip" onclick="toggleDeptChip(this, '{{ dept.id }}')">
+                  <input type="checkbox" name="departments" value="{{ dept.id }}" id="dept_{{ dept.id }}"
+                    style="display: none;" onchange="updateRecipientCount()">
+                  <span class="dept-name">
+                    <i class="bi bi-check-circle-fill dept-check"></i>
+                    {{ dept.name }}
+                  </span>
+                  <span class="dept-count">{{ dept.active_staff_count }}</span>
+                </div>
+                {% empty %}
+                <div
+                  style="grid-column: 1/-1; padding: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.84rem;">
+                  No departments configured.
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Panel: Pick Staff -->
+            <div class="sms-panel" id="panel_selected_staff">
+              <div class="d-flex justify-content-between align-items-center mb-2 gap-2">
+                <div class="position-relative flex-grow-1">
+                  <input type="text" id="staffSearchInput" class="sms-staff-search"
+                    placeholder="Filter staff by name or phone..." onkeyup="filterStaffRows()">
+                  <i class="bi bi-search position-absolute"
+                    style="left: 10px; top: 50%; transform: translateY(-50%); font-size: 0.76rem; color: var(--text-secondary);"></i>
+                </div>
+                <div class="d-flex gap-1">
+                  <button type="button" class="sms-template-chip" onclick="selectAllStaff(true)"
+                    style="font-size: 0.72rem;">Select All</button>
+                  <button type="button" class="sms-template-chip" onclick="selectAllStaff(false)"
+                    style="font-size: 0.72rem;">Clear</button>
+                </div>
+              </div>
+              <div class="sms-staff-list">
+                {% for staff in staff_members %}
+                <div class="sms-staff-row"
+                  data-search="{{ staff.get_full_name|lower }} {{ staff.username|lower }} {{ staff.profile.phone_number|default:'' }}"
+                  onclick="toggleStaffRow(this)">
+                  <div class="d-flex align-items-center gap-2">
+                    <input type="checkbox" name="staff_ids" value="{{ staff.id }}" id="staff_box_{{ staff.id }}"
+                      class="form-check-input mt-0 staff-checkbox" {% if not staff.profile.phone_number %}disabled{% endif %}
+                      onchange="syncStaffRowVisual(this); updateRecipientCount();">
+                    <div class="sms-staff-avatar">
+                      {{ staff.first_name|default:staff.username|truncatechars:1|upper }}{{ staff.last_name|default:""|truncatechars:1|upper }}
+                    </div>
+                    <div>
+                      <div class="sms-staff-name">{{ staff.get_full_name|default:staff.username }}</div>
+                      <div class="sms-staff-meta">
+                        @{{ staff.username }}
+                        {% for d in staff.departments.all %}
+                        · {{ d.code }}
+                        {% endfor %}
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    {% if staff.profile.phone_number %}
+                    <span class="sms-phone-badge has-phone">
+                      <i class="bi bi-telephone me-1"></i>{{ staff.profile.phone_number }}
+                    </span>
+                    {% else %}
+                    <span class="sms-phone-badge no-phone">No phone</span>
+                    {% endif %}
+                  </div>
+                </div>
+                {% empty %}
+                <div style="padding: 1.5rem; text-align: center; color: var(--text-secondary); font-size: 0.84rem;">
+                  No staff members found.
+                </div>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Panel: External Only -->
+            <div class="sms-panel" id="panel_external_only">
+              <div class="sms-info-box">
+                <div class="d-flex align-items-center gap-3">
+                  <div class="info-icon"><i class="bi bi-telephone-plus-fill"></i></div>
+                  <div>
+                    <div class="info-title">External Mobile Broadcast</div>
+                    <p class="info-desc">Send announcements directly to custom or client phone numbers across Ethio
+                      Telecom and Safaricom networks.</p>
+                  </div>
+                </div>
+                <span class="sms-phone-badge has-phone" style="padding: 4px 12px;">
+                  <i class="bi bi-globe me-1"></i>Direct
+                </span>
+              </div>
+            </div>
+
+            <!-- External Numbers Container (Active in external_only or toggled in other modes) -->
+            <div style="margin-top: 0.85rem;">
+              <div id="externalFieldContainer" style="display: none;">
+                <div class="sms-external-box">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span style="font-size: 0.82rem; font-weight: 600; color: var(--text-primary);">External / Client
+                      Phone Numbers</span>
+                    <span style="font-size: 0.7rem; color: var(--text-secondary);">Ethio Telecom (09...) &amp; Safaricom
+                      (07...)</span>
+                  </div>
+                  <textarea name="external_numbers" id="external_numbers" rows="2"
+                    placeholder="e.g. 0912345678, 0712345678, +251911223344 (comma or newline separated)"
+                    oninput="updateRecipientCount()"></textarea>
+                  <div class="d-flex justify-content-between align-items-center mt-2">
+                    <div style="font-size: 0.72rem; color: var(--text-secondary);">
+                      <i class="bi bi-shield-check" style="color: #16a34a;"></i> Automatically validated &amp; formatted
+                      to Ethiopian standard.
+                    </div>
+                    <a href="javascript:void(0)" class="sms-ext-toggle text-muted" onclick="toggleExternalField(false)"
+                      id="externalHideBtn" style="font-size: 0.72rem; display: none;">
+                      <i class="bi bi-x-circle"></i> Hide
+                    </a>
+                  </div>
+                </div>
+              </div>
+              <div id="externalTogglePrompt" class="text-end mt-1">
+                <a href="javascript:void(0)" class="sms-ext-toggle" onclick="toggleExternalField(true)"
+                  id="externalToggleLink">
+                  <i class="bi bi-plus-circle"></i> Add external phone numbers
+                </a>
+              </div>
+            </div>
+
+            <!-- 2. Message Composer -->
+            <div class="sms-composer">
+              <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                <div class="sms-section-label mb-0">
+                  <i class="bi bi-chat-left-text"></i> Message Content
+                </div>
+                <div class="d-flex gap-1 flex-wrap">
+                  <span class="sms-template-chip" onclick="applyTemplate('urgent')">⚡ Urgent</span>
+                  <span class="sms-template-chip" onclick="applyTemplate('meeting')">📅 Meeting</span>
+                  <span class="sms-template-chip" onclick="applyTemplate('maintenance')">🛠 Maintenance</span>
+                  <span class="sms-template-chip" onclick="applyTemplate('action')">📝 Pending Letter</span>
+                </div>
+              </div>
+
+              <textarea name="message" id="messageText" rows="4" required
+                placeholder="Write your custom SMS announcement here..." oninput="handleMessageInput()"></textarea>
+
+              <div style="margin-top: 0.65rem;">
+                <div class="sms-meter-bar">
+                  <div class="sms-meter-fill" id="meterFill"></div>
+                </div>
+                <div class="sms-char-info">
+                  <div>
+                    <span class="char-num" id="charCount">0</span> characters
+                    · <span class="sms-part-badge" id="partCount">1 SMS Part</span>
+                  </div>
+                  <div>Standard 160 chars / part</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 3. Actions -->
+            <div class="sms-actions">
+              <a href="{% url 'letters:admin_dashboard' %}" class="btn btn-outline-secondary btn-sm px-3">
+                <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+              </a>
+              <button type="submit" class="sms-send-btn" id="sendBtn" onclick="return confirmSend();">
+                <i class="bi bi-send-fill"></i>
+                <span>Send SMS Broadcast</span>
+                <span class="send-count" id="btnRecipientBadge">{{ staff_with_phone_count }}</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Right Column: Phone Preview ===== -->
+    <div class="col-xl-4 col-lg-5">
+      <div class="sms-card sticky-top" style="top: 5.5rem; z-index: 10;">
+        <div class="sms-card-body text-center">
+          <div class="sms-preview-label">
+            <i class="bi bi-eye me-1"></i> Live Preview
+          </div>
+
+          <div class="sms-phone">
+            <div class="sms-phone-inner">
+              <div class="sms-phone-notch"></div>
+              <div class="sms-phone-status">
+                <span>9:41</span>
+                <div>
+                  <i class="bi bi-reception-4 me-1"></i>
+                  <i class="bi bi-wifi me-1"></i>
+                  <i class="bi bi-battery-full"></i>
+                </div>
+              </div>
+              <div class="sms-phone-contact">
+                <div class="sms-phone-avatar">
+                  <i class="bi bi-chat-quote-fill"></i>
+                </div>
+                <div class="sms-phone-sender" id="phoneSenderName">
+                  {{ sender_name|default:"AFROMESSAGE" }}
+                  <i class="bi bi-patch-check-fill" style="color: var(--sms-gold); font-size: 0.72rem;"></i>
+                </div>
+                <div class="sms-phone-verified">Verified SMS Gateway</div>
+              </div>
+              <div class="sms-phone-chat">
+                <div class="sms-phone-bubble" id="phoneBubble">
+                  Your broadcast announcement will appear here in real-time as you type...
+                </div>
+                <div class="sms-phone-time" id="phoneTime">Now · Delivered</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sms-preview-summary">
+            <div class="sum-row">
+              <span class="sum-label">Target Recipients:</span>
+              <span class="sum-value gold" id="sidebarRecipientText">{{ staff_with_phone_count }} staff</span>
+            </div>
+            <div class="sum-row">
+              <span class="sum-label">Network:</span>
+              <span class="sum-value">Ethio Telecom / Safaricom</span>
+            </div>
+            <div class="sum-row">
+              <span class="sum-label">Authorization:</span>
+              <span class="sms-phone-badge no-phone"
+                style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25);">Super
+                Admin Only</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== History Section ===== -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="sms-card">
+        <div class="sms-history-header">
+          <h6><i class="bi bi-clock-history"></i> Broadcast History</h6>
+          <span>Past transmissions</span>
+        </div>
+        <div style="overflow-x: auto;">
+          <table class="sms-table">
+            <thead>
+              <tr>
+                <th style="width: 140px;">Date &amp; Time</th>
+                <th>Sent By</th>
+                <th>Audience</th>
+                <th>Message Preview</th>
+                <th style="width: 140px; text-align: center;">Status</th>
+                <th style="width: 90px; text-align: center;">Report</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for log in logs %}
+              <tr>
+                <td>
+                  <div class="date-main">{{ log.created_at|date:"M d, Y" }}</div>
+                  <div class="date-time">{{ log.created_at|time:"h:i A" }}</div>
+                </td>
+                <td>
+                  <div class="sender-cell">
+                    <div class="sms-staff-avatar" style="width: 26px; height: 26px; font-size: 0.65rem;">
+                      {{ log.sender.username|truncatechars:1|upper }}
+                    </div>
+                    <strong>{{ log.sender.username|default:"System" }}</strong>
+                  </div>
+                </td>
+                <td>
+                  <span class="sms-part-badge">{{ log.target_type }}</span>
+                </td>
+                <td>
+                  <div class="msg-preview" title="{{ log.message }}">{{ log.message }}</div>
+                </td>
+                <td style="text-align: center;">
+                  {% if log.failed_count == 0 %}
+                  <span class="status-badge"
+                    style="background: rgba(34, 197, 94, 0.1); color: #16a34a; border: 1px solid rgba(34, 197, 94, 0.2);">
+                    <i class="bi bi-check-circle-fill me-1"></i>{{ log.success_count }}/{{ log.total_recipients }} Sent
+                  </span>
+                  {% elif log.success_count > 0 %}
+                  <span class="status-badge"
+                    style="background: rgba(234, 179, 8, 0.1); color: #ca8a04; border: 1px solid rgba(234, 179, 8, 0.2);">
+                    {{ log.success_count }} sent · {{ log.failed_count }} failed
+                  </span>
+                  {% else %}
+                  <span class="status-badge"
+                    style="background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2);">
+                    <i class="bi bi-x-circle-fill me-1"></i>{{ log.failed_count }} Failed
+                  </span>
+                  {% endif %}
+                </td>
+                <td style="text-align: center;">
+                  <button type="button" class="detail-btn" onclick="viewLogDetails({{ log.id }})">
+                    <i class="bi bi-receipt me-1"></i>Details
+                  </button>
+                </td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="6" class="empty-state">
+                  <i class="bi bi-chat-left-dots"></i>
+                  No custom SMS broadcasts have been recorded yet.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Log Delivery Report ===== -->
+<div class="modal fade sms-modal" id="logDetailsModal" tabindex="-1" aria-labelledby="logDetailsModalLabel"
+  aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title" id="logDetailsModalLabel">
+          <i class="bi bi-receipt"></i> Delivery Report
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="detail-grid">
+          <div>
+            <small>Sender</small>
+            <strong id="modalSender">—</strong>
+          </div>
+          <div>
+            <small>Timestamp</small>
+            <strong id="modalTime">—</strong>
+          </div>
+          <div>
+            <small>Target Audience</small>
+            <strong id="modalTarget" style="color: var(--sms-gold);">—</strong>
+          </div>
+        </div>
+
+        <div class="sms-section-label">Message Content</div>
+        <div class="msg-box" id="modalMessage">—</div>
+
+        <div class="sms-section-label">Recipient Logs</div>
+        <div style="max-height: 250px; overflow-y: auto;">
+          <table class="log-table">
+            <thead>
+              <tr>
+                <th>Recipient</th>
+                <th>Phone</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="modalDetailsBody">
+              <!-- Dynamically populated -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let currentAudienceMode = 'all_staff';
+  const staffWithPhoneCount = {{ staff_with_phone_count }};
+
+  // Switch audience mode
+  function switchAudienceMode(mode) {
+    currentAudienceMode = mode;
+    document.getElementById('recipientModeInput').value = mode;
+
+    // Update tab buttons
+    document.querySelectorAll('.sms-tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-mode') === mode);
+    });
+
+    // Show/hide panels
+    document.querySelectorAll('.sms-panel').forEach(p => p.classList.remove('active'));
+    const panel = document.getElementById(`panel_${mode}`);
+    if (panel) panel.classList.add('active');
+
+    // Badge label
+    const labels = {
+      'all_staff': 'All Active Staff',
+      'by_department': 'By Department',
+      'selected_staff': 'Individual Staff',
+      'external_only': 'External Only'
+    };
+    document.getElementById('activeAudienceBadge').textContent = labels[mode] || mode;
+
+    // External field visibility
+    const extContainer = document.getElementById('externalFieldContainer');
+    const extPrompt = document.getElementById('externalTogglePrompt');
+    const extHideBtn = document.getElementById('externalHideBtn');
+
+    if (mode === 'external_only') {
+      extContainer.style.display = 'block';
+      extPrompt.style.display = 'none';
+      if (extHideBtn) extHideBtn.style.display = 'none';
+    } else {
+      const hasText = document.getElementById('external_numbers').value.trim().length > 0;
+      extContainer.style.display = hasText ? 'block' : 'none';
+      extPrompt.style.display = hasText ? 'none' : 'block';
+      if (extHideBtn) extHideBtn.style.display = hasText ? 'inline-flex' : 'none';
+    }
+    updateRecipientCount();
+  }
+
+  function toggleExternalField(show) {
+    document.getElementById('externalFieldContainer').style.display = show ? 'block' : 'none';
+    document.getElementById('externalTogglePrompt').style.display = show ? 'none' : 'block';
+    const extHideBtn = document.getElementById('externalHideBtn');
+    if (extHideBtn) {
+      extHideBtn.style.display = (show && currentAudienceMode !== 'external_only') ? 'inline-flex' : 'none';
+    }
+    if (show) {
+      document.getElementById('external_numbers').focus();
+    } else {
+      document.getElementById('external_numbers').value = '';
+    }
+    updateRecipientCount();
+  }
+
+  // Department chips
+  function toggleDeptChip(chipEl, deptId) {
+    const cb = document.getElementById(`dept_${deptId}`);
+    cb.checked = !cb.checked;
+    chipEl.classList.toggle('selected', cb.checked);
+    const checkedCount = document.querySelectorAll('input[name="departments"]:checked').length;
+    document.getElementById('deptSelectionSummary').textContent = `${checkedCount} selected`;
+    updateRecipientCount();
+  }
+
+  // Staff picker
+  function toggleStaffRow(rowEl) {
+    const cb = rowEl.querySelector('.staff-checkbox');
+    if (cb.disabled) return;
+    cb.checked = !cb.checked;
+    syncStaffRowVisual(cb);
+    updateRecipientCount();
+  }
+
+  function syncStaffRowVisual(cb) {
+    cb.closest('.sms-staff-row').classList.toggle('selected', cb.checked);
+  }
+
+  function selectAllStaff(check) {
+    document.querySelectorAll('.staff-checkbox:not(:disabled)').forEach(cb => {
+      const row = cb.closest('.sms-staff-row');
+      if (row.style.display !== 'none') {
+        cb.checked = check;
+        syncStaffRowVisual(cb);
+      }
+    });
+    updateRecipientCount();
+  }
+
+  function filterStaffRows() {
+    const q = document.getElementById('staffSearchInput').value.toLowerCase();
+    document.querySelectorAll('.sms-staff-row').forEach(r => {
+      r.style.display = (r.getAttribute('data-search') || '').includes(q) ? 'flex' : 'none';
+    });
+  }
+
+  // Message input & meter
+  function handleMessageInput() {
+    const text = document.getElementById('messageText').value;
+    const bubble = document.getElementById('phoneBubble');
+    bubble.textContent = text.trim() || 'Your broadcast announcement will appear here in real-time as you type...';
+
+    const len = text.length;
+    document.getElementById('charCount').textContent = len;
+
+    let parts = 1, segMax = 160;
+    if (len > 160) {
+      parts = Math.ceil(len / 153);
+      segMax = parts * 153;
+    }
+    document.getElementById('partCount').textContent = `${parts} SMS Part${parts > 1 ? 's' : ''}`;
+
+    const pct = Math.min(100, (len / segMax) * 100);
+    const fill = document.getElementById('meterFill');
+    fill.style.width = `${pct}%`;
+    fill.style.backgroundColor = parts > 1 ? '#f59e0b' : '#d4a843';
+  }
+
+  // Quick templates
+  function applyTemplate(type) {
+    const ta = document.getElementById('messageText');
+    const templates = {
+      urgent: "[URGENT] Notice from LMS Administration: Please check your LMS portal for critical correspondence requiring immediate review.",
+      meeting: "Reminder: An all-staff coordination meeting is scheduled. Please ensure your pending letter actions are updated.",
+      maintenance: "Notice: Auction Ethiopia LMS will undergo scheduled maintenance tonight at 10:00 PM for approx 30 minutes.",
+      action: "Attention: You have pending letter assignments in AE LMS that require your action. Please review today."
+    };
+    if (templates[type]) {
+      ta.value = templates[type];
+      handleMessageInput();
+      ta.focus();
+    }
+  }
+
+  // Recipient count calculation
+  function updateRecipientCount() {
+    const extText = document.getElementById('external_numbers').value;
+    let extCount = 0;
+    if (extText.trim()) {
+      extCount = extText.split(/[\r\n,;]+/).map(t => t.trim()).filter(Boolean).length;
+    }
+
+    let summary = '', badge = 0;
+    if (currentAudienceMode === 'all_staff') {
+      badge = staffWithPhoneCount + extCount;
+      summary = `${staffWithPhoneCount} staff` + (extCount ? ` + ${extCount} external` : '');
+    } else if (currentAudienceMode === 'by_department') {
+      const depts = document.querySelectorAll('input[name="departments"]:checked').length;
+      summary = `${depts} dept(s)` + (extCount ? ` + ${extCount} external` : '');
+      badge = depts > 0 ? `${depts} depts` : 0;
+    } else if (currentAudienceMode === 'selected_staff') {
+      const staff = document.querySelectorAll('.staff-checkbox:checked').length;
+      badge = staff + extCount;
+      summary = `${staff} staff selected` + (extCount ? ` + ${extCount} external` : '');
+    } else if (currentAudienceMode === 'external_only') {
+      badge = extCount;
+      summary = `${extCount} external recipient(s)`;
+    }
+
+    document.getElementById('sidebarRecipientText').textContent = summary;
+    document.getElementById('btnRecipientBadge').textContent = badge;
+  }
+
+  // Confirm send
+  function confirmSend() {
+    if (!document.getElementById('messageText').value.trim()) {
+      alert('Please enter an SMS message to broadcast.');
+      return false;
+    }
+    return confirm("Ready to broadcast? This will immediately send live SMS messages via AfroMessage.");
+  }
+
+  // Log details modal
+  function viewLogDetails(logId) {
+    fetch(`/admin-dashboard/custom-sms/log/${logId}/`)
+      .then(res => res.json())
+      .then(data => {
+        document.getElementById('modalSender').textContent = data.sender || 'System';
+        document.getElementById('modalTime').textContent = data.created_at;
+        document.getElementById('modalTarget').textContent = data.target_type;
+        document.getElementById('modalMessage').textContent = data.message;
+
+        const tbody = document.getElementById('modalDetailsBody');
+        tbody.innerHTML = '';
+
+        if (data.delivery_details && data.delivery_details.length > 0) {
+          data.delivery_details.forEach(item => {
+            const tr = document.createElement('tr');
+            const statusBadge = item.status === 'sent'
+              ? '<span class="status-badge" style="background: rgba(34, 197, 94, 0.12); color: #16a34a;"><i class="bi bi-check me-1"></i>Sent</span>'
+              : '<span class="status-badge" style="background: rgba(239, 68, 68, 0.12); color: #ef4444;"><i class="bi bi-x me-1"></i>Failed</span>';
+
+            tr.innerHTML = `
+              <td><strong>${item.name || '—'}</strong></td>
+              <td><code>${item.phone || '—'}</code></td>
+              <td><span class="sms-part-badge">${item.type || 'staff'}</span></td>
+              <td>${statusBadge}</td>
+              <td><small class="text-secondary">${item.error || 'Delivered'}</small></td>
+            `;
+            tbody.appendChild(tr);
+          });
+        } else {
+          tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No individual delivery logs recorded.</td></tr>';
+        }
+
+        const modal = new bootstrap.Modal(document.getElementById('logDetailsModal'));
+        modal.show();
+      })
+      .catch(err => {
+        alert('Could not retrieve transmission details.');
+        console.error(err);
+      });
+  }
+
+  // Initial setup
+  document.addEventListener('DOMContentLoaded', () => {
+    handleMessageInput();
+    updateRecipientCount();
+  });
+</script>
+{% endblock %}

@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load ethiopian_date_tags %}
 
 {% block title %}{{ list_title|default:"All Letters" }}{% endblock %}
 {% block page_title %}{{ list_title|default:"All Letters" }}{% endblock %}
@@ -9,61 +11,216 @@
 </p>
 {% endblock %}
 
+{% block extra_css %}
+<style>
+  /* ===== Letter List Modern Enhancements ===== */
+  .letter-table-card {
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  }
+  
+  .letter-table {
+    font-size: 0.83rem;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  
+  .letter-table thead th {
+    background: var(--bg-card, #ffffff);
+    color: var(--text-secondary, #64748b);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 0.85rem 0.75rem;
+    border-bottom: 2px solid var(--border-color, #e2e8f0);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+  
+  .letter-table tbody tr {
+    transition: background-color 0.15s ease;
+  }
+  
+  .letter-table tbody tr:hover {
+    background-color: rgba(99, 102, 241, 0.035) !important;
+  }
+  
+  .letter-table tbody td {
+    padding: 0.75rem 0.75rem;
+    vertical-align: middle;
+    border-bottom: 1px solid var(--border-color, #f1f5f9);
+  }
+  
+  .ref-badge {
+    font-family: var(--font-mono, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+    font-weight: 600;
+    font-size: 0.77rem;
+    color: #4338ca;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    padding: 0.2rem 0.45rem;
+    border-radius: 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    transition: all 0.15s ease;
+  }
+  
+  .ref-badge:hover {
+    background: rgba(99, 102, 241, 0.16);
+    color: #312e81;
+    border-color: rgba(99, 102, 241, 0.35);
+  }
+  
+  .letter-subject-link {
+    color: var(--text-primary, #1e293b);
+    font-weight: 600;
+    text-decoration: none;
+    transition: color 0.15s ease;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+  }
+  
+  .letter-subject-link:hover {
+    color: var(--primary, #6366f1);
+  }
+
+  
+  .active-filter-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.74rem;
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--primary, #6366f1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 9999px;
+    padding: 0.2rem 0.65rem;
+    font-weight: 500;
+  }
+  
+  .bulk-floating-bar {
+    position: sticky;
+    bottom: 1rem;
+    z-index: 100;
+    background: rgba(15, 23, 42, 0.92);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    color: #ffffff;
+    border-radius: 12px;
+    padding: 0.75rem 1.25rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    margin: 0.75rem 1rem 1rem;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  
+  [data-bs-theme="dark"] .letter-table thead th {
+    background: #1e293b;
+    border-color: #334155;
+    color: #94a3b8;
+  }
+  
+  [data-bs-theme="dark"] .letter-table tbody td {
+    border-color: #334155;
+  }
+  
+  [data-bs-theme="dark"] .ref-badge {
+    background: rgba(99, 102, 241, 0.16);
+    color: #a5b4fc;
+    border-color: rgba(99, 102, 241, 0.3);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="card card-glass mb-4">
+<!-- Search & Filter Card -->
+<div class="card card-glass mb-4 shadow-sm">
   <div class="card-body">
     <form method="get" id="filter-form">
       <div class="row g-3 align-items-end">
-        <div class="col-lg-7">
-          <label for="search-input" class="form-label small text-muted mb-1">Search</label>
+        <div class="col-lg-6">
+          <label for="search-input" class="form-label small text-muted mb-1">
+            <i class="bi bi-search me-1"></i>Search Letters
+          </label>
           <div class="input-group">
-            <span class="input-group-text bg-transparent"><i class="bi bi-search"></i></span>
+            <span class="input-group-text bg-transparent border-end-0 text-muted"><i class="bi bi-search"></i></span>
             <input type="text" id="search-input" name="search" value="{{ request.GET.search }}"
-                   class="form-control" placeholder="Subject, sender, recipient, or reference number…">
+                   class="form-control border-start-0 ps-0" placeholder="Subject, sender, recipient, reference number...">
+            {% if request.GET.search %}
+            <button type="button" class="btn btn-outline-secondary border-start-0" onclick="document.getElementById('search-input').value=''; document.getElementById('filter-form').submit();" title="Clear search">
+              <i class="bi bi-x-lg"></i>
+            </button>
+            {% endif %}
           </div>
         </div>
-        <div class="col-lg-5 d-flex gap-2">
-          <button type="submit" class="btn btn-primary flex-fill">
-            <i class="bi bi-funnel"></i> Apply Filters
+
+        <div class="col-lg-6 d-flex flex-wrap gap-2 justify-content-lg-end">
+          <button type="submit" class="btn btn-primary px-3">
+            <i class="bi bi-funnel me-1"></i> Apply
           </button>
-          <a href="{{ list_clear_url|default:request.path }}" class="btn btn-outline-secondary">
-            <i class="bi bi-x-circle"></i> Clear
+          
+          <a href="{{ list_clear_url|default:request.path }}" class="btn btn-outline-secondary" title="Reset all filters">
+            <i class="bi bi-x-circle me-1"></i> Clear
           </a>
+
+          <!-- Export Dropdown -->
           <div class="btn-group">
-            <a href="?export=excel{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="btn btn-outline-success" title="Export to Excel">
-              <i class="bi bi-file-earmark-excel"></i>
-            </a>
-            <a href="?export=pdf{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}" class="btn btn-outline-danger" title="Export to PDF">
-              <i class="bi bi-file-earmark-pdf"></i>
-            </a>
+            <button type="button" class="btn btn-outline-success dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" title="Export Results">
+              <i class="bi bi-download me-1"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+              <li>
+                <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" onclick="exportResults('excel')">
+                  <i class="bi bi-file-earmark-excel text-success"></i> Export as Excel (.xlsx)
+                </a>
+              </li>
+              <li>
+                <a class="dropdown-item d-flex align-items-center gap-2" href="javascript:void(0)" onclick="exportResults('pdf')">
+                  <i class="bi bi-file-earmark-pdf text-danger"></i> Export as PDF (.pdf)
+                </a>
+              </li>
+            </ul>
           </div>
-          <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#saveSearchModal" title="Save Search">
-            <i class="bi bi-bookmark"></i>
+
+          <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#saveSearchModal" title="Save this search filter">
+            <i class="bi bi-bookmark me-1"></i> Save
           </button>
         </div>
       </div>
 
-      <button class="btn btn-link btn-sm px-0 mt-3 text-decoration-none" type="button"
-              data-bs-toggle="collapse" data-bs-target="#advanced-filters" aria-expanded="false">
-        <i class="bi bi-sliders"></i> Advanced filters
-      </button>
+      <!-- Advanced Filters Toggle -->
+      <div class="d-flex align-items-center justify-content-between mt-3 pt-2 border-top">
+        <button class="btn btn-link btn-sm px-0 text-decoration-none text-secondary d-inline-flex align-items-center gap-1" type="button"
+                data-bs-toggle="collapse" data-bs-target="#advanced-filters" aria-expanded="{% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.assigned_department or request.GET.date_from or request.GET.date_to or request.GET.eth_date_from or request.GET.eth_date_to %}true{% else %}false{% endif %}">
+          <i class="bi bi-sliders2"></i>
+          <span>Advanced Filters</span>
+          <i class="bi bi-chevron-down small ms-1"></i>
+        </button>
 
-      {% if saved_searches %}
-      <div class="mt-3">
-        <small class="text-muted">Saved searches:</small>
-        <div class="d-flex flex-wrap gap-2 mt-1">
+        {% if saved_searches %}
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <small class="text-muted"><i class="bi bi-bookmarks me-1"></i>Saved:</small>
           {% for search in saved_searches %}
-          <a href="?{{ search.query_string }}" class="badge bg-light text-dark text-decoration-none">
-            <i class="bi bi-bookmark-fill"></i> {{ search.name }}
-            <a href="{% url 'letters:delete_search' search.pk %}" class="ms-1 text-danger" onclick="return confirm('Delete this saved search?');">&times;</a>
-          </a>
+          <span class="badge bg-light text-dark border d-inline-flex align-items-center gap-1">
+            <a href="?{{ search.query_string }}" class="text-decoration-none text-dark">{{ search.name }}</a>
+            <a href="{% url 'letters:delete_search' search.pk %}" class="text-danger ms-1 text-decoration-none" title="Delete saved search" onclick="return confirm('Delete this saved search?');">&times;</a>
+          </span>
           {% endfor %}
         </div>
+        {% endif %}
       </div>
-      {% endif %}
 
-      <div class="collapse {% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.assigned_department or request.GET.date_from or request.GET.date_to %}show{% endif %}" id="advanced-filters">
-        <div class="row g-3 pt-2">
+      <!-- Advanced Filters Drawer -->
+      <div class="collapse {% if request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.assigned_department or request.GET.date_from or request.GET.date_to or request.GET.eth_date_from or request.GET.eth_date_to %}show{% endif %}" id="advanced-filters">
+        <div class="row g-3 pt-3">
           {% if not is_outgoing_view and not is_incoming_view %}
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Direction</label>
@@ -77,6 +234,7 @@
             </select>
           </div>
           {% endif %}
+
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Type</label>
             <select name="letter_type" class="form-select form-select-sm">
@@ -88,6 +246,7 @@
               {% endfor %}
             </select>
           </div>
+
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Status</label>
             <select name="status" class="form-select form-select-sm">
@@ -99,17 +258,17 @@
               {% endfor %}
             </select>
           </div>
+
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Category</label>
             <select name="category" class="form-select form-select-sm">
               <option value="">All Categories</option>
-              {% for val, label in filter.filters.category.extra.choices %}
-                {% if val %}
-                <option value="{{ val }}" {% if request.GET.category == val %}selected{% endif %}>{{ label }}</option>
-                {% endif %}
+              {% for cat in filter.filters.category.queryset %}
+                <option value="{{ cat.pk }}" {% if request.GET.category == cat.pk|stringformat:"d" %}selected{% endif %}>{{ cat.name }}</option>
               {% endfor %}
             </select>
           </div>
+
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Priority</label>
             <select name="priority" class="form-select form-select-sm">
@@ -121,6 +280,7 @@
               {% endfor %}
             </select>
           </div>
+
           <div class="col-md-3 col-lg-2">
             <label class="form-label small text-muted">Department</label>
             <select name="assigned_department" class="form-select form-select-sm">
@@ -130,87 +290,247 @@
               {% endfor %}
             </select>
           </div>
-          <div class="col-md-3 col-lg-2">
-            <label class="form-label small text-muted">From</label>
-            <input type="date" name="date_from" value="{{ request.GET.date_from }}" class="form-control form-control-sm">
+
+          <!-- Dual Calendar Date Range -->
+          <div class="col-md-3 col-lg-3">
+            <label class="form-label small text-muted">From Date (G.C.)</label>
+            <input type="date" id="id_filter_date_from" name="date_from" value="{{ request.GET.date_from }}" class="form-control form-control-sm">
           </div>
-          <div class="col-md-3 col-lg-2">
-            <label class="form-label small text-muted">To</label>
-            <input type="date" name="date_to" value="{{ request.GET.date_to }}" class="form-control form-control-sm">
+          <div class="col-md-3 col-lg-3">
+            <label class="form-label small text-muted">To Date (G.C.)</label>
+            <input type="date" id="id_filter_date_to" name="date_to" value="{{ request.GET.date_to }}" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-3 col-lg-3">
+            <label class="form-label small text-muted">From Date (E.C. / ዓ.ም.)</label>
+            <input type="text" id="id_filter_eth_from" name="eth_date_from" value="{{ request.GET.eth_date_from }}" placeholder="YYYY-MM-DD" class="form-control form-control-sm">
+          </div>
+          <div class="col-md-3 col-lg-3">
+            <label class="form-label small text-muted">To Date (E.C. / ዓ.ም.)</label>
+            <input type="text" id="id_filter_eth_to" name="eth_date_to" value="{{ request.GET.eth_date_to }}" placeholder="YYYY-MM-DD" class="form-control form-control-sm">
           </div>
         </div>
       </div>
+
+      <!-- Active Filter Badges -->
+      {% if request.GET.search or request.GET.direction or request.GET.letter_type or request.GET.status or request.GET.category or request.GET.priority or request.GET.assigned_department or request.GET.date_from or request.GET.date_to or request.GET.eth_date_from or request.GET.eth_date_to %}
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-2 border-top">
+        <span class="text-muted small me-1"><i class="bi bi-funnel-fill text-primary"></i> Active Filters:</span>
+        {% if request.GET.search %}
+          <span class="active-filter-pill">Search: "{{ request.GET.search }}"</span>
+        {% endif %}
+        {% if request.GET.direction %}
+          <span class="active-filter-pill">Direction: {{ request.GET.direction }}</span>
+        {% endif %}
+        {% if request.GET.letter_type %}
+          <span class="active-filter-pill">Type: {{ request.GET.letter_type }}</span>
+        {% endif %}
+        {% if request.GET.status %}
+          <span class="active-filter-pill">Status: {{ request.GET.status }}</span>
+        {% endif %}
+        {% if request.GET.priority %}
+          <span class="active-filter-pill">Priority: {{ request.GET.priority }}</span>
+        {% endif %}
+        {% if request.GET.date_from or request.GET.date_to %}
+          <span class="active-filter-pill">G.C.: {{ request.GET.date_from|default:"*" }} → {{ request.GET.date_to|default:"*" }}</span>
+        {% endif %}
+        {% if request.GET.eth_date_from or request.GET.eth_date_to %}
+          <span class="active-filter-pill">E.C.: {{ request.GET.eth_date_from|default:"*" }} → {{ request.GET.eth_date_to|default:"*" }}</span>
+        {% endif %}
+        <a href="{{ list_clear_url|default:request.path }}" class="btn btn-link btn-sm text-danger text-decoration-none py-0 px-1" style="font-size: 0.74rem;">
+          <i class="bi bi-x-circle me-1"></i>Reset All
+        </a>
+      </div>
+      {% endif %}
     </form>
   </div>
 </div>
 
-<div class="card card-glass">
+<!-- Letters Table Card -->
+<div class="card card-glass letter-table-card">
   <div class="card-body p-0">
     <form method="post" action="{% url 'letters:bulk_action' %}" id="bulk-action-form">
       {% csrf_token %}
       <div class="table-responsive">
-        <table class="table table-hover table-clean align-middle mb-0">
+        <table class="table table-hover letter-table align-middle mb-0">
           <thead>
             <tr>
-              <th style="width: 40px;"><input type="checkbox" class="form-check-input" id="select-all"></th>
-              <th>Ref #</th>
-              <th>Direction</th>
-              <th>Type</th>
-              <th>Subject</th>
-              <th>From / To</th>
-              <th>Category</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th>Dept</th>
-              <th>Date</th>
-              <th>Due</th>
-              {% if request.user.is_superuser %}
-              <th style="width: 50px;">Actions</th>
-              {% endif %}
+              <th style="width: 38px;" class="text-center">
+                <input type="checkbox" class="form-check-input" id="select-all" title="Select all letters">
+              </th>
+              <th style="min-width: 110px;">Ref #</th>
+              <th style="min-width: 80px;">Direction</th>
+              <th style="min-width: 85px;">Type</th>
+              <th style="min-width: 140px;">From / To</th>
+              <th style="min-width: 220px;">Subject</th>
+              <th style="min-width: 105px;">Category</th>
+              <th style="min-width: 85px;">Priority</th>
+              <th style="min-width: 95px;">Status</th>
+              <th style="min-width: 100px;">Dept</th>
+              <th style="min-width: 130px;">Date (G.C. / E.C.)</th>
+              <th style="min-width: 120px;">Due Date</th>
+              <th style="min-width: 100px;" class="text-end">Actions</th>
             </tr>
           </thead>
           <tbody>
             {% for letter in letters %}
             <tr class="cursor-pointer" onclick="window.location='{{ letter.get_absolute_url }}'">
-              <td onclick="event.stopPropagation()"><input type="checkbox" class="form-check-input letter-checkbox" name="letter_ids" value="{{ letter.pk }}"></td>
-              <td><code class="text-nowrap">{{ letter.reference_no|default:"—" }}</code></td>
-              <td>{% include 'includes/badge_direction.html' with direction=letter.direction %}</td>
-              <td>{% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type %}</td>
-              <td>{{ letter.subject|truncatechars:50 }}</td>
-              <td>
-                {% if letter.direction == 'INCOMING' %}
-                  {{ letter.sender|truncatechars:25|default:"—" }}
-                {% else %}
-                  {{ letter.recipient|truncatechars:25|default:"—" }}
-                {% endif %}
+              <!-- Checkbox -->
+              <td class="text-center" onclick="event.stopPropagation()">
+                <input type="checkbox" class="form-check-input letter-checkbox" name="letter_ids" value="{{ letter.pk }}">
               </td>
-              <td><span class="badge bg-light text-dark">{{ letter.category.name|default:"—" }}</span></td>
-              <td>{% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}</td>
-              <td>{% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}</td>
-              <td>{{ letter.assigned_department.code|default:"—" }}</td>
-              <td><small>{{ letter.date|date:"d M Y" }}</small></td>
-              <td>
-                {% if letter.is_overdue %}
-                  <span class="text-danger fw-bold"><i class="bi bi-exclamation-circle"></i> {{ letter.due_date|date:"d M" }}</span>
-                {% elif letter.due_date %}
-                  <small>{{ letter.due_date|date:"d M Y" }}</small>
-                {% else %}
-                  —
-                {% endif %}
-              </td>
-              {% if request.user.is_superuser %}
-              <td onclick="event.stopPropagation()">
-                <a href="{% url 'letters:letter_delete' letter.pk %}" class="btn btn-sm btn-outline-danger" title="Delete" onclick="return confirm('Are you sure you want to delete this letter?')">
-                  <i class="bi bi-trash"></i>
+
+              <!-- 1. Ref # -->
+              <td class="text-nowrap">
+                {% if letter.reference_no %}
+                <a href="{{ letter.get_absolute_url }}" class="ref-badge" title="View Letter {{ letter.reference_no }}">
+                  <code>{{ letter.reference_no }}</code>
                 </a>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
               </td>
-              {% endif %}
+
+              <!-- 2. Direction -->
+              <td class="text-nowrap">
+                {% include 'includes/badge_direction.html' with direction=letter.direction %}
+              </td>
+
+              <!-- 3. Type -->
+              <td class="text-nowrap">
+                {% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type %}
+              </td>
+
+              <!-- 4. From / To -->
+              <td>
+                <span class="d-inline-block text-truncate fw-medium" style="max-width: 170px;" title="{% if letter.direction == 'INCOMING' %}{{ letter.sender|default:'—' }}{% else %}{{ letter.recipient|default:'—' }}{% endif %}">
+                  {% if letter.direction == 'INCOMING' %}
+                    {{ letter.sender|default:"—" }}
+                  {% else %}
+                    {{ letter.recipient|default:"—" }}
+                  {% endif %}
+                </span>
+              </td>
+
+              <!-- 5. Subject -->
+              <td>
+                <div class="letter-subject-cell" style="min-width: 180px; max-width: 320px;">
+                  <a href="{{ letter.get_absolute_url }}" class="letter-subject-link" title="{{ letter.subject }}">
+                    {{ letter.subject }}
+                  </a>
+                  {% if letter.attention_to %}
+                  <small class="text-muted d-block text-truncate mt-1" style="font-size: 0.71rem;" title="Attention: {{ letter.attention_to }}">
+                    <i class="bi bi-at text-secondary me-0"></i>{{ letter.attention_to }}
+                  </small>
+                  {% endif %}
+                </div>
+              </td>
+
+              <!-- 6. Category -->
+              <td class="text-nowrap">
+                {% if letter.category %}
+                <span class="badge bg-light text-dark border fw-normal" title="{{ letter.category.name }}">
+                  <i class="bi bi-tag text-muted me-1"></i>{{ letter.category.name|truncatechars:18 }}
+                </span>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+
+              <!-- 7. Priority -->
+              <td class="text-nowrap">
+                {% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}
+              </td>
+
+              <!-- 8. Status -->
+              <td class="text-nowrap">
+                {% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}
+              </td>
+
+              <!-- 9. Dept -->
+              <td class="text-nowrap">
+                {% if letter.assigned_department %}
+                <span class="badge bg-secondary-subtle text-secondary fw-medium" title="{{ letter.assigned_department.name }}">
+                  <i class="bi bi-building me-1 opacity-75"></i>{{ letter.assigned_department.code|default:letter.assigned_department.name }}
+                </span>
+                {% else %}
+                <span class="text-muted small">—</span>
+                {% endif %}
+                {% if letter.assigned_person %}
+                <small class="text-muted d-block text-truncate mt-1" style="max-width: 110px; font-size: 0.71rem;" title="Assigned to: {{ letter.assigned_person.get_full_name|default:letter.assigned_person.username }}">
+                  <i class="bi bi-person me-1"></i>{{ letter.assigned_person.first_name|default:letter.assigned_person.username }}
+                </small>
+                {% endif %}
+              </td>
+
+              <!-- 10. Date (G.C. / E.C.) -->
+              <td class="text-nowrap">
+                <div class="d-flex flex-column">
+                  <span class="fw-semibold text-dark" style="font-size: 0.82rem;">{{ letter.date|date:"d M Y" }}</span>
+                  <small class="text-primary d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;" title="{{ letter.ethiopian_date_amharic|default:'' }}">
+                    <i class="bi bi-calendar2-event opacity-75" style="font-size: 0.65rem;"></i>{{ letter.ethiopian_date }}
+                  </small>
+                </div>
+              </td>
+
+              <!-- 11. Due Date -->
+              <td class="text-nowrap">
+                {% if letter.is_overdue %}
+                  <div class="d-flex flex-column">
+                    <span class="text-danger fw-bold d-inline-flex align-items-center gap-1" style="font-size: 0.82rem;">
+                      <i class="bi bi-exclamation-triangle-fill"></i> {{ letter.due_date|date:"d M Y" }}
+                    </span>
+                    <small class="text-danger" style="font-size: 0.71rem;">{{ letter.ethiopian_due_date }}</small>
+                    {% if letter.days_until_due is not None %}
+                    <span class="badge bg-danger-subtle text-danger py-0 px-1 mt-1" style="font-size: 0.66rem; width: fit-content;">
+                      {{ letter.days_until_due|cut:"-" }}d overdue
+                    </span>
+                    {% endif %}
+                  </div>
+                {% elif letter.due_date %}
+                  <div class="d-flex flex-column">
+                    <span class="text-dark small" style="font-size: 0.82rem;">{{ letter.due_date|date:"d M Y" }}</span>
+                    <small class="text-muted" style="font-size: 0.71rem;">{{ letter.ethiopian_due_date }}</small>
+                  </div>
+                {% else %}
+                  <span class="text-muted small">—</span>
+                {% endif %}
+              </td>
+
+              <!-- 12. Actions -->
+              <td class="text-nowrap text-end" onclick="event.stopPropagation()">
+                <div class="btn-group btn-group-sm">
+                  <a href="{{ letter.get_absolute_url }}" class="btn btn-outline-primary btn-sm px-2 py-1" title="View Letter Details">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-outline-secondary btn-sm px-2 py-1" title="Edit Letter">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  {% if request.user.is_superuser %}
+                  <a href="{% url 'letters:letter_delete' letter.pk %}" class="btn btn-outline-danger btn-sm px-2 py-1" title="Delete Letter" onclick="return confirm('Are you sure you want to delete this letter?');">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                  {% endif %}
+                </div>
+              </td>
             </tr>
             {% empty %}
             <tr>
-              <td colspan="{% if request.user.is_superuser %}13{% else %}12{% endif %}" class="empty-state">
-                <i class="bi bi-inbox"></i>
-                <p class="mb-0">No letters match your search criteria.</p>
+              <td colspan="13" class="empty-state py-5">
+                <div class="text-center py-4">
+                  <div class="mb-3">
+                    <i class="bi bi-inbox text-muted" style="font-size: 2.8rem; opacity: 0.5;"></i>
+                  </div>
+                  <h6 class="fw-semibold text-secondary mb-1">No letters match your search criteria</h6>
+                  <p class="text-muted small mb-3">Try adjusting your filters, clearing search terms, or registering a new letter.</p>
+                  <div class="d-flex justify-content-center gap-2">
+                    <a href="{{ list_clear_url|default:request.path }}" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
+                    </a>
+                    <a href="{% url 'letters:letter_create' %}" class="btn btn-sm btn-primary">
+                      <i class="bi bi-plus-circle me-1"></i>Register Letter
+                    </a>
+                  </div>
+                </div>
               </td>
             </tr>
             {% endfor %}
@@ -218,19 +538,29 @@
         </table>
       </div>
       
-      <div class="bulk-actions-bar p-3 border-top d-none" id="bulk-actions-bar">
-        <div class="d-flex align-items-center gap-3">
-          <span class="text-muted small"><span id="selected-count">0</span> letter(s) selected</span>
-          <select name="action" class="form-select form-select-sm" style="width: auto;">
-            <option value="">Choose action...</option>
-            <option value="archive">Archive Selected</option>
-            <option value="reopen">Reopen Selected</option>
-            {% if request.user.is_superuser %}
-            <option value="delete" class="text-danger">Delete Selected</option>
-            {% endif %}
-          </select>
-          <button type="submit" class="btn btn-sm btn-primary">Apply</button>
-          <button type="button" class="btn btn-sm btn-outline-secondary" id="clear-selection">Clear Selection</button>
+      <!-- Floating Bulk Actions Bar -->
+      <div class="bulk-floating-bar d-none" id="bulk-actions-bar">
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-check2-circle text-primary fs-5"></i>
+            <span class="fw-semibold"><span id="selected-count">0</span> letter(s) selected</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <select name="action" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto;" required>
+              <option value="">Choose bulk action...</option>
+              <option value="archive">Archive Selected</option>
+              <option value="reopen">Reopen Selected</option>
+              {% if request.user.is_superuser %}
+              <option value="delete" class="text-danger">Delete Selected</option>
+              {% endif %}
+            </select>
+            <button type="submit" class="btn btn-sm btn-primary px-3">
+              <i class="bi bi-play-fill me-1"></i>Apply
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-light" id="clear-selection">
+              <i class="bi bi-x me-1"></i>Cancel
+            </button>
+          </div>
         </div>
       </div>
     </form>
@@ -238,6 +568,35 @@
   {% include 'includes/pagination.html' %}
 </div>
 
+<!-- Save Search Modal -->
+<div class="modal fade" id="saveSearchModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="{% url 'letters:save_search' %}">
+        {% csrf_token %}
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-bookmark-plus me-2 text-primary"></i>Save Current Search</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="search-name" class="form-label small fw-semibold">Search Name</label>
+            <input type="text" class="form-control" id="search-name" name="name" required placeholder="e.g., Urgent Procurement Letters">
+          </div>
+          <p class="text-muted small mb-0">This will save your active keyword and filter selections for one-click access later.</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-sm btn-primary">Save Search</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/ethiopian_calendar.js' %}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
   const selectAll = document.getElementById('select-all');
@@ -250,12 +609,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const checked = document.querySelectorAll('.letter-checkbox:checked');
     const count = checked.length;
     
-    selectedCount.textContent = count;
+    if (selectedCount) selectedCount.textContent = count;
     
-    if (count > 0) {
-      bulkActionsBar.classList.remove('d-none');
-    } else {
-      bulkActionsBar.classList.add('d-none');
+    if (bulkActionsBar) {
+      if (count > 0) {
+        bulkActionsBar.classList.remove('d-none');
+      } else {
+        bulkActionsBar.classList.add('d-none');
+      }
     }
   }
   
@@ -279,32 +640,19 @@ document.addEventListener('DOMContentLoaded', function() {
       updateBulkActionsBar();
     });
   }
-});
-</script>
 
-<!-- Save Search Modal -->
-<div class="modal fade" id="saveSearchModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="{% url 'letters:save_search' %}">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title">Save Search</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label for="search-name" class="form-label">Search Name</label>
-            <input type="text" class="form-control" id="search-name" name="name" required placeholder="e.g., Urgent HR Letters">
-          </div>
-          <p class="text-muted small">This will save your current filter settings for quick access later.</p>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Search</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
+  // Connect dual Ethiopian/Gregorian date pickers in filter drawer
+  if (window.EthiopianCalendar) {
+    window.EthiopianCalendar.bindDualDatePicker('id_filter_date_from', 'id_filter_eth_from', 'badge-filter-from');
+    window.EthiopianCalendar.bindDualDatePicker('id_filter_date_to', 'id_filter_eth_to', 'badge-filter-to');
+  }
+});
+
+// Helper for exporting with all active filters preserved
+function exportResults(format) {
+  const currentUrl = new URL(window.location.href);
+  currentUrl.searchParams.set('export', format);
+  window.location.href = currentUrl.toString();
+}
+</script>
 {% endblock %}

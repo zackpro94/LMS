@@ -200,6 +200,21 @@
                 <label class="text-muted small">Last Login</label>
                 <div class="fw-semibold">{{ request.user.last_login|date:"F d, Y H:i"|default:"Never" }}</div>
               </div>
+              <div class="col-md-6 mb-3">
+                <label class="text-muted small">Phone Number (Staff Profile)</label>
+                <div class="fw-semibold">
+                  {% if profile.phone_number %}
+                    <i class="bi bi-telephone-fill text-success me-1"></i> {{ profile.phone_number }}
+                    {% if profile.sms_notifications %}
+                      <span class="badge bg-success-subtle text-success ms-1" style="font-size: 0.7rem;">SMS Enabled</span>
+                    {% else %}
+                      <span class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.7rem;">SMS Disabled</span>
+                    {% endif %}
+                  {% else %}
+                    <span class="text-muted">Not registered</span>
+                  {% endif %}
+                </div>
+              </div>
             </div>
           </div>
         </div>

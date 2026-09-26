@@ -61,17 +61,26 @@
           <i class="bi bi-graph-up"></i> <span>Reports</span>
         </a>
       </li>
+      {% if lms_ai_enabled %}
       <li class="sidebar-nav-item">
         <a href="{% url 'letters:ai_assistant_page' %}" class="sidebar-nav-link {% if request.resolver_match.url_name == 'ai_assistant_page' %}active{% endif %}" data-tooltip="AI Assistant">
           <i class="bi bi-sparkles text-warning"></i> <span>AI Assistant</span>
         </a>
       </li>
+      {% endif %}
       {% if lms_is_system_admin %}
       <li class="sidebar-nav-item mt-3">
-        <a href="{% url 'letters:admin_dashboard' %}" class="sidebar-nav-link {% if 'admin-dashboard' in request.path %}active{% endif %}" data-tooltip="System Settings">
+        <a href="{% url 'letters:admin_dashboard' %}" class="sidebar-nav-link {% if 'admin-dashboard' in request.path and 'custom-sms' not in request.path %}active{% endif %}" data-tooltip="System Settings">
           <i class="bi bi-sliders2-vertical"></i> <span>System Settings</span>
         </a>
       </li>
+      {% if user.is_superuser %}
+      <li class="sidebar-nav-item">
+        <a href="{% url 'letters:custom_sms' %}" class="sidebar-nav-link {% if 'custom-sms' in request.path %}active{% endif %}" data-tooltip="Custom SMS">
+          <i class="bi bi-chat-dots text-warning"></i> <span>Custom SMS</span>
+        </a>
+      </li>
+      {% endif %}
       <li class="sidebar-nav-item">
         <a href="{% url 'admin:index' %}" class="sidebar-nav-link" target="_blank" rel="noopener" data-tooltip="Admin Panel">
           <i class="bi bi-gear"></i> <span>Admin Panel</span>
@@ -300,8 +309,10 @@
   {% endif %}
 
   <!-- AI Assistant Floating Widget -->
+  {% if lms_ai_enabled %}
   {% include 'includes/ai_chat_widget.html' %}
   <script src="{% static 'js/ai_chat.js' %}"></script>
+  {% endif %}
   {% block extra_js %}{% endblock %}
 </body>
 </html>

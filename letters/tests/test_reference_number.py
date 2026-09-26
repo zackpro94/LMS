@@ -111,7 +111,7 @@ class ReferenceNumberGenerationTest(TestCase):
             assigned_department=None,
             created_by=self.user,
         )
-        self.assertEqual(letter.reference_no, '')
+        self.assertIsNone(letter.reference_no)
 
     # -------------------------------------------------------------------
     # Reference assigned on department assignment
@@ -126,7 +126,7 @@ class ReferenceNumberGenerationTest(TestCase):
             assigned_department=None,
             created_by=self.user,
         )
-        self.assertEqual(letter.reference_no, '')
+        self.assertIsNone(letter.reference_no)
 
         # Now assign department and save
         letter.assigned_department = self.hr_dept

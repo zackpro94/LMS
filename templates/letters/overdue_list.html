@@ -39,8 +39,12 @@
           <tr class="cursor-pointer table-danger-subtle" onclick="window.location='{{ letter.get_absolute_url }}'">
             <td><code>{{ letter.reference_no|default:"—" }}</code></td>
             <td>{{ letter.subject|truncatechars:40 }}</td>
-            <td>{% include 'includes/badge_direction.html' with direction=letter.direction %}</td>
-            <td><span class="text-danger fw-bold">{{ letter.due_date|date:"d M Y" }}</span></td>
+            <td>
+              <div class="d-flex flex-column">
+                <span class="text-danger fw-bold">{{ letter.due_date|date:"d M Y" }}</span>
+                <small class="text-danger opacity-75" style="font-size: 0.72rem;">{{ letter.ethiopian_due_date }}</small>
+              </div>
+            </td>
             <td>
               {% if letter.days_until_due is not None %}
                 <span class="badge bg-danger">{{ letter.days_until_due|cut:"-" }} days</span>

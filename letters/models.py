@@ -120,14 +120,14 @@ class Letter(models.Model):
     ]
 
     reference_no = models.CharField(
-        max_length=50, unique=True, blank=True,
+        max_length=50, unique=True, null=True, blank=True,
         help_text='For incoming letters: enter manually. For outgoing letters: auto-generated as AE/{DEPT}/{SEQ}/{YY}',
     )
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
     letter_type = models.CharField(
         max_length=10,
         choices=LETTER_TYPE_CHOICES,
-        default=HARDCOPY,
+        default=DIGITAL,
         help_text='Format of the letter (Hardcopy or Digital)',
     )
     date = models.DateField(help_text='Date received or sent')
@@ -207,6 +207,38 @@ class Letter(models.Model):
             return (self.due_date - timezone.now().date()).days
         return None
 
+    @property
+    def ethiopian_date(self):
+        """Return formatted Ethiopian date string (English)."""
+        if not self.date:
+            return ""
+        from .ethiopian_calendar import format_ethiopian_date
+        return format_ethiopian_date(self.date, fmt='full', amharic=False)
+
+    @property
+    def ethiopian_date_amharic(self):
+        """Return formatted Ethiopian date string in Amharic."""
+        if not self.date:
+            return ""
+        from .ethiopian_calendar import format_ethiopian_date
+        return format_ethiopian_date(self.date, fmt='full', amharic=True)
+
+    @property
+    def ethiopian_due_date(self):
+        """Return formatted Ethiopian due date string (English)."""
+        if not self.due_date:
+            return ""
+        from .ethiopian_calendar import format_ethiopian_date
+        return format_ethiopian_date(self.due_date, fmt='full', amharic=False)
+
+    @property
+    def ethiopian_due_date_amharic(self):
+        """Return formatted Ethiopian due date string in Amharic."""
+        if not self.due_date:
+            return ""
+        from .ethiopian_calendar import format_ethiopian_date
+        return format_ethiopian_date(self.due_date, fmt='full', amharic=True)
+
     # ------------------------------------------------------------------
     # Reference number generation
     # ------------------------------------------------------------------
@@ -241,9 +273,14 @@ class Letter(models.Model):
             elif self.direction == self.OUTGOING:
                 self.status = self.DRAFTED
         
-        # Auto-generate reference number only for outgoing letters on first save when department is set
-        if not self.reference_no and self.direction == self.OUTGOING and self.assigned_department:
+        # Auto-generate reference number if not provided and department is assigned
+        if not self.reference_no and self.assigned_department:
             self.reference_no = self.generate_reference_number()
+
+        # Convert empty string to None to ensure database unique constraint works cleanly
+        if self.reference_no == '':
+            self.reference_no = None
+
         super().save(*args, **kwargs)
 
 
@@ -429,6 +466,16 @@ class UserProfile(models.Model):
         unique=True,
         help_text='Code for connecting Telegram account (deprecated, use TelegramLinkToken)'
     )
+    phone_number = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text='Phone number for SMS notifications (Ethiopian format: 09XXXXXXXX)'
+    )
+    sms_notifications = models.BooleanField(
+        default=False,
+        help_text='Receive SMS notifications via AfroMessage'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -550,3 +597,120 @@ class SavedSearch(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.user.username})'
+
+
+class SystemSetting(models.Model):
+    """Global system configuration flags managed by administrators."""
+    ai_assistant_enabled = models.BooleanField(
+        default=True,
+        help_text='Enable or disable the AI Platform Assistant chatbot & guide'
+    )
+    ai_ocr_enabled = models.BooleanField(
+        default=True,
+        help_text='Enable or disable OCR auto-fill document scanning'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='system_settings_updates'
+    )
+
+    class Meta:
+        verbose_name = 'System Setting'
+        verbose_name_plural = 'System Settings'
+
+    def __str__(self):
+        return f'System Settings (AI: {"ON" if self.ai_assistant_enabled else "OFF"}, OCR: {"ON" if self.ai_ocr_enabled else "OFF"})'
+
+    @classmethod
+    def get_settings(cls):
+        """Return the singleton SystemSetting instance (creates default if none exists)."""
+        setting, _ = cls.objects.get_or_create(pk=1)
+        return setting
+
+
+class SMSVerificationCode(models.Model):
+    """Stores OTP codes for SMS-based password reset."""
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name='sms_verification_codes'
+    )
+    code = models.CharField(max_length=6)
+    phone_number = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    is_used = models.BooleanField(default=False)
+    attempts = models.IntegerField(default=0, help_text='Number of failed verification attempts')
+
+    class Meta:
+        verbose_name = 'SMS Verification Code'
+        verbose_name_plural = 'SMS Verification Codes'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'is_used']),
+            models.Index(fields=['expires_at']),
+        ]
+
+    def __str__(self):
+        return f'OTP for {self.user.username} - {"Used" if self.is_used else "Active"}'
+
+    @property
+    def is_valid(self):
+        """Check if code is still valid (not used, not expired, attempts < 5)."""
+        return not self.is_used and timezone.now() < self.expires_at and self.attempts < 5
+
+    @classmethod
+    def generate_code(cls, user, phone_number):
+        """
+        Generate a new 6-digit OTP code for the given user.
+        Invalidates any existing unused codes for this user.
+        """
+        import random
+        # Invalidate previous unused codes
+        cls.objects.filter(user=user, is_used=False).update(is_used=True)
+        # Generate 6-digit code
+        code = f'{random.randint(100000, 999999)}'
+        # Code expires in 5 minutes
+        expires = timezone.now() + timezone.timedelta(minutes=5)
+        return cls.objects.create(
+            user=user,
+            code=code,
+            phone_number=phone_number,
+            expires_at=expires,
+        )
+
+
+class CustomSMSLog(models.Model):
+    """Audit log of custom SMS messages sent by super admins to staff and others."""
+    sender = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='custom_sms_broadcasts',
+        help_text='Super admin who initiated the broadcast'
+    )
+    message = models.TextField(help_text='Message content sent via SMS')
+    target_type = models.CharField(
+        max_length=50,
+        default='custom',
+        help_text='all_staff, department, selected_staff, external, or mixed'
+    )
+    total_recipients = models.PositiveIntegerField(default=0)
+    success_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    delivery_details = models.JSONField(
+        default=list,
+        blank=True,
+        help_text='List of individual recipient records: [{phone, name, type, status, error}]'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Custom SMS Log'
+        verbose_name_plural = 'Custom SMS Logs'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        sender_name = self.sender.username if self.sender else 'System'
+        return f"Custom SMS by {sender_name} ({self.success_count}/{self.total_recipients}) on {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+

@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Department, ReferenceCounter, Letter, Attachment, ActionLog, Category, UserProfile, SavedSearch
+from .models import (
+    Department, ReferenceCounter, Letter, Attachment, ActionLog, Category, UserProfile, SavedSearch,
+    SystemSetting, CustomSMSLog,
+)
 
 
 @admin.register(Category)
@@ -7,7 +10,6 @@ class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'code')
     search_fields = ('name', 'code')
     ordering = ('name',)
-
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +99,9 @@ class ActionLogAdmin(admin.ModelAdmin):
 
 @admin.register(UserProfile)
 class UserProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'dark_mode', 'created_at', 'updated_at')
-    list_filter = ('dark_mode', 'created_at')
-    search_fields = ('user__username', 'user__email')
+    list_display = ('user', 'phone_number', 'sms_notifications', 'telegram_notifications', 'dark_mode', 'created_at')
+    list_filter = ('sms_notifications', 'telegram_notifications', 'dark_mode', 'created_at')
+    search_fields = ('user__username', 'user__email', 'phone_number')
 
 
 @admin.register(SavedSearch)
@@ -107,3 +109,18 @@ class SavedSearchAdmin(admin.ModelAdmin):
     list_display = ('name', 'user', 'created_at')
     list_filter = ('created_at',)
     search_fields = ('name', 'user__username')
+
+
+@admin.register(SystemSetting)
+class SystemSettingAdmin(admin.ModelAdmin):
+    list_display = ('__str__', 'ai_assistant_enabled', 'ai_ocr_enabled', 'updated_at', 'updated_by')
+    readonly_fields = ('updated_at',)
+
+
+@admin.register(CustomSMSLog)
+class CustomSMSLogAdmin(admin.ModelAdmin):
+    list_display = ('id', 'sender', 'target_type', 'total_recipients', 'success_count', 'failed_count', 'created_at')
+    list_filter = ('target_type', 'created_at', 'sender')
+    search_fields = ('message', 'sender__username')
+    readonly_fields = ('sender', 'message', 'target_type', 'total_recipients', 'success_count', 'failed_count', 'delivery_details', 'created_at')
+

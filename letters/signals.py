@@ -5,6 +5,7 @@ from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 from .models import Letter, Notification, ActionLog
 from .telegram_utils import send_telegram_message
+from .sms_utils import send_sms_notification
 import json
 
 try:
@@ -35,11 +36,15 @@ def letter_saved(sender, instance, created, **kwargs):
         notify_users_about_letter(instance, 'created')
         # Send Telegram notification for new assignment
         send_telegram_for_letter_assignment(instance)
+        # Send SMS notification for new assignment
+        send_sms_for_letter_assignment(instance)
     else:
         # Notify about letter update
         notify_users_about_letter(instance, 'updated')
         # Send Telegram notification for status changes
         send_telegram_for_status_change(instance)
+        # Send SMS notification for status changes
+        send_sms_for_status_change(instance)
 
 
 @receiver(post_save, sender=Notification)
@@ -196,8 +201,8 @@ def send_telegram_for_letter_assignment(letter):
         return
     
     try:
-        profile = letter.assigned_person.profile
-        if profile.telegram_chat_id and profile.telegram_notifications:
+        profile = getattr(letter.assigned_person, 'profile', None)
+        if profile and profile.telegram_chat_id and profile.telegram_notifications:
             # Determine sender/recipient based on direction
             if letter.direction == 'INCOMING':
                 contact_info = f"From: {letter.sender}" if letter.sender else ""
@@ -222,7 +227,7 @@ def send_telegram_for_letter_assignment(letter):
             
             send_telegram_message(profile.telegram_chat_id, message)
     except Exception as e:
-        print(f"Error sending Telegram notification for letter assignment: {e}")
+        logger.error(f"Error sending Telegram notification for letter assignment: {e}")
 
 
 def send_telegram_for_status_change(letter):
@@ -236,8 +241,8 @@ def send_telegram_for_status_change(letter):
         try:
             # Notify the letter creator
             if letter.created_by:
-                profile = letter.created_by.profile
-                if profile.telegram_chat_id and profile.telegram_notifications:
+                profile = getattr(letter.created_by, 'profile', None)
+                if profile and profile.telegram_chat_id and profile.telegram_notifications:
                     # Determine sender/recipient based on direction
                     if letter.direction == 'INCOMING':
                         contact_info = f"From: {letter.sender}" if letter.sender else ""
@@ -262,4 +267,54 @@ def send_telegram_for_status_change(letter):
                     
                     send_telegram_message(profile.telegram_chat_id, message)
         except Exception as e:
-            print(f"Error sending Telegram notification for status change: {e}")
+            logger.error(f"Error sending Telegram notification for status change: {e}")
+
+
+def send_sms_for_letter_assignment(letter):
+    """Send SMS notification when a letter is assigned to a user."""
+    if not letter.assigned_person:
+        return
+
+    try:
+        profile = getattr(letter.assigned_person, 'profile', None)
+        if profile and profile.phone_number and profile.sms_notifications:
+            direction_label = "Incoming" if letter.direction == 'INCOMING' else "Outgoing"
+
+            sms_text = (
+                f"AE LMS: New {direction_label} letter assigned\n"
+                f"Ref: {letter.reference_no}\n"
+                f"Subject: {letter.subject}\n"
+                f"Priority: {letter.get_priority_display()}"
+            )
+
+            if letter.due_date:
+                sms_text += f"\nDue: {letter.due_date.strftime('%Y-%m-%d')}"
+
+            send_sms_notification(letter.assigned_person, 'New Letter Assigned', sms_text)
+    except Exception as e:
+        logger.error(f"Error sending SMS notification for letter assignment: {e}")
+
+
+def send_sms_for_status_change(letter):
+    """Send SMS notification when letter status changes to specific values."""
+    old_status = getattr(letter, '_old_status', None)
+
+    # Only notify for specific status changes
+    status_changes_to_notify = ['RESPONDED', 'CLOSED', 'APPROVED', 'REJECTED']
+
+    if old_status and letter.status in status_changes_to_notify and old_status != letter.status:
+        try:
+            # Notify the letter creator
+            if letter.created_by:
+                profile = getattr(letter.created_by, 'profile', None)
+                if profile and profile.phone_number and profile.sms_notifications:
+                    sms_text = (
+                        f"AE LMS: Letter status updated\n"
+                        f"Ref: {letter.reference_no}\n"
+                        f"Status: {old_status} > {letter.status}\n"
+                        f"Subject: {letter.subject[:50]}"
+                    )
+
+                    send_sms_notification(letter.created_by, 'Status Update', sms_text)
+        except Exception as e:
+            logger.error(f"Error sending SMS notification for status change: {e}")

@@ -1,10 +1,11 @@
 import django_filters
 from django import forms
 from .models import Letter, Department, Category
+from .ethiopian_calendar import parse_ethiopian_date
 
 
 class LetterFilter(django_filters.FilterSet):
-    """Filter set for the letter list view."""
+    """Filter set for the letter list view with dual Gregorian and Ethiopian date support."""
 
     direction = django_filters.ChoiceFilter(
         choices=Letter.DIRECTION_CHOICES,
@@ -33,15 +34,45 @@ class LetterFilter(django_filters.FilterSet):
     date_from = django_filters.DateFilter(
         field_name='date',
         lookup_expr='gte',
-        label='From Date',
+        label='From Date (G.C.)',
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
     date_to = django_filters.DateFilter(
         field_name='date',
         lookup_expr='lte',
-        label='To Date',
+        label='To Date (G.C.)',
         widget=forms.DateInput(attrs={'type': 'date'}),
     )
+    eth_date_from = django_filters.CharFilter(
+        method='filter_eth_date_from',
+        label='From Date (E.C.)',
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD', 'class': 'form-control form-control-sm'}),
+    )
+    eth_date_to = django_filters.CharFilter(
+        method='filter_eth_date_to',
+        label='To Date (E.C.)',
+        widget=forms.TextInput(attrs={'placeholder': 'YYYY-MM-DD', 'class': 'form-control form-control-sm'}),
+    )
+
+    def filter_eth_date_from(self, queryset, name, value):
+        if value:
+            try:
+                greg_date = parse_ethiopian_date(value)
+                if greg_date:
+                    return queryset.filter(date__gte=greg_date)
+            except Exception:
+                pass
+        return queryset
+
+    def filter_eth_date_to(self, queryset, name, value):
+        if value:
+            try:
+                greg_date = parse_ethiopian_date(value)
+                if greg_date:
+                    return queryset.filter(date__lte=greg_date)
+            except Exception:
+                pass
+        return queryset
 
     class Meta:
         model = Letter

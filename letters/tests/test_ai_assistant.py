@@ -95,3 +95,43 @@ ACTION_EXECUTE: {
         self.assertEqual(letter.direction, "INCOMING")
         self.assertEqual(letter.priority, "URGENT")
         self.assertEqual(letter.assigned_department.code, "HR")
+
+    def test_admin_toggle_ai_setting(self):
+        """Test that admin can toggle AI and OCR on/off and guards block access when disabled."""
+        from letters.models import SystemSetting
+        admin_user = User.objects.create_superuser('adminuser', 'admin@example.com', 'adminpass123')
+        
+        # 1. Admin turns AI Assistant OFF
+        self.client.login(username='adminuser', password='adminpass123')
+        toggle_url = reverse('letters:admin_toggle_ai')
+        res = self.client.post(toggle_url, {'feature': 'ai_assistant', 'enable': '0'})
+        self.assertEqual(res.status_code, 302)
+
+        setting = SystemSetting.get_settings()
+        self.assertFalse(setting.ai_assistant_enabled)
+
+        # 2. Regular user tries to access AI chat -> should be 403 Forbidden
+        self.client.login(username='teststaff', password='testpassword123')
+        chat_url = reverse('letters:ai_assistant_chat')
+        res = self.client.post(chat_url, json.dumps({'prompt': 'Hello'}), content_type='application/json')
+        self.assertEqual(res.status_code, 403)
+        self.assertIn('disabled', res.json()['error'])
+
+        # 3. Regular user navigates to AI page -> redirected
+        page_url = reverse('letters:ai_assistant_page')
+        res = self.client.get(page_url)
+        self.assertEqual(res.status_code, 302)
+
+        # 4. Admin turns AI Assistant back ON
+        self.client.login(username='adminuser', password='adminpass123')
+        res = self.client.post(toggle_url, {'feature': 'ai_assistant', 'enable': '1'})
+        self.assertEqual(res.status_code, 302)
+
+        setting = SystemSetting.get_settings()
+        self.assertTrue(setting.ai_assistant_enabled)
+
+        # 5. Regular user can now access AI chat again
+        self.client.login(username='teststaff', password='testpassword123')
+        res = self.client.post(chat_url, json.dumps({'prompt': 'Hello'}), content_type='application/json')
+        self.assertEqual(res.status_code, 200)
+

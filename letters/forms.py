@@ -1,13 +1,41 @@
 from django import forms
+from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User, Group, Permission
 from django.contrib.auth.forms import PasswordChangeForm as DjangoPasswordChangeForm
 from crispy_forms.helper import FormHelper
 from crispy_forms.layout import Layout, Row, Column, Field, Submit, Div, HTML
-from .models import Letter, ActionLog, Attachment, Department, Category, UserProfile
+from .models import (
+    Letter, ActionLog, Attachment, Department, Category, UserProfile,
+)
+
+
+from .ethiopian_calendar import format_ethiopian_date, parse_ethiopian_date
 
 
 class LetterForm(forms.ModelForm):
-    """Form for creating and editing letters."""
+    """Form for creating and editing letters with dual Gregorian and Ethiopian calendar support."""
+
+    ethiopian_date = forms.CharField(
+        required=False,
+        label='Date (Ethiopian / ዓ.ም.)',
+        widget=forms.TextInput(attrs={
+            'placeholder': 'YYYY-MM-DD (e.g. 2018-12-15)',
+            'class': 'eth-date-input form-control',
+            'autocomplete': 'off',
+        }),
+        help_text='Auto-synced with Gregorian date',
+    )
+    ethiopian_due_date = forms.CharField(
+        required=False,
+        label='Due Date (Ethiopian / ዓ.ም.)',
+        widget=forms.TextInput(attrs={
+            'placeholder': 'YYYY-MM-DD (e.g. 2018-12-30)',
+            'class': 'eth-due-date-input form-control',
+            'autocomplete': 'off',
+        }),
+        help_text='Auto-synced with Gregorian due date',
+    )
 
     class Meta:
         model = Letter
@@ -18,13 +46,43 @@ class LetterForm(forms.ModelForm):
             'status', 'related_letter', 'due_date',
         ]
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date'}),
-            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-due-date-input form-control'}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.user = user
+
+        # Make Gregorian date field not strictly required in standard field validation
+        # so clean() can accept either Gregorian date or Ethiopian date input
+        if 'date' in self.fields:
+            self.fields['date'].required = False
+
+        # Make sender/recipient required based on direction
+        direction_val = None
+        if self.instance and self.instance.pk:
+            direction_val = self.instance.direction
+        if self.data:
+            direction_val = self.data.get('direction') or direction_val
+
+        if 'sender' in self.fields:
+            if direction_val == Letter.INCOMING or not direction_val:
+                self.fields['sender'].required = True
+        if 'recipient' in self.fields:
+            if direction_val == Letter.OUTGOING or not direction_val:
+                self.fields['recipient'].required = True
+
+        # Make assigned_person required
+        if 'assigned_person' in self.fields:
+            self.fields['assigned_person'].required = True
+
+        # Populate initial Ethiopian dates from instance if available
+        if self.instance and self.instance.pk:
+            if self.instance.date and not self.initial.get('ethiopian_date'):
+                self.initial['ethiopian_date'] = format_ethiopian_date(self.instance.date, fmt='iso')
+            if self.instance.due_date and not self.initial.get('ethiopian_due_date'):
+                self.initial['ethiopian_due_date'] = format_ethiopian_date(self.instance.due_date, fmt='iso')
 
         # Make reference_no required for incoming letters (only if field exists)
         if 'reference_no' in self.fields:
@@ -46,8 +104,12 @@ class LetterForm(forms.ModelForm):
             Row(
                 Column('direction', css_class='col-md-3'),
                 Column('letter_type', css_class='col-md-3'),
-                Column('date', css_class='col-md-3'),
                 Column('priority', css_class='col-md-3'),
+                Column('category', css_class='col-md-3'),
+            ),
+            Row(
+                Column('date', css_class='col-md-6'),
+                Column('ethiopian_date', css_class='col-md-6'),
             ),
             'reference_no',
             Row(
@@ -57,15 +119,15 @@ class LetterForm(forms.ModelForm):
             'attention_to',
             'subject',
             Row(
-                Column('category', css_class='col-md-4'),
                 Column('assigned_department', css_class='col-md-4'),
                 Column('assigned_person', css_class='col-md-4'),
+                Column('status', css_class='col-md-4'),
             ),
             Row(
-                Column('status', css_class='col-md-4'),
-                Column('due_date', css_class='col-md-4'),
-                Column('related_letter', css_class='col-md-4'),
+                Column('due_date', css_class='col-md-6'),
+                Column('ethiopian_due_date', css_class='col-md-6'),
             ),
+            'related_letter',
             Div(
                 Submit('submit', 'Save Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
@@ -103,6 +165,41 @@ class LetterForm(forms.ModelForm):
                 ]
                 self.fields['status'].choices = restricted
 
+    def clean(self):
+        cleaned_data = super().clean()
+        greg_date = cleaned_data.get('date')
+        eth_date_str = cleaned_data.get('ethiopian_date')
+        greg_due_date = cleaned_data.get('due_date')
+        eth_due_date_str = cleaned_data.get('ethiopian_due_date')
+
+        # Synchronize Letter Date
+        if eth_date_str:
+            try:
+                parsed_date = parse_ethiopian_date(eth_date_str)
+                if parsed_date:
+                    cleaned_data['date'] = parsed_date
+                    greg_date = parsed_date
+            except Exception as e:
+                self.add_error('ethiopian_date', f'Invalid Ethiopian date: {str(e)}')
+        elif greg_date:
+            cleaned_data['ethiopian_date'] = format_ethiopian_date(greg_date, fmt='iso')
+
+        if not cleaned_data.get('date'):
+            self.add_error('date', 'Date is required (enter Gregorian or Ethiopian date).')
+
+        # Synchronize Due Date
+        if eth_due_date_str:
+            try:
+                parsed_due = parse_ethiopian_date(eth_due_date_str)
+                if parsed_due:
+                    cleaned_data['due_date'] = parsed_due
+            except Exception as e:
+                self.add_error('ethiopian_due_date', f'Invalid Ethiopian due date: {str(e)}')
+        elif greg_due_date:
+            cleaned_data['ethiopian_due_date'] = format_ethiopian_date(greg_due_date, fmt='iso')
+
+        return cleaned_data
+
 
 class IncomingLetterForm(LetterForm):
     """Form specifically for incoming letters - no recipient field."""
@@ -116,8 +213,8 @@ class IncomingLetterForm(LetterForm):
             'status', 'related_letter', 'due_date',
         ]
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date'}),
-            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-due-date-input form-control'}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -125,6 +222,10 @@ class IncomingLetterForm(LetterForm):
         # Remove recipient field
         if 'recipient' in self.fields:
             del self.fields['recipient']
+        
+        # Sender is required for incoming letters
+        if 'sender' in self.fields:
+            self.fields['sender'].required = True
         
         # Set direction to INCOMING and hide it
         if 'direction' in self.fields:
@@ -147,28 +248,32 @@ class IncomingLetterForm(LetterForm):
             ]
             self.fields['status'].choices = incoming_statuses
         
-        # Update layout to remove recipient
+        # Update layout with dual date inputs
         self.helper.layout = Layout(
             'direction',
             Row(
                 Column('letter_type', css_class='col-md-4'),
-                Column('date', css_class='col-md-4'),
                 Column('priority', css_class='col-md-4'),
+                Column('category', css_class='col-md-4'),
+            ),
+            Row(
+                Column('date', css_class='col-md-6'),
+                Column('ethiopian_date', css_class='col-md-6'),
             ),
             'reference_no',
             'sender',
             'attention_to',
             'subject',
             Row(
-                Column('category', css_class='col-md-4'),
                 Column('assigned_department', css_class='col-md-4'),
                 Column('assigned_person', css_class='col-md-4'),
+                Column('status', css_class='col-md-4'),
             ),
             Row(
-                Column('status', css_class='col-md-4'),
-                Column('due_date', css_class='col-md-4'),
-                Column('related_letter', css_class='col-md-4'),
+                Column('due_date', css_class='col-md-6'),
+                Column('ethiopian_due_date', css_class='col-md-6'),
             ),
+            'related_letter',
             Div(
                 Submit('submit', 'Save Incoming Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:incoming_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
@@ -188,8 +293,8 @@ class OutgoingLetterForm(LetterForm):
             'status', 'related_letter', 'due_date',
         ]
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date'}),
-            'due_date': forms.DateInput(attrs={'type': 'date'}),
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
+            'due_date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-due-date-input form-control'}),
         }
 
     def __init__(self, *args, user=None, **kwargs):
@@ -199,6 +304,10 @@ class OutgoingLetterForm(LetterForm):
             del self.fields['sender']
         if 'reference_no' in self.fields:
             del self.fields['reference_no']
+        
+        # Recipient is required for outgoing letters
+        if 'recipient' in self.fields:
+            self.fields['recipient'].required = True
         
         # Set direction to OUTGOING and hide it
         if 'direction' in self.fields:
@@ -213,27 +322,31 @@ class OutgoingLetterForm(LetterForm):
             ]
             self.fields['status'].choices = outgoing_statuses
         
-        # Update layout to remove sender and reference_no
+        # Update layout with dual date inputs
         self.helper.layout = Layout(
             'direction',
             Row(
                 Column('letter_type', css_class='col-md-4'),
-                Column('date', css_class='col-md-4'),
                 Column('priority', css_class='col-md-4'),
+                Column('category', css_class='col-md-4'),
+            ),
+            Row(
+                Column('date', css_class='col-md-6'),
+                Column('ethiopian_date', css_class='col-md-6'),
             ),
             'recipient',
             'attention_to',
             'subject',
             Row(
-                Column('category', css_class='col-md-4'),
                 Column('assigned_department', css_class='col-md-4'),
                 Column('assigned_person', css_class='col-md-4'),
+                Column('status', css_class='col-md-4'),
             ),
             Row(
-                Column('status', css_class='col-md-4'),
-                Column('due_date', css_class='col-md-4'),
-                Column('related_letter', css_class='col-md-4'),
+                Column('due_date', css_class='col-md-6'),
+                Column('ethiopian_due_date', css_class='col-md-6'),
             ),
+            'related_letter',
             Div(
                 Submit('submit', 'Save Outgoing Letter', css_class='btn btn-primary btn-lg me-2'),
                 HTML('<a href="{% url \'letters:outgoing_letter_list\' %}" class="btn btn-outline-secondary btn-lg">Cancel</a>'),
@@ -428,6 +541,17 @@ class StaffForm(forms.ModelForm):
         required=False,
         help_text="Permission to view staff attachment view counters and activity logs."
     )
+    phone_number = forms.CharField(
+        max_length=20,
+        required=False,
+        widget=forms.TextInput(attrs={'placeholder': '09XXXXXXXX or 07XXXXXXXX'}),
+        help_text="Phone number for SMS alerts (Ethio Telecom 09... / Safaricom 07...)",
+    )
+    sms_notifications = forms.BooleanField(
+        required=False,
+        initial=True,
+        help_text="Enable AfroMessage SMS notifications for letter assignments & status updates",
+    )
 
     class Meta:
         model = User
@@ -456,8 +580,15 @@ class StaffForm(forms.ModelForm):
             self.fields['can_view_incoming_letters'].initial = self.instance.has_perm('letters.can_view_incoming_letters')
             self.fields['can_view_attachment_analytics'].initial = self.instance.has_perm('letters.can_view_attachment_analytics')
             self.fields['password'].required = False
+
+            # Populate phone number and SMS preferences
+            profile = getattr(self.instance, 'profile', None)
+            if profile:
+                self.fields['phone_number'].initial = profile.phone_number
+                self.fields['sms_notifications'].initial = profile.sms_notifications
         else:
             self.fields['password'].required = True
+            self.fields['sms_notifications'].initial = True
 
         self.helper.layout = Layout(
             Row(
@@ -469,8 +600,12 @@ class StaffForm(forms.ModelForm):
                 Column('last_name', css_class='col-md-6'),
             ),
             Row(
-                Column('email', css_class='col-md-8'),
-                Column('is_active', css_class='col-md-4 pt-4'),
+                Column('email', css_class='col-md-6'),
+                Column('is_active', css_class='col-md-6 pt-4'),
+            ),
+            Row(
+                Column('phone_number', css_class='col-md-6'),
+                Column('sms_notifications', css_class='col-md-6 pt-4'),
             ),
             Row(
                 Column('role', css_class='col-md-6'),
@@ -511,6 +646,18 @@ class StaffForm(forms.ModelForm):
             if existing:
                 raise forms.ValidationError('This email is already registered. Please use another.')
         return email
+
+    def clean_phone_number(self):
+        phone = self.cleaned_data.get('phone_number')
+        if phone:
+            from .sms_utils import normalize_phone_number
+            normalized = normalize_phone_number(phone)
+            if not normalized:
+                raise forms.ValidationError(
+                    'Invalid Ethiopian phone number. Please enter a valid number (e.g. 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX).'
+                )
+            return normalized
+        return ''
     
     def clean_password(self):
         password = self.cleaned_data.get('password')
@@ -571,6 +718,14 @@ class StaffForm(forms.ModelForm):
                     
                 # Save departments
                 user.departments.set(self.cleaned_data.get('departments'))
+
+                # Save phone number and SMS notification settings to UserProfile
+                phone = self.cleaned_data.get('phone_number')
+                sms_enabled = self.cleaned_data.get('sms_notifications', False)
+                profile, _ = UserProfile.objects.get_or_create(user=user)
+                profile.phone_number = phone if phone else None
+                profile.sms_notifications = bool(phone) and sms_enabled
+                profile.save()
             except Exception as e:
                 raise forms.ValidationError(f'Error saving user: {str(e)}')
                 
@@ -635,3 +790,8 @@ class CustomPasswordChangeForm(DjangoPasswordChangeForm):
             'new_password2',
             Submit('submit', 'Change Password', css_class='btn btn-warning'),
         )
+
+
+
+
+

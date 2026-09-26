@@ -1,44 +1,781 @@
 {% extends 'base.html' %}
 {% load crispy_forms_tags %}
+{% load static %}
 
 {% block title %}{{ form_title|default:"New Letter" }}{% endblock %}
 {% block page_title %}{{ form_title|default:"New Letter" }}{% endblock %}
 
+{% block extra_css %}
+<style>
+  /* ===== Letter Form Modern Redesign ===== */
+
+  /* --- Section Cards (Glassmorphism & Clean elevation) --- */
+  .lf-section {
+    border-radius: 18px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 6px 24px -2px rgba(0, 0, 0, 0.04), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    margin-bottom: 1.5rem;
+    overflow: hidden;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .lf-section:hover {
+    box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.07);
+    border-color: rgba(37, 99, 235, 0.3);
+  }
+  .lf-section.has-error {
+    border-color: rgba(239, 68, 68, 0.5) !important;
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.08) !important;
+  }
+  .lf-section.collapsed .lf-section__body {
+    display: none;
+  }
+  .lf-section__header {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    padding: 1.1rem 1.4rem;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.2s;
+  }
+  .lf-section__header:hover {
+    background: rgba(37, 99, 235, 0.02);
+  }
+  .lf-section__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.15rem;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+  }
+  .lf-section__icon--info {
+    background: rgba(37, 99, 235, 0.1);
+    color: var(--primary, #2563eb);
+  }
+  .lf-section__icon--correspondence {
+    background: rgba(13, 148, 136, 0.1);
+    color: #0d9488;
+  }
+  .lf-section__icon--workflow {
+    background: rgba(217, 119, 6, 0.1);
+    color: #d97706;
+  }
+  .lf-section__title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary, #1e293b);
+  }
+  .lf-section__subtitle {
+    font-size: 0.76rem;
+    color: var(--text-secondary, #64748b);
+    margin: 0;
+  }
+  .lf-section__chevron {
+    margin-left: auto;
+    font-size: 1.1rem;
+    color: var(--text-secondary, #64748b);
+    transition: transform 0.3s ease;
+  }
+  .lf-section.collapsed .lf-section__chevron {
+    transform: rotate(-90deg);
+  }
+  .lf-section__body {
+    padding: 1.4rem;
+    animation: lfFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  @keyframes lfFadeIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* --- Quick Actions Bar --- */
+  .lf-quick-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.75rem 1.4rem;
+    background: var(--bg-subtle, #f8fafc);
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    flex-wrap: wrap;
+  }
+  .lf-quick-bar__label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary, #64748b);
+  }
+  .lf-quick-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 13px;
+    border-radius: 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border: 1px solid var(--border-color, #cbd5e1);
+    background: var(--card-bg, #fff);
+    color: var(--text-secondary, #475569);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+  }
+  .lf-quick-btn:hover {
+    border-color: var(--primary, #2563eb);
+    color: var(--primary, #2563eb);
+    background: rgba(37, 99, 235, 0.05);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  }
+  .lf-quick-btn--active {
+    border-color: var(--primary, #2563eb) !important;
+    color: #fff !important;
+    background: var(--primary, #2563eb) !important;
+    box-shadow: 0 2px 10px rgba(37, 99, 235, 0.25) !important;
+  }
+
+  /* Priority badges inside quick buttons */
+  .lf-priority-badge {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 2px;
+  }
+  .lf-priority-badge--normal { background: #10b981; }
+  .lf-priority-badge--urgent { background: #f59e0b; }
+  .lf-priority-badge--confidential { background: #ef4444; }
+
+  /* Due Date Mini SLA buttons */
+  .lf-mini-btn {
+    padding: 3px 9px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #cbd5e1);
+    background: var(--card-bg, #fff);
+    color: var(--text-secondary, #475569);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    line-height: 1.2;
+  }
+  .lf-mini-btn:hover {
+    border-color: var(--primary, #2563eb);
+    color: var(--primary, #2563eb);
+    background: rgba(37, 99, 235, 0.08);
+  }
+  .lf-mini-btn--clear {
+    color: #ef4444;
+  }
+  .lf-mini-btn--clear:hover {
+    border-color: #ef4444;
+    background: rgba(239, 68, 68, 0.08);
+    color: #ef4444;
+  }
+
+  /* --- Form Inputs & Selects Polish --- */
+  .lf-section .form-control,
+  .lf-section .form-select,
+  .lf-section input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+  .lf-section select,
+  .lf-section textarea {
+    width: 100%;
+    border-radius: 10px;
+    padding: 0.65rem 0.95rem;
+    font-size: 0.88rem;
+    line-height: 1.5;
+    transition: all 0.2s ease;
+    border: 1.5px solid var(--border-color, #cbd5e1);
+    background-color: var(--card-bg, #ffffff);
+    color: var(--text-primary, #1e293b);
+    display: block;
+    box-sizing: border-box;
+  }
+  .lf-section select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23475569' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.85rem center;
+    background-size: 16px 12px;
+    padding-right: 2.4rem;
+    cursor: pointer;
+  }
+  .lf-section .form-control:focus,
+  .lf-section .form-select:focus,
+  .lf-section input:focus,
+  .lf-section select:focus,
+  .lf-section textarea:focus {
+    border-color: var(--primary, #2563eb);
+    box-shadow: 0 0 0 3.5px rgba(37, 99, 235, 0.12);
+    outline: none;
+  }
+  .lf-section .form-label {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary, #334155);
+    margin-bottom: 0.35rem;
+    display: flex;
+    align-items: center;
+  }
+  .lf-section .form-text {
+    font-size: 0.73rem;
+    color: var(--text-secondary, #64748b);
+    margin-top: 0.3rem;
+  }
+
+  /* --- Sticky Submit Bar --- */
+  .lf-submit-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.85rem;
+    padding: 1.1rem 1.5rem;
+    border-radius: 18px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1);
+    position: sticky;
+    bottom: 1.25rem;
+    z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .lf-submit-bar .btn-primary {
+    padding: 0.68rem 2.2rem;
+    font-weight: 700;
+    border-radius: 12px;
+    font-size: 0.92rem;
+    letter-spacing: 0.01em;
+    background: var(--primary, #2563eb);
+    border-color: var(--primary, #2563eb);
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.28);
+    transition: all 0.25s ease;
+  }
+  .lf-submit-bar .btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.38);
+  }
+  .lf-submit-bar .btn-outline-secondary {
+    padding: 0.68rem 1.6rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 0.92rem;
+  }
+
+  /* --- Field Error Animation --- */
+  .field-error-highlight {
+    animation: fieldShake 0.4s ease-in-out, fieldGlow 2.5s ease-out;
+  }
+  @keyframes fieldShake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+  }
+  @keyframes fieldGlow {
+    0% { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.35); border-color: #ef4444; }
+    100% { box-shadow: none; }
+  }
+
+  /* --- Related Letter Searchable Widget --- */
+  .related-letter-search-wrapper {
+    position: relative;
+  }
+  .related-letter-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border-color, #cbd5e1);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    max-height: 220px;
+    overflow-y: auto;
+    z-index: 1050;
+    display: none;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.12);
+  }
+  .related-letter-results .rl-item {
+    padding: 10px 14px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border-color, #f1f5f9);
+    transition: background 0.15s;
+  }
+  .related-letter-results .rl-item:hover,
+  .related-letter-results .rl-item.active {
+    background: rgba(37, 99, 235, 0.08);
+  }
+  .related-letter-results .rl-item .rl-ref {
+    font-weight: 700;
+    color: var(--primary, #2563eb);
+  }
+  .related-letter-results .rl-item .rl-subject {
+    color: var(--text-secondary, #64748b);
+    margin-left: 6px;
+  }
+  .related-letter-results .rl-empty {
+    padding: 14px;
+    color: var(--text-secondary, #64748b);
+    font-size: 0.85rem;
+    text-align: center;
+  }
+  .related-letter-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 14px;
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.25);
+    border-radius: 10px;
+    font-size: 0.86rem;
+    margin-top: 5px;
+  }
+  .related-letter-selected .rl-clear {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: #ef4444;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0 4px;
+    line-height: 1;
+    transition: transform 0.2s;
+  }
+  .related-letter-selected .rl-clear:hover {
+    transform: scale(1.2);
+  }
+
+  /* --- Dark Mode Styles --- */
+  [data-bs-theme="dark"] .lf-section {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  [data-bs-theme="dark"] .lf-section__header {
+    border-color: #334155;
+  }
+  [data-bs-theme="dark"] .lf-section__header:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+  [data-bs-theme="dark"] .lf-quick-bar {
+    background: #0f172a;
+    border-color: #334155;
+  }
+  [data-bs-theme="dark"] .lf-submit-bar {
+    background: rgba(30, 41, 59, 0.95);
+    border-color: #334155;
+  }
+  [data-bs-theme="dark"] .lf-mini-btn,
+  [data-bs-theme="dark"] .lf-quick-btn {
+    background: #1e293b;
+    border-color: #475569;
+    color: #cbd5e1;
+  }
+  [data-bs-theme="dark"] .lf-section .form-control,
+  [data-bs-theme="dark"] .lf-section .form-select,
+  [data-bs-theme="dark"] .lf-section input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="button"]):not([type="submit"]),
+  [data-bs-theme="dark"] .lf-section select,
+  [data-bs-theme="dark"] .lf-section textarea {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+  }
+  [data-bs-theme="dark"] .lf-section select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2394a3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+  }
+  [data-bs-theme="dark"] .lf-section .form-label {
+    color: #e2e8f0;
+  }
+  [data-bs-theme="dark"] .related-letter-results {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  [data-bs-theme="dark"] .related-letter-results .rl-item {
+    border-color: #334155;
+  }
+
+  /* --- Responsive --- */
+  @media (max-width: 768px) {
+    .lf-quick-bar { padding: 0.6rem 0.9rem; }
+    .lf-submit-bar { flex-direction: column; gap: 0.6rem; }
+    .lf-submit-bar .btn { width: 100%; }
+    .lf-section__body { padding: 1.1rem 0.9rem; }
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="row justify-content-center">
-  <div class="col-lg-10">
-    
-    <!-- Letter Form Card -->
-    <div class="card card-glass shadow-sm border-0">
-      <div class="card-header py-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
-        <h5 class="mb-0 fw-semibold">
-          <i class="bi bi-envelope-plus me-2 text-primary"></i>{{ form_title|default:"Register New Letter" }}
-        </h5>
-        
-        <!-- Compact OCR Scan Button -->
-        <div>
-          <input type="file" id="ocr-file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.bmp" class="d-none">
-          <button type="button" id="btn-ocr-scan" class="btn btn-sm btn-outline-primary rounded-pill px-3 shadow-xs d-inline-flex align-items-center gap-1.5" title="Scan document to auto-fill fields">
-            <i class="bi bi-lightning-charge-fill text-warning"></i>
-            <span id="ocr-btn-text">Auto-Fill via OCR</span>
-            <span id="ocr-spinner" class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+  <div class="col-12 col-xl-11">
+
+    <!-- Server Form Errors Alert -->
+    {% if form.errors %}
+    <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert" style="border-radius:14px;" id="server-errors-alert">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-exclamation-triangle-fill fs-5 text-danger"></i>
+        <strong class="fs-6">Please check the highlighted fields</strong>
+      </div>
+      <p class="small mb-0 text-muted">Some required fields are missing or contain invalid data. Please review the highlighted inputs below.</p>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <!-- OCR Result Toast -->
+    <div id="ocr-result-alert" class="alert alert-dismissible fade show mb-3 d-none p-2.5 ps-3 pe-4 small" role="alert" style="border-radius:12px;">
+      <span id="ocr-result-message"></span>
+      <button type="button" class="btn-close p-2" onclick="document.getElementById('ocr-result-alert').classList.add('d-none');" aria-label="Close"></button>
+    </div>
+
+    <form method="post" novalidate id="letter-reg-form">
+      {% csrf_token %}
+
+      <!-- ===== SECTION 1: Letter Details ===== -->
+      <div class="lf-section" id="section-info" data-step="1">
+        <div class="lf-section__header" onclick="toggleSection(this)">
+          <span class="lf-section__icon lf-section__icon--info">
+            <i class="bi bi-file-earmark-text-fill"></i>
+          </span>
+          <div>
+            <h6 class="lf-section__title">Letter Details</h6>
+            <p class="lf-section__subtitle">Type, priority, date & reference</p>
+          </div>
+          {% if lms_ocr_enabled %}
+          <div class="me-2" onclick="event.stopPropagation();">
+            <input type="file" id="ocr-file-input" accept=".pdf,.png,.jpg,.jpeg,.webp,.tiff,.bmp" class="d-none">
+            <button type="button" id="btn-ocr-scan" class="lf-quick-btn" title="Scan document to auto-fill fields">
+              <i class="bi bi-lightning-charge-fill text-warning"></i>
+              <span id="ocr-btn-text">Auto-Fill via OCR</span>
+              <span id="ocr-spinner" class="spinner-border spinner-border-sm d-none ms-1" role="status" aria-hidden="true"></span>
+            </button>
+          </div>
+          {% endif %}
+          <i class="bi bi-chevron-down lf-section__chevron"></i>
+        </div>
+
+        <!-- Quick Actions Toolbar -->
+        <div class="lf-quick-bar">
+          <span class="lf-quick-bar__label"><i class="bi bi-lightning me-1"></i>Date:</span>
+          <button type="button" class="lf-quick-btn" id="btn-today" title="Set date to today">
+            <i class="bi bi-calendar-check text-primary"></i> Today
+          </button>
+          <button type="button" class="lf-quick-btn" id="btn-yesterday" title="Set date to yesterday">
+            <i class="bi bi-arrow-counterclockwise text-secondary"></i> Yesterday
+          </button>
+
+          <div class="vr my-1 mx-2 opacity-25 d-none d-sm-block"></div>
+
+          <span class="lf-quick-bar__label"><i class="bi bi-flag me-1"></i>Priority:</span>
+          <button type="button" class="lf-quick-btn" data-priority="NORMAL" title="Set Normal priority">
+            <span class="lf-priority-badge lf-priority-badge--normal"></span> Normal
+          </button>
+          <button type="button" class="lf-quick-btn" data-priority="URGENT" title="Set Urgent priority">
+            <span class="lf-priority-badge lf-priority-badge--urgent"></span> Urgent
+          </button>
+          <button type="button" class="lf-quick-btn" data-priority="CONFIDENTIAL" title="Set Confidential priority">
+            <span class="lf-priority-badge lf-priority-badge--confidential"></span> Confidential
           </button>
         </div>
+
+        <div class="lf-section__body">
+          <div class="row g-3">
+            {% if form.direction.field.widget.input_type == 'hidden' %}
+              {{ form.direction }}
+            {% else %}
+              <div class="col-md-3">
+                <label for="{{ form.direction.id_for_label }}" class="form-label">
+                  <i class="bi bi-arrow-left-right me-1 text-primary"></i>{{ form.direction.label }}{% if form.direction.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ form.direction }}
+                {% if form.direction.help_text %}<div class="form-text">{{ form.direction.help_text }}</div>{% endif %}
+                {% for error in form.direction.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+            {% endif %}
+
+            <div class="col-md-{% if form.direction.field.widget.input_type == 'hidden' %}4{% else %}3{% endif %}">
+              <label for="{{ form.letter_type.id_for_label }}" class="form-label">
+                <i class="bi bi-card-text me-1 text-info"></i>{{ form.letter_type.label }}{% if form.letter_type.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.letter_type }}
+              {% if form.letter_type.help_text %}<div class="form-text">{{ form.letter_type.help_text }}</div>{% endif %}
+              {% for error in form.letter_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="col-md-{% if form.direction.field.widget.input_type == 'hidden' %}4{% else %}3{% endif %}">
+              <label for="{{ form.priority.id_for_label }}" class="form-label">
+                <i class="bi bi-exclamation-circle me-1 text-warning"></i>{{ form.priority.label }}{% if form.priority.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.priority }}
+              {% if form.priority.help_text %}<div class="form-text">{{ form.priority.help_text }}</div>{% endif %}
+              {% for error in form.priority.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <div class="col-md-{% if form.direction.field.widget.input_type == 'hidden' %}4{% else %}3{% endif %}">
+              <label for="{{ form.category.id_for_label }}" class="form-label">
+                <i class="bi bi-tag me-1 text-secondary"></i>{{ form.category.label }}
+              </label>
+              {{ form.category }}
+              {% if form.category.help_text %}<div class="form-text">{{ form.category.help_text }}</div>{% endif %}
+              {% for error in form.category.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <hr class="my-3 opacity-10">
+
+          <!-- Date Fields -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="{{ form.date.id_for_label }}" class="form-label">
+                <i class="bi bi-calendar3 me-1 text-primary"></i>{{ form.date.label }} <span class="text-danger">*</span>
+              </label>
+              {{ form.date }}
+              {% if form.date.help_text %}<div class="form-text">{{ form.date.help_text }}</div>{% endif %}
+              {% for error in form.date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.ethiopian_date.id_for_label }}" class="form-label">
+                <i class="bi bi-calendar2-week me-1 text-info"></i>{{ form.ethiopian_date.label }}
+              </label>
+              {{ form.ethiopian_date }}
+              {% if form.ethiopian_date.help_text %}<div class="form-text">{{ form.ethiopian_date.help_text }}</div>{% endif %}
+              {% for error in form.ethiopian_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          {% if form.reference_no %}
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <label for="{{ form.reference_no.id_for_label }}" class="form-label">
+                <i class="bi bi-hash me-1 text-warning"></i>{{ form.reference_no.label }}{% if form.reference_no.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.reference_no }}
+              {% if form.reference_no.help_text %}<div class="form-text">{{ form.reference_no.help_text }}</div>{% endif %}
+              {% for error in form.reference_no.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
       </div>
 
-      <div class="card-body">
-        <!-- Compact OCR Result Toast Banner -->
-        <div id="ocr-result-alert" class="alert alert-dismissible fade show mb-3 d-none p-2.5 ps-3 pe-4 small" role="alert">
-          <span id="ocr-result-message"></span>
-          <button type="button" class="btn-close p-2" onclick="document.getElementById('ocr-result-alert').classList.add('d-none');" aria-label="Close"></button>
+      <!-- ===== SECTION 2: Correspondence Details ===== -->
+      <div class="lf-section" id="section-correspondence" data-step="2">
+        <div class="lf-section__header" onclick="toggleSection(this)">
+          <span class="lf-section__icon lf-section__icon--correspondence">
+            <i class="bi bi-person-lines-fill"></i>
+          </span>
+          <div>
+            <h6 class="lf-section__title">Correspondence Details</h6>
+            <p class="lf-section__subtitle">Sender, recipient, attention to & subject</p>
+          </div>
+          <i class="bi bi-chevron-down lf-section__chevron"></i>
+        </div>
+        <div class="lf-section__body">
+          <div class="row g-3">
+            {% if form.sender and form.recipient %}
+              <div class="col-md-6">
+                <label for="{{ form.sender.id_for_label }}" class="form-label">
+                  <i class="bi bi-person-badge me-1 text-success"></i>{{ form.sender.label }}{% if form.sender.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ form.sender }}
+                {% if form.sender.help_text %}<div class="form-text">{{ form.sender.help_text }}</div>{% endif %}
+                {% for error in form.sender.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+              <div class="col-md-6">
+                <label for="{{ form.recipient.id_for_label }}" class="form-label">
+                  <i class="bi bi-person-check me-1 text-info"></i>{{ form.recipient.label }}{% if form.recipient.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ form.recipient }}
+                {% if form.recipient.help_text %}<div class="form-text">{{ form.recipient.help_text }}</div>{% endif %}
+                {% for error in form.recipient.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+            {% elif form.sender %}
+              <div class="col-md-6">
+                <label for="{{ form.sender.id_for_label }}" class="form-label">
+                  <i class="bi bi-person-badge me-1 text-success"></i>{{ form.sender.label }}{% if form.sender.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ form.sender }}
+                {% if form.sender.help_text %}<div class="form-text">{{ form.sender.help_text }}</div>{% endif %}
+                {% for error in form.sender.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+            {% elif form.recipient %}
+              <div class="col-md-6">
+                <label for="{{ form.recipient.id_for_label }}" class="form-label">
+                  <i class="bi bi-person-check me-1 text-info"></i>{{ form.recipient.label }}{% if form.recipient.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                {{ form.recipient }}
+                {% if form.recipient.help_text %}<div class="form-text">{{ form.recipient.help_text }}</div>{% endif %}
+                {% for error in form.recipient.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+              </div>
+            {% endif %}
+
+            {% if form.attention_to %}
+            <div class="col-md-6">
+              <label for="{{ form.attention_to.id_for_label }}" class="form-label">
+                <i class="bi bi-at me-1 text-secondary"></i>{{ form.attention_to.label }}
+              </label>
+              {{ form.attention_to }}
+              {% if form.attention_to.help_text %}<div class="form-text">{{ form.attention_to.help_text }}</div>{% endif %}
+              {% for error in form.attention_to.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            {% if form.subject %}
+            <div class="col-12">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="{{ form.subject.id_for_label }}" class="form-label mb-0">
+                  <i class="bi bi-chat-left-text me-1 text-primary"></i>{{ form.subject.label }}{% if form.subject.field.required %} <span class="text-danger">*</span>{% endif %}
+                </label>
+                <span id="subject-char-count" class="text-muted small" style="font-size:0.73rem;">0 / 255</span>
+              </div>
+              {{ form.subject }}
+              {% if form.subject.help_text %}<div class="form-text">{{ form.subject.help_text }}</div>{% endif %}
+              {% for error in form.subject.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== SECTION 3: Assignment & Workflow ===== -->
+      <div class="lf-section" id="section-workflow" data-step="3">
+        <div class="lf-section__header" onclick="toggleSection(this)">
+          <span class="lf-section__icon lf-section__icon--workflow">
+            <i class="bi bi-diagram-3-fill"></i>
+          </span>
+          <div>
+            <h6 class="lf-section__title">Assignment & Workflow</h6>
+            <p class="lf-section__subtitle">Department, status, SLA due date & related documents</p>
+          </div>
+          <i class="bi bi-chevron-down lf-section__chevron"></i>
+        </div>
+        <div class="lf-section__body">
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label for="{{ form.assigned_department.id_for_label }}" class="form-label">
+                <i class="bi bi-building me-1 text-primary"></i>{{ form.assigned_department.label }}{% if form.assigned_department.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.assigned_department }}
+              {% if form.assigned_department.help_text %}<div class="form-text">{{ form.assigned_department.help_text }}</div>{% endif %}
+              {% for error in form.assigned_department.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4">
+              <label for="{{ form.assigned_person.id_for_label }}" class="form-label">
+                <i class="bi bi-person-workspace me-1 text-success"></i>{{ form.assigned_person.label }}{% if form.assigned_person.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.assigned_person }}
+              {% if form.assigned_person.help_text %}<div class="form-text">{{ form.assigned_person.help_text }}</div>{% endif %}
+              {% for error in form.assigned_person.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-4">
+              <label for="{{ form.status.id_for_label }}" class="form-label">
+                <i class="bi bi-flag me-1 text-warning"></i>{{ form.status.label }}{% if form.status.field.required %} <span class="text-danger">*</span>{% endif %}
+              </label>
+              {{ form.status }}
+              {% if form.status.help_text %}<div class="form-text">{{ form.status.help_text }}</div>{% endif %}
+              {% for error in form.status.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <hr class="my-3 opacity-10">
+
+          <!-- Due Date Fields & SLA Shortcuts -->
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="d-flex justify-content-between align-items-center mb-1">
+                <label for="{{ form.due_date.id_for_label }}" class="form-label mb-0">
+                  <i class="bi bi-clock-history me-1 text-danger"></i>{{ form.due_date.label }}
+                </label>
+                <div class="lf-due-shortcuts d-flex gap-1">
+                  <button type="button" class="lf-mini-btn" data-due-days="3" title="Set due date in 3 days">+3d</button>
+                  <button type="button" class="lf-mini-btn" data-due-days="7" title="Set due date in 1 week">+1w</button>
+                  <button type="button" class="lf-mini-btn" data-due-days="14" title="Set due date in 2 weeks">+2w</button>
+                  <button type="button" class="lf-mini-btn" data-due-days="30" title="Set due date in 1 month">+1m</button>
+                  <button type="button" class="lf-mini-btn lf-mini-btn--clear" data-due-clear title="Clear due date">Clear</button>
+                </div>
+              </div>
+              {{ form.due_date }}
+              {% if form.due_date.help_text %}<div class="form-text">{{ form.due_date.help_text }}</div>{% endif %}
+              {% for error in form.due_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.ethiopian_due_date.id_for_label }}" class="form-label">
+                <i class="bi bi-calendar2-week me-1 text-info"></i>{{ form.ethiopian_due_date.label }}
+              </label>
+              {{ form.ethiopian_due_date }}
+              {% if form.ethiopian_due_date.help_text %}<div class="form-text">{{ form.ethiopian_due_date.help_text }}</div>{% endif %}
+              {% for error in form.ethiopian_due_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="row g-3 mt-1">
+            <div class="col-12">
+              <label for="{{ form.related_letter.id_for_label }}" class="form-label">
+                <i class="bi bi-link-45deg me-1 text-secondary"></i>{{ form.related_letter.label }}
+              </label>
+              {{ form.related_letter }}
+              {% if form.related_letter.help_text %}<div class="form-text">{{ form.related_letter.help_text }}</div>{% endif %}
+              {% for error in form.related_letter.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ===== Sticky Submit Bar ===== -->
+      <div class="lf-submit-bar">
+        <div class="me-auto d-none d-sm-flex align-items-center gap-2 text-muted" style="font-size:0.8rem;">
+          <span class="badge bg-body-secondary text-secondary border font-monospace" style="font-size:0.75rem; border-radius:6px; font-weight:500; padding: 0.45rem 0.75rem;">
+            <i class="bi bi-keyboard me-1 text-muted"></i>Ctrl + Enter to save
+          </span>
         </div>
 
-        <form method="post" novalidate>
-          {% csrf_token %}
-          {% crispy form %}
-        </form>
+        <a href="{% if form.instance.direction == 'INCOMING' %}{% url 'letters:incoming_letter_list' %}{% elif form.instance.direction == 'OUTGOING' %}{% url 'letters:outgoing_letter_list' %}{% else %}{% url 'letters:letter_list' %}{% endif %}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-lg me-1"></i>Cancel
+        </a>
+        <button type="submit" name="submit" id="btn-save-letter" class="btn btn-primary">
+          <i class="bi bi-check2-circle me-1"></i>{{ form_title|default:"Save Letter" }}
+        </button>
       </div>
-    </div>
+    </form>
+
+    <!-- Autocomplete Datalists -->
+    <datalist id="common-senders-list">
+      {% for s in common_senders %}
+        <option value="{{ s }}">
+      {% endfor %}
+      <option value="Commercial Bank of Ethiopia (CBE)">
+      <option value="National Bank of Ethiopia (NBE)">
+      <option value="Ministry of Finance">
+      <option value="Ministry of Revenue">
+      <option value="Ministry of Innovation and Technology">
+      <option value="Federal Police Commission">
+      <option value="Addis Ababa City Administration">
+      <option value="Ethiopian Customs Commission">
+      <option value="Ethio Telecom">
+      <option value="Ethiopian Electric Power (EEP)">
+    </datalist>
+
+    <datalist id="common-recipients-list">
+      {% for r in common_recipients %}
+        <option value="{{ r }}">
+      {% endfor %}
+      <option value="Commercial Bank of Ethiopia (CBE)">
+      <option value="National Bank of Ethiopia (NBE)">
+      <option value="Ministry of Finance">
+      <option value="Ministry of Revenue">
+      <option value="Ministry of Innovation and Technology">
+      <option value="Federal Police Commission">
+      <option value="Addis Ababa City Administration">
+      <option value="Ethiopian Customs Commission">
+      <option value="Ethio Telecom">
+      <option value="Auction Ethiopia (AE)">
+    </datalist>
 
   </div>
 </div>
@@ -46,7 +783,7 @@
 <!-- OCR Preview & Verification Modal -->
 <div class="modal fade" id="ocrPreviewModal" tabindex="-1" aria-labelledby="ocrPreviewModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content card-glass border-0 shadow-lg">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:16px; overflow:hidden;">
       <div class="modal-header bg-primary-subtle py-3">
         <h6 class="modal-title fw-bold text-primary mb-0" id="ocrPreviewModalLabel">
           <i class="bi bi-eye-fill me-2"></i>Review Extracted Document Information
@@ -54,34 +791,34 @@
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body p-4">
-        <div class="alert alert-info py-2 px-3 small mb-3">
+        <div class="alert alert-info py-2 px-3 small mb-3" style="border-radius:10px;">
           <i class="bi bi-info-circle-fill me-1.5"></i>Review and edit the values below before applying them to your registration form.
         </div>
         
         <div class="row g-3">
           <div class="col-md-6" id="preview-group-sender">
             <label class="form-label small fw-semibold text-secondary mb-1">Sender</label>
-            <input type="text" id="preview-sender" class="form-control form-control-sm" placeholder="Not detected">
+            <input type="text" id="preview-sender" class="form-control form-control-sm" placeholder="Not detected" style="border-radius:8px;">
           </div>
           <div class="col-md-6" id="preview-group-recipient">
             <label class="form-label small fw-semibold text-secondary mb-1">Recipient</label>
-            <input type="text" id="preview-recipient" class="form-control form-control-sm" placeholder="Not detected">
+            <input type="text" id="preview-recipient" class="form-control form-control-sm" placeholder="Not detected" style="border-radius:8px;">
           </div>
           <div class="col-md-6" id="preview-group-attention">
             <label class="form-label small fw-semibold text-secondary mb-1">Attention To</label>
-            <input type="text" id="preview-attention" class="form-control form-control-sm" placeholder="Not detected">
+            <input type="text" id="preview-attention" class="form-control form-control-sm" placeholder="Not detected" style="border-radius:8px;">
           </div>
           <div class="col-md-6" id="preview-group-date">
             <label class="form-label small fw-semibold text-secondary mb-1">Date</label>
-            <input type="date" id="preview-date" class="form-control form-control-sm">
+            <input type="date" id="preview-date" class="form-control form-control-sm" style="border-radius:8px;">
           </div>
           <div class="col-12" id="preview-group-subject">
             <label class="form-label small fw-semibold text-secondary mb-1">Subject</label>
-            <textarea id="preview-subject" class="form-control form-control-sm" rows="2" placeholder="Not detected"></textarea>
+            <textarea id="preview-subject" class="form-control form-control-sm" rows="2" placeholder="Not detected" style="border-radius:8px;"></textarea>
           </div>
           <div class="col-md-6" id="preview-group-refno">
             <label class="form-label small fw-semibold text-secondary mb-1">Reference Number</label>
-            <input type="text" id="preview-refno" class="form-control form-control-sm" placeholder="Not detected">
+            <input type="text" id="preview-refno" class="form-control form-control-sm" placeholder="Not detected" style="border-radius:8px;">
           </div>
         </div>
 
@@ -90,13 +827,13 @@
             <i class="bi bi-file-earmark-text me-1"></i>View Extracted Raw Text
           </button>
           <div class="collapse mt-2" id="collapseRawText">
-            <pre id="preview-raw-text" class="bg-body-tertiary p-3 rounded small text-wrap border mb-0" style="max-height: 180px; overflow-y: auto; font-size: 0.8rem;"></pre>
+            <pre id="preview-raw-text" class="bg-body-tertiary p-3 rounded small text-wrap border mb-0" style="max-height: 180px; overflow-y: auto; font-size: 0.8rem; border-radius:10px;"></pre>
           </div>
         </div>
       </div>
       <div class="modal-footer py-2.5 bg-body-tertiary">
-        <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" id="btn-apply-ocr" class="btn btn-sm btn-primary px-4 fw-medium">
+        <button type="button" class="btn btn-sm btn-outline-secondary px-3" data-bs-dismiss="modal" style="border-radius:8px;">Cancel</button>
+        <button type="button" id="btn-apply-ocr" class="btn btn-sm btn-primary px-4 fw-medium" style="border-radius:8px;">
           <i class="bi bi-check2-circle me-1"></i>Apply to Form
         </button>
       </div>
@@ -106,87 +843,244 @@
 {% endblock %}
 
 {% block extra_js %}
-<style>
-  .ocr-field-highlight {
-    animation: ocrPulse 2.5s ease-out;
-    border-color: #198754 !important;
-    box-shadow: 0 0 0 0.25rem rgba(25, 135, 84, 0.25) !important;
-  }
-  @keyframes ocrPulse {
-    0% { background-color: rgba(25, 135, 84, 0.25); }
-    50% { background-color: rgba(25, 135, 84, 0.1); }
-    100% { background-color: transparent; }
-  }
-  .related-letter-search-wrapper {
-    position: relative;
-  }
-  .related-letter-search-wrapper input[type="text"] {
-    width: 100%;
-  }
-  .related-letter-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bs-body-bg, #fff);
-    border: 1px solid var(--bs-border-color, #dee2e6);
-    border-top: none;
-    border-radius: 0 0 .375rem .375rem;
-    max-height: 220px;
-    overflow-y: auto;
-    z-index: 1050;
-    display: none;
-    box-shadow: 0 4px 12px rgba(0,0,0,.15);
-  }
-  .related-letter-results .rl-item {
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: .875rem;
-    border-bottom: 1px solid var(--bs-border-color, #eee);
-    transition: background .15s;
-  }
-  .related-letter-results .rl-item:hover,
-  .related-letter-results .rl-item.active {
-    background: var(--bs-primary-bg-subtle, #e8f0fe);
-  }
-  .related-letter-results .rl-item .rl-ref {
-    font-weight: 600;
-    color: var(--bs-primary, #0d6efd);
-  }
-  .related-letter-results .rl-item .rl-subject {
-    color: var(--bs-secondary-color, #6c757d);
-    margin-left: 6px;
-  }
-  .related-letter-results .rl-empty {
-    padding: 10px 12px;
-    color: var(--bs-secondary-color, #6c757d);
-    font-size: .875rem;
-    text-align: center;
-  }
-  .related-letter-selected {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 10px;
-    background: var(--bs-primary-bg-subtle, #e8f0fe);
-    border: 1px solid var(--bs-primary-border-subtle, #b6d4fe);
-    border-radius: .375rem;
-    font-size: .875rem;
-    margin-top: 4px;
-  }
-  .related-letter-selected .rl-clear {
-    margin-left: auto;
-    background: none;
-    border: none;
-    color: var(--bs-danger, #dc3545);
-    cursor: pointer;
-    font-size: 1.1rem;
-    padding: 0 4px;
-    line-height: 1;
-  }
-</style>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+
+    // === Section Toggle ===
+    window.toggleSection = function(headerEl) {
+      if (!headerEl || !headerEl.closest) return;
+      const section = headerEl.closest('.lf-section');
+      if (section) {
+        section.classList.toggle('collapsed');
+      }
+    };
+
+    // Apply Bootstrap classes to raw Django form widgets
+    document.querySelectorAll('.lf-section select').forEach(el => el.classList.add('form-select'));
+    document.querySelectorAll('.lf-section input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):not([type="submit"]):not([type="button"]), .lf-section textarea').forEach(el => el.classList.add('form-control'));
+
+    // === Attach Autocomplete Datalists ===
+    const senderInput = document.getElementById('id_sender');
+    if (senderInput) {
+      senderInput.setAttribute('list', 'common-senders-list');
+      if (!senderInput.placeholder) senderInput.placeholder = 'e.g. Commercial Bank of Ethiopia';
+    }
+    const recipientInput = document.getElementById('id_recipient');
+    if (recipientInput) {
+      recipientInput.setAttribute('list', 'common-recipients-list');
+      if (!recipientInput.placeholder) recipientInput.placeholder = 'e.g. Ministry of Finance';
+    }
+
+    // === Subject Placeholder & Live Character Counter ===
+    const subjectInput = document.getElementById('id_subject');
+    const charCounter = document.getElementById('subject-char-count');
+    if (subjectInput) {
+      if (!subjectInput.placeholder) subjectInput.placeholder = 'Brief summary or topic of the letter...';
+      const updateSubjectCount = () => {
+        if (charCounter) charCounter.textContent = `${subjectInput.value.length} / 255`;
+      };
+      subjectInput.addEventListener('input', updateSubjectCount);
+      updateSubjectCount();
+    }
+
+    // === Reference No Placeholder ===
+    const refInput = document.getElementById('id_reference_no');
+    if (refInput && !refInput.placeholder && !refInput.readOnly) {
+      refInput.placeholder = 'e.g. REF/2026/048 or Org/Dept/001';
+    }
+
+    // === Quick Date Shortcuts ===
+    const pad = num => num < 10 ? '0' + num : '' + num;
+
+    const setLetterDate = dateObj => {
+      const dateInput = document.getElementById('id_date');
+      if (dateInput) {
+        const y = dateObj.getFullYear();
+        const m = pad(dateObj.getMonth() + 1);
+        const d = pad(dateObj.getDate());
+        dateInput.value = `${y}-${m}-${d}`;
+        dateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        dateInput.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+    };
+
+    // Today button
+    const btnToday = document.getElementById('btn-today');
+    if (btnToday) {
+      btnToday.addEventListener('click', function() {
+        setLetterDate(new Date());
+        this.classList.add('lf-quick-btn--active');
+        setTimeout(() => this.classList.remove('lf-quick-btn--active'), 1200);
+      });
+    }
+
+    // Yesterday button
+    const btnYesterday = document.getElementById('btn-yesterday');
+    if (btnYesterday) {
+      btnYesterday.addEventListener('click', function() {
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        setLetterDate(d);
+        this.classList.add('lf-quick-btn--active');
+        setTimeout(() => this.classList.remove('lf-quick-btn--active'), 1200);
+      });
+    }
+
+    // Priority quick buttons
+    document.querySelectorAll('.lf-quick-btn[data-priority]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const priority = this.dataset.priority;
+        const prioritySelect = document.getElementById('id_priority');
+        if (prioritySelect) {
+          prioritySelect.value = priority;
+          prioritySelect.dispatchEvent(new Event('change', { bubbles: true }));
+          document.querySelectorAll('.lf-quick-btn[data-priority]').forEach(b => b.classList.remove('lf-quick-btn--active'));
+          this.classList.add('lf-quick-btn--active');
+        }
+      });
+    });
+
+    // Sync active priority button on load
+    const prioritySelect = document.getElementById('id_priority');
+    if (prioritySelect && prioritySelect.value) {
+      const activeBtn = document.querySelector(`.lf-quick-btn[data-priority="${prioritySelect.value}"]`);
+      if (activeBtn) activeBtn.classList.add('lf-quick-btn--active');
+      prioritySelect.addEventListener('change', function() {
+        document.querySelectorAll('.lf-quick-btn[data-priority]').forEach(b => b.classList.remove('lf-quick-btn--active'));
+        const matchingBtn = document.querySelector(`.lf-quick-btn[data-priority="${this.value}"]`);
+        if (matchingBtn) matchingBtn.classList.add('lf-quick-btn--active');
+      });
+    }
+
+    // === Due Date SLA Quick Shortcuts ===
+    document.querySelectorAll('[data-due-days]').forEach(btn => {
+      btn.addEventListener('click', function() {
+        const days = parseInt(this.dataset.dueDays, 10);
+        const dateInput = document.getElementById('id_date');
+        const dueDateInput = document.getElementById('id_due_date');
+        if (!dueDateInput) return;
+
+        let baseDate = new Date();
+        if (dateInput && dateInput.value) {
+          const parts = dateInput.value.split('-');
+          if (parts.length === 3) {
+            baseDate = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+          }
+        }
+
+        const targetDate = new Date(baseDate);
+        targetDate.setDate(targetDate.getDate() + days);
+
+        const y = targetDate.getFullYear();
+        const m = pad(targetDate.getMonth() + 1);
+        const d = pad(targetDate.getDate());
+        dueDateInput.value = `${y}-${m}-${d}`;
+        dueDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+        dueDateInput.dispatchEvent(new Event('input', { bubbles: true }));
+
+        this.classList.add('bg-primary', 'text-white');
+        setTimeout(() => this.classList.remove('bg-primary', 'text-white'), 800);
+      });
+    });
+
+    const btnClearDue = document.querySelector('[data-due-clear]');
+    if (btnClearDue) {
+      btnClearDue.addEventListener('click', function() {
+        const dueDateInput = document.getElementById('id_due_date');
+        const ethDueDateInput = document.getElementById('id_ethiopian_due_date');
+        if (dueDateInput) {
+          dueDateInput.value = '';
+          dueDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+          dueDateInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        if (ethDueDateInput) {
+          ethDueDateInput.value = '';
+          ethDueDateInput.dispatchEvent(new Event('change', { bubbles: true }));
+          ethDueDateInput.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        const badge = document.getElementById('eth-due-date-preview-badge');
+        if (badge) badge.innerHTML = '';
+      });
+    }
+
+    // === Keyboard Shortcuts ===
+    document.addEventListener('keydown', function(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        const saveBtn = document.getElementById('btn-save-letter');
+        if (saveBtn) saveBtn.click();
+      }
+    });
+
+    // === Client-Side Validation & Auto-Expand Section on Error ===
+    const regForm = document.getElementById('letter-reg-form');
+    if (regForm) {
+      regForm.addEventListener('submit', function(e) {
+        const requiredInputs = regForm.querySelectorAll('input[required], select[required], textarea[required]');
+        let firstInvalid = null;
+
+        requiredInputs.forEach(input => {
+          const val = input.value ? input.value.trim() : '';
+          if (!val || val === '' || val.startsWith('---')) {
+            if (!firstInvalid) firstInvalid = input;
+            input.classList.add('is-invalid');
+          } else {
+            input.classList.remove('is-invalid');
+          }
+        });
+
+        if (firstInvalid) {
+          e.preventDefault();
+          const section = firstInvalid.closest ? firstInvalid.closest('.lf-section') : null;
+          if (section) {
+            section.classList.remove('collapsed');
+            section.classList.add('has-error');
+          }
+          firstInvalid.focus();
+          firstInvalid.classList.add('field-error-highlight');
+          firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          setTimeout(() => firstInvalid.classList.remove('field-error-highlight'), 2200);
+          return false;
+        }
+
+        // Add loading state to submit button
+        const saveBtn = document.getElementById('btn-save-letter');
+        if (saveBtn) {
+          saveBtn.disabled = true;
+          saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Saving...';
+        }
+      });
+    }
+
+    // On Server Validation Errors: Expand sections with errors
+    const errorAlert = document.getElementById('server-errors-alert');
+    if (errorAlert) {
+      document.querySelectorAll('.lf-section').forEach(section => {
+        if (section.querySelector('.text-danger, .is-invalid')) {
+          section.classList.remove('collapsed');
+          section.classList.add('has-error');
+        }
+      });
+    }
+
+    // === Direction-based field toggling (Defensive & Safe) ===
+    const directionField = document.getElementById('id_direction');
+    const senderEl = document.getElementById('id_sender');
+    const recipientEl = document.getElementById('id_recipient');
+    const senderGroup = senderEl && senderEl.closest ? senderEl.closest('.col-md-6') : null;
+    const recipientGroup = recipientEl && recipientEl.closest ? recipientEl.closest('.col-md-6') : null;
+
+    function toggleFields() {
+      if (!directionField) return;
+      if (senderGroup) senderGroup.style.opacity = '1';
+      if (recipientGroup) recipientGroup.style.opacity = '1';
+    }
+
+    if (directionField) {
+      directionField.addEventListener('change', toggleFields);
+      toggleFields();
+    }
+
     // === Compact OCR Button, File Upload & Preview Modal ===
     const btnScan = document.getElementById('btn-ocr-scan');
     const fileInput = document.getElementById('ocr-file-input');
@@ -207,213 +1101,65 @@
         e.preventDefault();
         showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>OCR Auto-Fill feature is currently not available.');
       });
-    }
 
-      // Drag & Drop on card header
-      const cardHeader = btnScan.closest('.card-header');
-      if (cardHeader) {
+      const sectionHeader = btnScan.closest ? btnScan.closest('.lf-section__header') : null;
+      if (sectionHeader) {
         ['dragenter', 'dragover'].forEach(evt => {
-          cardHeader.addEventListener(evt, (e) => {
+          sectionHeader.addEventListener(evt, (e) => {
             e.preventDefault();
             e.stopPropagation();
-            btnScan.classList.add('btn-primary');
-            btnScan.classList.remove('btn-outline-primary');
+            btnScan.classList.add('lf-quick-btn--active');
           });
         });
         ['dragleave', 'drop'].forEach(evt => {
-          cardHeader.addEventListener(evt, (e) => {
+          sectionHeader.addEventListener(evt, (e) => {
             e.preventDefault();
             e.stopPropagation();
-            btnScan.classList.remove('btn-primary');
-            btnScan.classList.add('btn-outline-primary');
+            btnScan.classList.remove('lf-quick-btn--active');
           });
         });
-        cardHeader.addEventListener('drop', (e) => {
+        sectionHeader.addEventListener('drop', (e) => {
           showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>OCR Auto-Fill feature is currently not available.');
         });
       }
-
-    function handleOcrFile(file) {
-      if (!btnScan) return;
-      btnScan.disabled = true;
-      spinner.classList.remove('d-none');
-      btnText.textContent = 'Scanning...';
-      resultAlert.classList.add('d-none');
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      // Detect letter direction
-      const directionInput = document.getElementById('id_direction');
-      const letterDirection = directionInput ? directionInput.value : 'INCOMING';
-      formData.append('direction', letterDirection);
-
-      const csrfInput = document.querySelector('[name=csrfmiddlewaretoken]');
-      const csrfToken = csrfInput ? csrfInput.value : '';
-
-      fetch('{% url "letters:ocr_extract" %}', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-CSRFToken': csrfToken
-        }
-      })
-      .then(response => response.json())
-      .then(data => {
-        btnScan.disabled = false;
-        spinner.classList.add('d-none');
-        btnText.textContent = 'Auto-Fill via OCR';
-
-        if (!data.success) {
-          showOcrAlert('danger', '<i class="bi bi-exclamation-triangle-fill me-2"></i>' + (data.error || 'OCR extraction failed.'));
-          return;
-        }
-
-        const fields = data.fields || {};
-
-        // Populate preview modal input fields
-        document.getElementById('preview-sender').value = fields.sender || '';
-        document.getElementById('preview-recipient').value = fields.recipient || '';
-        document.getElementById('preview-attention').value = fields.attention_to || '';
-        document.getElementById('preview-subject').value = fields.subject || '';
-        document.getElementById('preview-date').value = fields.date || '';
-
-        const refGroup = document.getElementById('preview-group-refno');
-        if (letterDirection === 'OUTGOING') {
-          if (refGroup) refGroup.style.display = 'none';
-        } else {
-          if (refGroup) refGroup.style.display = '';
-          document.getElementById('preview-refno').value = fields.reference_no || '';
-        }
-
-        document.getElementById('preview-raw-text').textContent = data.raw_text_snippet || 'No raw text snippet available.';
-
-        // Open preview modal
-        if (previewModal) {
-          previewModal.show();
-        } else {
-          // Fallback if bootstrap modal instance not initialized
-          const bsModal = new bootstrap.Modal(previewModalEl);
-          bsModal.show();
-        }
-      })
-      .catch(err => {
-        btnScan.disabled = false;
-        spinner.classList.add('d-none');
-        btnText.textContent = 'Auto-Fill via OCR';
-        showOcrAlert('danger', '<i class="bi bi-exclamation-octagon-fill me-2"></i>Error processing file: ' + err.message);
-      });
-    }
-
-    // Apply values from preview modal to main form
-    if (btnApply) {
-      btnApply.addEventListener('click', function() {
-        const directionInput = document.getElementById('id_direction');
-        const letterDirection = directionInput ? directionInput.value : 'INCOMING';
-
-        let filledCount = 0;
-        const filledNames = [];
-
-        function applyVal(id, val, label) {
-          if (!val) return;
-          const input = document.getElementById(id);
-          if (input) {
-            input.value = val;
-            input.classList.remove('ocr-field-highlight');
-            void input.offsetWidth; // trigger reflow
-            input.classList.add('ocr-field-highlight');
-            filledCount++;
-            filledNames.push(label);
-          }
-        }
-
-        applyVal('id_sender', document.getElementById('preview-sender').value.trim(), 'Sender');
-        applyVal('id_recipient', document.getElementById('preview-recipient').value.trim(), 'Recipient');
-        applyVal('id_attention_to', document.getElementById('preview-attention').value.trim(), 'Attention');
-        applyVal('id_subject', document.getElementById('preview-subject').value.trim(), 'Subject');
-        applyVal('id_date', document.getElementById('preview-date').value.trim(), 'Date');
-
-        if (letterDirection !== 'OUTGOING') {
-          applyVal('id_reference_no', document.getElementById('preview-refno').value.trim(), 'Reference No');
-        }
-
-        // Close modal
-        const modalInst = bootstrap.Modal.getInstance(previewModalEl);
-        if (modalInst) modalInst.hide();
-
-        if (filledCount > 0) {
-          showOcrAlert('success', '<i class="bi bi-check-circle-fill me-2"></i>Applied <strong>' + filledCount + '</strong> field(s): ' + filledNames.join(', ') + '.');
-        } else {
-          showOcrAlert('warning', '<i class="bi bi-info-circle-fill me-2"></i>No values were applied to form fields.');
-        }
-      });
     }
 
     function showOcrAlert(type, htmlContent) {
       if (resultAlert && resultMessage) {
         resultAlert.className = 'alert alert-' + type + ' alert-dismissible fade show mb-3 p-2.5 ps-3 pe-4 small';
+        resultAlert.style.borderRadius = '12px';
         resultMessage.innerHTML = htmlContent;
         resultAlert.classList.remove('d-none');
         resultAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     }
 
-    // === Direction-based field toggling ===
-    const directionField = document.getElementById('id_direction');
-    const senderGroup = document.getElementById('id_sender')?.closest('.col-md-6');
-    const recipientGroup = document.getElementById('id_recipient')?.closest('.col-md-6');
-
-    function toggleFields() {
-      if (!directionField || !senderGroup || !recipientGroup) return;
-      const val = directionField.value;
-      if (val === 'INCOMING') {
-        senderGroup.style.opacity = '1';
-        recipientGroup.style.opacity = '0.4';
-      } else if (val === 'OUTGOING') {
-        senderGroup.style.opacity = '0.4';
-        recipientGroup.style.opacity = '1';
-      } else {
-        senderGroup.style.opacity = '1';
-        recipientGroup.style.opacity = '1';
-      }
-    }
-
-    if (directionField) {
-      directionField.addEventListener('change', toggleFields);
-      toggleFields();
-    }
-
     // === Related Letter Searchable Widget ===
     const selectEl = document.getElementById('id_related_letter');
     if (!selectEl) return;
 
-    // Hide original select
     selectEl.style.display = 'none';
 
     const wrapper = document.createElement('div');
     wrapper.className = 'related-letter-search-wrapper';
     selectEl.parentNode.insertBefore(wrapper, selectEl.nextSibling);
 
-    // Search input
     const searchInput = document.createElement('input');
     searchInput.type = 'text';
     searchInput.className = 'form-control';
-    searchInput.placeholder = 'Search by reference, sender, subject…';
+    searchInput.placeholder = 'Search by reference number, sender, subject...';
     searchInput.autocomplete = 'off';
     wrapper.appendChild(searchInput);
 
-    // Results dropdown
     const resultsDiv = document.createElement('div');
     resultsDiv.className = 'related-letter-results';
     wrapper.appendChild(resultsDiv);
 
-    // Selected display
     const selectedDiv = document.createElement('div');
     selectedDiv.className = 'related-letter-selected';
     selectedDiv.style.display = 'none';
     wrapper.appendChild(selectedDiv);
 
-    // Show pre-selected value if editing
     const currentOption = selectEl.options[selectEl.selectedIndex];
     if (currentOption && currentOption.value) {
       showSelected(currentOption.value, currentOption.textContent.trim());
@@ -426,46 +1172,47 @@
     searchInput.addEventListener('input', function() {
       clearTimeout(searchTimeout);
       const q = this.value.trim();
-      activeIndex = -1;
-
       if (q.length < 2) {
         resultsDiv.style.display = 'none';
         return;
       }
-
       searchTimeout = setTimeout(() => {
-        fetch('/api/letters/search/?q=' + encodeURIComponent(q))
-          .then(r => r.json())
+        fetch('{% url "letters:letter_search" %}?q=' + encodeURIComponent(q))
+          .then(res => res.json())
           .then(data => {
             resultsDiv.innerHTML = '';
+            activeIndex = -1;
             if (!data.results || data.results.length === 0) {
-              resultsDiv.innerHTML = '<div class="rl-empty">No letters found</div>';
+              resultsDiv.innerHTML = '<div class="rl-empty"><i class="bi bi-search me-1"></i>No matching letters found</div>';
               resultsDiv.style.display = 'block';
               return;
             }
             data.results.forEach((item, idx) => {
               const div = document.createElement('div');
               div.className = 'rl-item';
-              div.dataset.id = item.id;
               div.dataset.index = idx;
+              div.dataset.id = item.id;
+              div.dataset.text = item.text;
               div.innerHTML =
                 '<span class="rl-ref">' + escapeHtml(item.reference_no) + '</span>' +
-                '<span class="rl-subject">— ' + escapeHtml(item.text.replace(item.reference_no + ' - ', '')) + '</span>';
-              div.addEventListener('click', () => pickResult(item.id, item.text));
+                (item.subject ? '<span class="rl-subject">&mdash; ' + escapeHtml(item.subject) + '</span>' : '') +
+                (item.sender ? '<span class="badge bg-light text-dark ms-2" style="font-size:0.7rem;">' + escapeHtml(item.sender) + '</span>' : '');
+              div.addEventListener('click', function() {
+                pickResult(item.id, item.text);
+              });
               resultsDiv.appendChild(div);
             });
             resultsDiv.style.display = 'block';
           })
           .catch(() => {
-            resultsDiv.innerHTML = '<div class="rl-empty">Search error</div>';
-            resultsDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
           });
-      }, 300);
+      }, 250);
     });
 
     searchInput.addEventListener('keydown', function(e) {
       const items = resultsDiv.querySelectorAll('.rl-item');
-      if (!items.length) return;
+      if (!items.length || resultsDiv.style.display === 'none') return;
 
       if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -484,7 +1231,6 @@
       }
     });
 
-    // Close dropdown on outside click
     document.addEventListener('click', function(e) {
       if (!wrapper.contains(e.target)) {
         resultsDiv.style.display = 'none';
@@ -510,8 +1256,8 @@
 
     function showSelected(id, text) {
       selectedDiv.innerHTML =
-        '<i class="bi bi-link-45deg"></i> <span>' + escapeHtml(text) + '</span>' +
-        '<button type="button" class="rl-clear" title="Remove">&times;</button>';
+        '<i class="bi bi-link-45deg text-primary fs-5"></i> <span>' + escapeHtml(text) + '</span>' +
+        '<button type="button" class="rl-clear" title="Remove link">&times;</button>';
       selectedDiv.style.display = 'flex';
 
       selectedDiv.querySelector('.rl-clear').addEventListener('click', function() {
@@ -536,4 +1282,5 @@
     }
   });
 </script>
+<script src="{% static 'js/ethiopian_calendar.js' %}"></script>
 {% endblock %}

@@ -103,6 +103,15 @@ class CanViewLetterMixin(BasePermissionMixin):
         return user_can_view_letter(self.request.user, letter)
 
 
+class SuperuserRequiredMixin(BasePermissionMixin):
+    """Enforce that only superusers (super admin) can access this view."""
+    permission_denied_message = "Only Super Administrators are authorized to use this feature."
+
+    def test_func(self):
+        user = self.request.user
+        return user.is_authenticated and user.is_superuser
+
+
 class SuperuserOrAdminRequiredMixin(BasePermissionMixin):
     """Enforce that only superusers or users in the Admin group can access administrative views."""
     permission_denied_message = "Administrative privileges are required to access this area."
@@ -139,3 +148,7 @@ class CanViewIncomingLettersMixin(BasePermissionMixin):
 
     def test_func(self):
         return _can_view_direction(self.request.user, 'can_view_incoming_letters')
+
+
+
+

@@ -21,6 +21,7 @@ urlpatterns = [
     
     # Letter search & OCR API
     path('api/letters/search/', views.LetterSearchView.as_view(), name='letter_search'),
+    path('api/letters/related-search/', views.LetterSearchView.as_view(), name='related_letter_search'),
     path('api/letters/ocr-extract/', views.OcrExtractView.as_view(), name='ocr_extract'),
     
     # Saved searches
@@ -47,6 +48,7 @@ urlpatterns = [
 
     # Admin settings panel
     path('admin-dashboard/', views.AdminDashboardView.as_view(), name='admin_dashboard'),
+    path('admin-dashboard/settings/toggle-ai/', views.AdminToggleAISettingView.as_view(), name='admin_toggle_ai'),
 
     # Admin department CRUD
     path('admin-dashboard/departments/', views.DepartmentListView.as_view(), name='admin_department_list'),
@@ -65,6 +67,10 @@ urlpatterns = [
     path('admin-dashboard/staff/create/', views.StaffCreateView.as_view(), name='admin_staff_create'),
     path('admin-dashboard/staff/<int:pk>/edit/', views.StaffUpdateView.as_view(), name='admin_staff_edit'),
     path('admin-dashboard/staff/<int:pk>/delete/', views.StaffDeleteView.as_view(), name='admin_staff_delete'),
+
+    # Super Admin Custom SMS Broadcast
+    path('admin-dashboard/custom-sms/', views.CustomSMSView.as_view(), name='custom_sms'),
+    path('admin-dashboard/custom-sms/log/<int:pk>/', views.CustomSMSLogDetailView.as_view(), name='custom_sms_log_detail'),
 
     # User profile
     path('profile/', views.UserProfileView.as_view(), name='user_profile'),
@@ -88,9 +94,18 @@ urlpatterns = [
     path('profile/disconnect-telegram/', views.DisconnectTelegramView.as_view(), name='disconnect_telegram'),
     path('telegram/webhook/', views.TelegramWebhookView.as_view(), name='telegram_webhook'),
 
+    # SMS Notifications (AfroMessage)
+    path('profile/sms-settings/', views.SmsSettingsView.as_view(), name='sms_settings'),
+    path('profile/test-sms/', views.TestSmsView.as_view(), name='test_sms'),
+    path('profile/disconnect-sms/', views.DisconnectSmsView.as_view(), name='disconnect_sms'),
+
     # AI Platform Assistant
     path('ai-assistant/', views.AIAssistantPageView.as_view(), name='ai_assistant_page'),
     path('api/ai-assistant/chat/', views.AIAssistantChatView.as_view(), name='ai_assistant_chat'),
     path('api/ai-assistant/status/', views.AIAssistantStatusView.as_view(), name='ai_assistant_status'),
+
+    # Calendar conversion API
+    path('api/calendar/convert/', views.CalendarConvertAPIView.as_view(), name='calendar_convert'),
 ]
+
 

@@ -2,6 +2,7 @@ import calendar
 import os
 import json
 import logging
+from datetime import datetime, date
 
 logger = logging.getLogger(__name__)
 
@@ -11,7 +12,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
 from django.http import JsonResponse, HttpResponseRedirect
-from django.shortcuts import get_object_or_404, redirect
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -27,11 +28,18 @@ from django.db import models
 from django.utils.timesince import timesince
 
 from .filters import LetterFilter
-from .forms import ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm, IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm
-from .models import ActionLog, Attachment, AttachmentView, Department, Letter, Category, SavedSearch, UserProfile, Notification, PushSubscription
+from .forms import (
+    ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm,
+    IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm,
+)
+from .models import (
+    ActionLog, Attachment, AttachmentView, Department, Letter, Category, SavedSearch,
+    UserProfile, Notification, PushSubscription, SystemSetting, CustomSMSLog,
+)
+from django.core.files.base import ContentFile
 from .permissions import (
     user_can_close, user_can_view_all_letters, user_can_view_letter, user_can_view_attachment_logs,
-    CanViewLetterMixin, SuperuserOrAdminRequiredMixin,
+    CanViewLetterMixin, SuperuserOrAdminRequiredMixin, SuperuserRequiredMixin,
 )
 from .export_utils import export_letters_to_excel, export_letters_to_pdf
 from .email_utils import (
@@ -40,6 +48,7 @@ from .email_utils import (
 )
 from .push_utils import send_push_notification
 from .telegram_utils import send_telegram_notification
+from .sms_utils import send_sms_with_result, normalize_phone_number
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +167,8 @@ class DashboardView(LoginRequiredMixin, TemplateView):
                 Q(letter__created_by=user)
             )
 
+
+
         ctx['recent_actions'] = (
             action_qs
             .select_related('letter', 'action_by')[:10]
@@ -183,16 +194,43 @@ class LetterListView(LoginRequiredMixin, FilterView):
         qs = super().get_queryset()
         qs = get_user_letter_queryset(self.request.user, qs)
         qs = qs.select_related(
-            'assigned_department', 'assigned_person', 'created_by',
+            'assigned_department', 'assigned_person', 'created_by', 'category',
         )
-        search = self.request.GET.get('search', '')
+        search = self.request.GET.get('search', '').strip()
         if search:
-            qs = qs.filter(
+            search_q = (
                 Q(subject__icontains=search)
                 | Q(sender__icontains=search)
                 | Q(recipient__icontains=search)
                 | Q(reference_no__icontains=search)
             )
+
+            # Try parsing search as an Ethiopian date
+            try:
+                from .ethiopian_calendar import parse_ethiopian_date, ethiopian_year_gregorian_range, ETHIOPIAN_MONTH_MAP, ethiopian_month_gregorian_range, gregorian_to_ethiopian
+                # Exact date check
+                parsed_eth_date = parse_ethiopian_date(search)
+                if parsed_eth_date:
+                    search_q |= Q(date=parsed_date)
+
+                # Year check (e.g. "2018" or "2017")
+                if search.isdigit() and 1900 <= int(search) <= 2150:
+                    y_start, y_end = ethiopian_year_gregorian_range(int(search))
+                    search_q |= Q(date__range=(y_start, y_end))
+
+                # Month name check (e.g. "Nehase" or "ነሐሴ")
+                clean_term = search.lower()
+                if clean_term in ETHIOPIAN_MONTH_MAP or search in ETHIOPIAN_MONTH_MAP:
+                    m_idx = ETHIOPIAN_MONTH_MAP.get(clean_term) or ETHIOPIAN_MONTH_MAP.get(search)
+                    cur_ey, _, _ = gregorian_to_ethiopian(timezone.now().date())
+                    # Match this month across current and past 3 Ethiopian years
+                    for ey in range(cur_ey - 3, cur_ey + 2):
+                        m_start, m_end = ethiopian_month_gregorian_range(ey, m_idx)
+                        search_q |= Q(date__range=(m_start, m_end))
+            except Exception:
+                pass
+
+            qs = qs.filter(search_q)
         return qs
 
     def get_context_data(self, **kwargs):
@@ -287,6 +325,7 @@ class LetterDetailView(LoginRequiredMixin, CanViewLetterMixin, DetailView):
         ctx['related_replies'] = letter.replies.select_related(
             'assigned_department', 'assigned_person',
         )
+
         ctx['action_count'] = ctx['action_logs'].count()
         
         # Set status flow based on letter direction
@@ -362,6 +401,16 @@ class LetterCreateView(LoginRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['form_title'] = 'Register New Letter'
+        try:
+            ctx['common_senders'] = list(
+                Letter.objects.exclude(sender='').values_list('sender', flat=True).distinct()[:30]
+            )
+            ctx['common_recipients'] = list(
+                Letter.objects.exclude(recipient='').values_list('recipient', flat=True).distinct()[:30]
+            )
+        except Exception:
+            ctx['common_senders'] = []
+            ctx['common_recipients'] = []
         return ctx
 
 
@@ -462,6 +511,16 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['form_title'] = f'Edit: {self.object.reference_no}'
+        try:
+            ctx['common_senders'] = list(
+                Letter.objects.exclude(sender='').values_list('sender', flat=True).distinct()[:30]
+            )
+            ctx['common_recipients'] = list(
+                Letter.objects.exclude(recipient='').values_list('recipient', flat=True).distinct()[:30]
+            )
+        except Exception:
+            ctx['common_senders'] = []
+            ctx['common_recipients'] = []
         return ctx
 
 
@@ -490,7 +549,8 @@ class AddActionView(LoginRequiredMixin, View):
     def post(self, request, pk):
         letters_qs = get_user_letter_queryset(request.user)
         letter = get_object_or_404(letters_qs, pk=pk)
-        form = ActionLogForm(request.POST)
+        can_close = user_can_close(request.user, letter)
+        form = ActionLogForm(request.POST, can_close=can_close, letter=letter)
 
         if form.is_valid():
             action_text = form.cleaned_data.get('action', '').strip()
@@ -937,6 +997,20 @@ class ReportsView(LoginRequiredMixin, TemplateView):
             
             date_from = request.GET.get('date_from')
             date_to = request.GET.get('date_to')
+            eth_date_from = request.GET.get('eth_date_from')
+            eth_date_to = request.GET.get('eth_date_to')
+
+            from .ethiopian_calendar import parse_ethiopian_date
+            if eth_date_from and not date_from:
+                try:
+                    date_from = parse_ethiopian_date(eth_date_from)
+                except Exception:
+                    pass
+            if eth_date_to and not date_to:
+                try:
+                    date_to = parse_ethiopian_date(eth_date_to)
+                except Exception:
+                    pass
             
             if date_from:
                 base_qs = base_qs.filter(date__gte=date_from)
@@ -958,9 +1032,23 @@ class ReportsDataView(LoginRequiredMixin, View):
         user = request.user
         base_qs = get_user_letter_queryset(user)
         
-        # Apply date range filters
+        # Apply date range filters (Gregorian and Ethiopian)
         date_from = request.GET.get('date_from')
         date_to = request.GET.get('date_to')
+        eth_date_from = request.GET.get('eth_date_from')
+        eth_date_to = request.GET.get('eth_date_to')
+
+        from .ethiopian_calendar import parse_ethiopian_date
+        if eth_date_from and not date_from:
+            try:
+                date_from = parse_ethiopian_date(eth_date_from)
+            except Exception:
+                pass
+        if eth_date_to and not date_to:
+            try:
+                date_to = parse_ethiopian_date(eth_date_to)
+            except Exception:
+                pass
         
         if date_from:
             base_qs = base_qs.filter(date__gte=date_from)
@@ -1041,7 +1129,45 @@ class AdminDashboardView(LoginRequiredMixin, SuperuserOrAdminRequiredMixin, Temp
         ctx['total_letters'] = Letter.objects.count()
         ctx['recent_staff'] = User.objects.order_by('-date_joined')[:5]
         ctx['recent_letters'] = Letter.objects.order_by('-created_at')[:5]
+        ctx['system_setting'] = SystemSetting.get_settings()
         return ctx
+
+
+class AdminToggleAISettingView(LoginRequiredMixin, SuperuserOrAdminRequiredMixin, View):
+    """Enable or disable AI Assistant and OCR features system-wide."""
+    def post(self, request, *args, **kwargs):
+        setting = SystemSetting.get_settings()
+        feature = request.POST.get('feature', '')
+        enable = request.POST.get('enable') in ['true', '1', 'on']
+
+        if feature == 'ai_assistant':
+            setting.ai_assistant_enabled = enable
+            setting.updated_by = request.user
+            setting.save()
+            status_text = "enabled" if enable else "disabled"
+            messages.success(request, f"AI Platform Assistant has been {status_text}.")
+        elif feature == 'ai_ocr':
+            setting.ai_ocr_enabled = enable
+            setting.updated_by = request.user
+            setting.save()
+            status_text = "enabled" if enable else "disabled"
+            messages.success(request, f"OCR Auto-Fill scanning has been {status_text}.")
+        elif feature == 'all':
+            setting.ai_assistant_enabled = enable
+            setting.ai_ocr_enabled = enable
+            setting.updated_by = request.user
+            setting.save()
+            status_text = "enabled" if enable else "disabled"
+            messages.success(request, f"All AI Platform features have been {status_text}.")
+
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return JsonResponse({
+                'success': True,
+                'ai_assistant_enabled': setting.ai_assistant_enabled,
+                'ai_ocr_enabled': setting.ai_ocr_enabled,
+            })
+
+        return redirect('letters:admin_dashboard')
 
 
 # --- Department CRUD ---
@@ -1204,6 +1330,218 @@ class StaffDeleteView(LoginRequiredMixin, SuperuserOrAdminRequiredMixin, DeleteV
 
 
 # ---------------------------------------------------------------------------
+# Super Admin Custom SMS Broadcast
+# ---------------------------------------------------------------------------
+class CustomSMSView(LoginRequiredMixin, SuperuserRequiredMixin, View):
+    """
+    Super Admin only: Send custom SMS messages to staff members, departments,
+    or external phone numbers via AfroMessage.
+    """
+    template_name = 'admin_dashboard/custom_sms.html'
+
+    def get(self, request):
+        staff_members = User.objects.filter(is_active=True).select_related('profile').prefetch_related('departments', 'groups').order_by('username')
+        departments = Department.objects.annotate(
+            active_staff_count=Count('users', filter=Q(users__is_active=True))
+        ).order_by('name')
+
+        staff_with_phone_count = sum(
+            1 for u in staff_members
+            if hasattr(u, 'profile') and u.profile.phone_number
+        )
+
+        logs = CustomSMSLog.objects.select_related('sender').order_by('-created_at')[:50]
+
+        is_configured = bool(getattr(settings, 'AFROMESSAGE_API_TOKEN', ''))
+        sender_name = getattr(settings, 'AFROMESSAGE_SENDER_NAME', '')
+
+        context = {
+            'staff_members': staff_members,
+            'departments': departments,
+            'staff_with_phone_count': staff_with_phone_count,
+            'total_staff_count': staff_members.count(),
+            'logs': logs,
+            'is_configured': is_configured,
+            'sender_name': sender_name,
+        }
+        return render(request, self.template_name, context)
+
+    def post(self, request):
+        import re
+
+        message = request.POST.get('message', '').strip()
+        recipient_mode = request.POST.get('recipient_mode', 'all_staff')
+        department_ids = request.POST.getlist('departments')
+        staff_ids = request.POST.getlist('staff_ids')
+        external_numbers_raw = request.POST.get('external_numbers', '').strip()
+
+        # Validation
+        if not message:
+            messages.error(request, 'Please enter an SMS message.')
+            return redirect('letters:custom_sms')
+
+        target_recipients = {}  # normalized_phone -> {'name': ..., 'type': 'Staff'|'External', 'user_id': ...}
+        skipped_staff = []      # names of staff skipped because no phone number
+        invalid_numbers = []    # invalid external numbers
+
+        # 1. Staff selection based on recipient_mode
+        if recipient_mode == 'all_staff':
+            staff_qs = User.objects.filter(is_active=True).select_related('profile')
+            for u in staff_qs:
+                phone = getattr(u.profile, 'phone_number', None) if hasattr(u, 'profile') else None
+                normalized = normalize_phone_number(phone)
+                if normalized:
+                    target_recipients[normalized] = {
+                        'name': u.get_full_name() or u.username,
+                        'type': 'Staff',
+                        'user_id': u.id,
+                    }
+                else:
+                    skipped_staff.append(u.get_full_name() or u.username)
+
+        elif recipient_mode == 'by_department':
+            if not department_ids:
+                messages.error(request, 'Please select at least one department.')
+                return redirect('letters:custom_sms')
+            staff_qs = User.objects.filter(is_active=True, departments__id__in=department_ids).select_related('profile').distinct()
+            for u in staff_qs:
+                phone = getattr(u.profile, 'phone_number', None) if hasattr(u, 'profile') else None
+                normalized = normalize_phone_number(phone)
+                if normalized:
+                    target_recipients[normalized] = {
+                        'name': u.get_full_name() or u.username,
+                        'type': 'Staff',
+                        'user_id': u.id,
+                    }
+                else:
+                    skipped_staff.append(u.get_full_name() or u.username)
+
+        elif recipient_mode == 'selected_staff':
+            if not staff_ids:
+                messages.error(request, 'Please select at least one staff member.')
+                return redirect('letters:custom_sms')
+            staff_qs = User.objects.filter(is_active=True, id__in=staff_ids).select_related('profile')
+            for u in staff_qs:
+                phone = getattr(u.profile, 'phone_number', None) if hasattr(u, 'profile') else None
+                normalized = normalize_phone_number(phone)
+                if normalized:
+                    target_recipients[normalized] = {
+                        'name': u.get_full_name() or u.username,
+                        'type': 'Staff',
+                        'user_id': u.id,
+                    }
+                else:
+                    skipped_staff.append(u.get_full_name() or u.username)
+
+        # 2. External / other numbers (can be added with any mode or external_only)
+        if external_numbers_raw:
+            raw_tokens = [t.strip() for t in re.split(r'[\r\n,;]+', external_numbers_raw) if t.strip()]
+            for token in raw_tokens:
+                normalized = normalize_phone_number(token)
+                if normalized:
+                    if normalized not in target_recipients:
+                        target_recipients[normalized] = {
+                            'name': 'External Contact',
+                            'type': 'External',
+                            'user_id': None,
+                        }
+                else:
+                    invalid_numbers.append(token)
+
+        if not target_recipients:
+            err_msg = 'No valid recipient phone numbers found.'
+            if invalid_numbers:
+                err_msg += f' Invalid number(s): {", ".join(invalid_numbers[:5])}.'
+            if skipped_staff:
+                err_msg += f' {len(skipped_staff)} staff member(s) have no phone number in their profile.'
+            messages.error(request, err_msg)
+            return redirect('letters:custom_sms')
+
+        # 3. Send SMS to all target recipients
+        success_count = 0
+        failed_count = 0
+        delivery_details = []
+
+        target_type_map = {
+            'all_staff': 'All Staff',
+            'by_department': 'Department Staff',
+            'selected_staff': 'Selected Staff',
+            'external_only': 'External Numbers',
+        }
+        target_label = target_type_map.get(recipient_mode, recipient_mode)
+        if external_numbers_raw and recipient_mode != 'external_only':
+            target_label += ' + External'
+
+        for phone, info in target_recipients.items():
+            success, status_msg = send_sms_with_result(phone, message)
+            delivery_details.append({
+                'phone': phone,
+                'name': info['name'],
+                'type': info['type'],
+                'status': 'success' if success else 'failed',
+                'error': '' if success else status_msg,
+            })
+            if success:
+                success_count += 1
+            else:
+                failed_count += 1
+
+        # 4. Save to CustomSMSLog
+        log = CustomSMSLog.objects.create(
+            sender=request.user,
+            message=message,
+            target_type=target_label,
+            total_recipients=len(target_recipients),
+            success_count=success_count,
+            failed_count=failed_count,
+            delivery_details=delivery_details,
+        )
+
+        # 5. User Feedback
+        if failed_count == 0:
+            msg_text = f'Custom SMS successfully sent to all {success_count} recipient(s).'
+            if skipped_staff:
+                msg_text += f' ({len(skipped_staff)} staff without phone numbers were skipped).'
+            messages.success(request, msg_text)
+        elif success_count > 0:
+            messages.warning(
+                request,
+                f'Custom SMS partially delivered: {success_count} succeeded, {failed_count} failed. Check the broadcast log below.'
+            )
+        else:
+            first_err = delivery_details[0]['error'] if delivery_details else 'Unknown error'
+            messages.error(
+                request,
+                f'Failed to send SMS to any recipient. AfroMessage response: {first_err}'
+            )
+
+        if invalid_numbers:
+            messages.warning(
+                request,
+                f'The following numbers were invalid and skipped: {", ".join(invalid_numbers[:5])}'
+            )
+
+        return redirect('letters:custom_sms')
+
+
+class CustomSMSLogDetailView(LoginRequiredMixin, SuperuserRequiredMixin, View):
+    """Return JSON details of a CustomSMSLog record for modal inspection."""
+    def get(self, request, pk):
+        log = get_object_or_404(CustomSMSLog, pk=pk)
+        return JsonResponse({
+            'id': log.id,
+            'sender': log.sender.username if log.sender else 'System',
+            'message': log.message,
+            'target_type': log.target_type,
+            'total_recipients': log.total_recipients,
+            'success_count': log.success_count,
+            'failed_count': log.failed_count,
+            'created_at': log.created_at.strftime('%b %d, %Y %I:%M %p'),
+            'delivery_details': log.delivery_details,
+        })
+
+
+# ---------------------------------------------------------------------------
 # Short URL redirect for file sharing
 # ---------------------------------------------------------------------------
 class ShortUrlRedirectView(View):
@@ -1252,6 +1590,7 @@ class UserProfileView(LoginRequiredMixin, TemplateView):
         context['password_form'] = CustomPasswordChangeForm(user=user)
         context['vapid_public_key'] = getattr(settings, 'VAPID_PUBLIC_KEY', '')
         context['telegram_bot_username'] = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'aelms_bot')
+        context['afromessage_configured'] = bool(getattr(settings, 'AFROMESSAGE_API_TOKEN', ''))
         
         # Calculate profile completion
         completion = 0
@@ -1707,12 +2046,110 @@ class DisconnectTelegramView(LoginRequiredMixin, View):
             return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
+class SmsSettingsView(LoginRequiredMixin, View):
+    """Save AfroMessage SMS notification settings."""
+    def post(self, request):
+        try:
+            from .sms_utils import normalize_phone_number
+            data = json.loads(request.body)
+            phone = data.get('phone_number', '').strip()
+            enabled = data.get('enabled', False)
+
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+
+            if phone:
+                normalized = normalize_phone_number(phone)
+                if not normalized:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Invalid Ethiopian phone number. Please use format 09XXXXXXXX or +2519XXXXXXXX.'
+                    }, status=400)
+                profile.phone_number = normalized
+                profile.sms_notifications = enabled
+            else:
+                profile.phone_number = None
+                profile.sms_notifications = False
+
+            profile.save()
+            return JsonResponse({
+                'success': True,
+                'phone_number': profile.phone_number,
+                'enabled': profile.sms_notifications
+            })
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"SMS settings error: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class TestSmsView(LoginRequiredMixin, View):
+    """Send a test SMS via AfroMessage."""
+    def post(self, request):
+        try:
+            from .sms_utils import send_sms_with_result, normalize_phone_number
+            data = json.loads(request.body) if request.body else {}
+            phone = data.get('phone_number', '').strip()
+
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            target_phone = phone or profile.phone_number
+
+            if not target_phone:
+                return JsonResponse({'success': False, 'error': 'Phone number is required.'}, status=400)
+
+            normalized = normalize_phone_number(target_phone)
+            if not normalized:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Invalid Ethiopian phone number format. Use 09XXXXXXXX, 07XXXXXXXX, or +2519XXXXXXXX.'
+                }, status=400)
+
+            user_display = request.user.get_full_name() or request.user.username
+            msg = f"AE LMS: Hello {user_display}, your AfroMessage SMS notifications are configured successfully!"
+
+            success, api_message = send_sms_with_result(normalized, msg)
+            if success:
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': api_message
+                }, status=400)
+
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'error': 'Invalid JSON'}, status=400)
+        except Exception as e:
+            logger.error(f"Test SMS error: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+class DisconnectSmsView(LoginRequiredMixin, View):
+    """Disconnect/disable SMS notifications."""
+    def post(self, request):
+        try:
+            profile, _ = UserProfile.objects.get_or_create(user=request.user)
+            profile.phone_number = None
+            profile.sms_notifications = False
+            profile.save()
+            return JsonResponse({'success': True})
+        except Exception as e:
+            logger.error(f"Disconnect SMS error: {str(e)}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
 class OcrExtractView(LoginRequiredMixin, View):
     """
     API view for extracting letter metadata (sender, recipient, attention, subject, date, ref no)
     from uploaded document (PDF or Image) using OCR and text parsing.
     """
     def post(self, request, *args, **kwargs):
+        setting = SystemSetting.get_settings()
+        if not setting.ai_ocr_enabled:
+            return JsonResponse({
+                'success': False,
+                'error': 'OCR Auto-Fill feature is currently disabled by the system administrator.'
+            }, status=403)
+
         uploaded_file = request.FILES.get('file')
         if not uploaded_file:
             return JsonResponse({'success': False, 'error': 'No file uploaded.'}, status=400)
@@ -1751,12 +2188,23 @@ class AIAssistantPageView(LoginRequiredMixin, TemplateView):
     """
     template_name = 'letters/ai_assistant.html'
 
+    def get(self, request, *args, **kwargs):
+        setting = SystemSetting.get_settings()
+        if not setting.ai_assistant_enabled:
+            is_admin = request.user.is_superuser or request.user.groups.filter(name='Admin').exists()
+            if not is_admin:
+                messages.warning(request, "AI Platform Assistant is currently disabled by the system administrator.")
+                return redirect('letters:dashboard')
+        return super().get(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        setting = SystemSetting.get_settings()
         from .ai_assistant import AIAssistantService, FAQ_FALLBACK_DATABASE
         context['page_title'] = 'AI Platform Assistant'
         context['page_subtitle'] = 'Ask questions about AE LMS features, workflows, and tools'
         context['faq_database'] = FAQ_FALLBACK_DATABASE
+        context['is_ai_enabled'] = setting.ai_assistant_enabled
         context['ai_provider'] = self.request.session.get('ai_provider', getattr(settings, 'AI_MODEL_PROVIDER', 'auto'))
         context['has_gemini_key'] = bool(getattr(settings, 'GEMINI_API_KEY', '').strip() and getattr(settings, 'GEMINI_API_KEY', '') != 'your_free_gemini_api_key_here')
         context['has_groq_key'] = bool(getattr(settings, 'GROQ_API_KEY', '').strip() and getattr(settings, 'GROQ_API_KEY', '') != 'your_free_groq_api_key_here')
@@ -1770,6 +2218,13 @@ class AIAssistantChatView(LoginRequiredMixin, View):
     API endpoint for handling chat requests from floating widget or AI page.
     """
     def post(self, request, *args, **kwargs):
+        setting = SystemSetting.get_settings()
+        if not setting.ai_assistant_enabled:
+            return JsonResponse({
+                'success': False,
+                'error': 'AI Platform Assistant is currently disabled by the system administrator.'
+            }, status=403)
+
         try:
             data = json.loads(request.body.decode('utf-8'))
             user_prompt = data.get('prompt', '').strip()
@@ -1807,6 +2262,7 @@ class AIAssistantStatusView(LoginRequiredMixin, View):
     Returns AI provider status information.
     """
     def get(self, request, *args, **kwargs):
+        setting = SystemSetting.get_settings()
         gemini_key = getattr(settings, 'GEMINI_API_KEY', '').strip()
         groq_key = getattr(settings, 'GROQ_API_KEY', '').strip()
         openrouter_key = getattr(settings, 'OPENROUTER_API_KEY', '').strip()
@@ -1818,7 +2274,7 @@ class AIAssistantStatusView(LoginRequiredMixin, View):
         has_openrouter = bool(openrouter_key)
         has_cohere = bool(cohere_key)
 
-        is_live = has_gemini or has_groq or has_openrouter or has_cohere
+        is_live = (has_gemini or has_groq or has_openrouter or has_cohere) and setting.ai_assistant_enabled
 
         if provider == 'auto':
             active_provider = "Auto (Multi-Provider Failover)"
@@ -1835,6 +2291,7 @@ class AIAssistantStatusView(LoginRequiredMixin, View):
 
         return JsonResponse({
             'success': True,
+            'is_enabled': setting.ai_assistant_enabled,
             'provider': provider,
             'active_engine': active_provider,
             'has_gemini_key': has_gemini,
@@ -1843,5 +2300,53 @@ class AIAssistantStatusView(LoginRequiredMixin, View):
             'has_cohere_key': has_cohere,
             'is_live_ai_available': is_live
         })
+
+
+# ---------------------------------------------------------------------------
+# Calendar Conversion API
+# ---------------------------------------------------------------------------
+class CalendarConvertAPIView(LoginRequiredMixin, View):
+    """
+    JSON API for bidirectional conversion between Gregorian and Ethiopian dates.
+    """
+    def get(self, request):
+        from .ethiopian_calendar import (
+            gregorian_to_ethiopian, ethiopian_to_gregorian,
+            format_ethiopian_date, parse_ethiopian_date
+        )
+        mode = request.GET.get('mode', 'greg_to_eth')
+        val = request.GET.get('date', '').strip()
+
+        if not val:
+            return JsonResponse({'success': False, 'error': 'No date provided.'}, status=400)
+
+        try:
+            if mode == 'greg_to_eth':
+                # Input: YYYY-MM-DD
+                dt = datetime.strptime(val, '%Y-%m-%d').date()
+                ey, em, ed = gregorian_to_ethiopian(dt)
+                return JsonResponse({
+                    'success': True,
+                    'ethiopian_iso': f"{ey:04d}-{em:02d}-{ed:02d}",
+                    'ethiopian_full': format_ethiopian_date(dt, fmt='full', amharic=False),
+                    'ethiopian_amharic': format_ethiopian_date(dt, fmt='full', amharic=True),
+                    'year': ey, 'month': em, 'day': ed
+                })
+            else:  # eth_to_greg
+                dt = parse_ethiopian_date(val)
+                if not dt:
+                    return JsonResponse({'success': False, 'error': 'Could not parse Ethiopian date.'}, status=400)
+                ey, em, ed = gregorian_to_ethiopian(dt)
+                return JsonResponse({
+                    'success': True,
+                    'gregorian_iso': dt.strftime('%Y-%m-%d'),
+                    'gregorian_formatted': dt.strftime('%d %b %Y'),
+                    'ethiopian_iso': f"{ey:04d}-{em:02d}-{ed:02d}",
+                    'ethiopian_full': format_ethiopian_date(dt, fmt='full', amharic=False),
+                    'ethiopian_amharic': format_ethiopian_date(dt, fmt='full', amharic=True),
+                    'year': dt.year, 'month': dt.month, 'day': dt.day
+                })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)}, status=400)
 
 
