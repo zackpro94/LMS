@@ -34,7 +34,7 @@ def send_overdue_notification(letter):
     context = {
         'letter': letter,
         'assigned_person': letter.assigned_person,
-        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://127.0.0.1:8000',
+        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://lms.pro.et',
     }
     
     send_notification_email(
@@ -72,7 +72,7 @@ def send_status_change_notification(letter, old_status, new_status):
         'letter': letter,
         'old_status': old_status,
         'new_status': new_status,
-        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://127.0.0.1:8000',
+        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://lms.pro.et',
     }
     
     for recipient in recipients:
@@ -94,7 +94,7 @@ def send_assignment_notification(letter):
     context = {
         'letter': letter,
         'assigned_person': letter.assigned_person,
-        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://127.0.0.1:8000',
+        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://lms.pro.et',
     }
     
     send_notification_email(
@@ -126,7 +126,7 @@ def send_new_action_notification(letter, action, action_by):
         'letter': letter,
         'action': action,
         'action_by': action_by,
-        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://127.0.0.1:8000',
+        'site_url': settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://lms.pro.et',
     }
     
     for recipient in recipients:

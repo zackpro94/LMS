@@ -369,7 +369,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 # ---------------------------------------------------------------------------
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'  # For development
 DEFAULT_FROM_EMAIL = 'noreply@auctionethiopia.com'
-SITE_URL = 'http://127.0.0.1:8000'
+SITE_URL = os.environ.get('SITE_URL', 'https://lms.pro.et')
 
 # For production, configure SMTP:
 # EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

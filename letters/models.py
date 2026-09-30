@@ -362,7 +362,7 @@ class Attachment(models.Model):
         from django.conf import settings
         
         # Get the full URL
-        full_url = f"{settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'http://lms.pro.et'}{self.get_short_url()}"
+        full_url = f"{settings.SITE_URL if hasattr(settings, 'SITE_URL') else 'https://lms.pro.et'}{self.get_short_url()}"
         
         # Generate QR code
         qr = qrcode.QRCode(
