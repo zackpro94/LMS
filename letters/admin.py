@@ -58,7 +58,7 @@ class LetterAdmin(admin.ModelAdmin):
     search_fields = (
         'reference_no', 'subject', 'sender', 'recipient', 'remarks',
     )
-    readonly_fields = ('reference_no', 'created_at', 'updated_at')
+    readonly_fields = ('reference_no', 'short_code', 'created_at', 'updated_at')
     date_hierarchy = 'date'
     inlines = [AttachmentInline, ActionLogInline]
     raw_id_fields = ('assigned_person', 'created_by', 'related_letter')

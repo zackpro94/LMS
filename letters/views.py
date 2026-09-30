@@ -1549,25 +1549,32 @@ class ShortUrlRedirectView(View):
     def get(self, request, short_code):
         # Try to find by custom short code first, then regular short code
         attachment = get_object_or_404(Attachment, models.Q(short_code=short_code) | models.Q(custom_short_code=short_code))
-        
+
         # Check if link has expired
         if attachment.is_expired():
             from django.http import HttpResponse
             return HttpResponse("This link has expired.", status=410)
-        
+
         # Update analytics
         attachment.access_count += 1
         attachment.last_accessed = timezone.now()
         attachment.save(update_fields=['access_count', 'last_accessed'])
-        
+
         if request.user.is_authenticated:
             AttachmentView.objects.create(
                 attachment=attachment,
                 user=request.user,
                 action=AttachmentView.SHARE
             )
-        
+
         return HttpResponseRedirect(attachment.file.url)
+
+
+class LetterShortUrlRedirectView(LoginRequiredMixin, View):
+    """Redirect short URL to letter detail page."""
+    def get(self, request, short_code):
+        letter = get_object_or_404(Letter, short_code=short_code)
+        return HttpResponseRedirect(letter.get_absolute_url())
 
 
 # ---------------------------------------------------------------------------

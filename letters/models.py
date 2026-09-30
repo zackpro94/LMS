@@ -168,6 +168,13 @@ class Letter(models.Model):
         help_text='Link to original letter (for replies)',
     )
     due_date = models.DateField(null=True, blank=True)
+    short_code = models.CharField(
+        max_length=10,
+        unique=True,
+        blank=True,
+        null=True,
+        help_text='Short code for sharing letter via short URL'
+    )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
         related_name='created_letters',
@@ -189,6 +196,10 @@ class Letter(models.Model):
 
     def get_absolute_url(self):
         return reverse('letters:letter_detail', kwargs={'pk': self.pk})
+
+    def get_short_url(self):
+        """Return the short URL path for sharing the letter."""
+        return f'/l/{self.short_code}/'
 
     # ------------------------------------------------------------------
     # Computed properties
@@ -272,7 +283,7 @@ class Letter(models.Model):
                 self.status = self.RECEIVED
             elif self.direction == self.OUTGOING:
                 self.status = self.DRAFTED
-        
+
         # Auto-generate reference number if not provided and department is assigned
         if not self.reference_no and self.assigned_department:
             self.reference_no = self.generate_reference_number()
@@ -280,6 +291,14 @@ class Letter(models.Model):
         # Convert empty string to None to ensure database unique constraint works cleanly
         if self.reference_no == '':
             self.reference_no = None
+
+        # Generate short code if not exists
+        if not self.short_code:
+            import secrets
+            self.short_code = secrets.token_urlsafe(8)[:10]
+            # Ensure uniqueness
+            while Letter.objects.filter(short_code=self.short_code).exists():
+                self.short_code = secrets.token_urlsafe(8)[:10]
 
         super().save(*args, **kwargs)
 

@@ -39,6 +39,9 @@ urlpatterns = [
     # Short URL for file sharing
     path('share/<str:short_code>/', views.ShortUrlRedirectView.as_view(), name='short_url_redirect'),
 
+    # Short URL for letter sharing
+    path('l/<str:short_code>/', views.LetterShortUrlRedirectView.as_view(), name='letter_short_url_redirect'),
+
     # Overdue
     path('letters/overdue/', views.OverdueLettersView.as_view(), name='overdue_letters'),
 

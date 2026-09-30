@@ -7,6 +7,9 @@ from .models import Letter, Notification, ActionLog
 from .telegram_utils import send_telegram_message
 from .sms_utils import send_sms_notification
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 try:
     channel_layer = get_channel_layer()
@@ -199,7 +202,7 @@ def send_telegram_for_letter_assignment(letter):
     """Send Telegram notification when a letter is assigned to a user."""
     if not letter.assigned_person:
         return
-    
+
     try:
         profile = getattr(letter.assigned_person, 'profile', None)
         if profile and profile.telegram_chat_id and profile.telegram_notifications:
@@ -208,23 +211,60 @@ def send_telegram_for_letter_assignment(letter):
                 contact_info = f"From: {letter.sender}" if letter.sender else ""
             else:
                 contact_info = f"To: {letter.recipient}" if letter.recipient else ""
-            
+
             direction_emoji = "📥" if letter.direction == 'INCOMING' else "📤"
-            
+
+            # Priority emoji
+            priority_emojis = {
+                'URGENT': '🔴',
+                'CONFIDENTIAL': '🔒',
+                'NORMAL': '📋'
+            }
+            priority_emoji = priority_emojis.get(letter.priority, '📋')
+
+            # Letter type emoji
+            type_emoji = '📄' if letter.letter_type == 'HARDCOPY' else '💻'
+
             message = (
-                f"{direction_emoji} New letter assigned\n"
-                f"Reference: {letter.reference_no}\n"
-                f"Subject: {letter.subject}\n"
-                f"Priority: {letter.priority}"
+                f"{direction_emoji} {priority_emoji} New letter assigned\n\n"
+                f"<b>Reference:</b> {letter.reference_no}\n"
+                f"<b>Subject:</b> {letter.subject}\n"
+                f"<b>Type:</b> {type_emoji} {letter.get_letter_type_display()}\n"
+                f"<b>Priority:</b> {letter.get_priority_display()}"
             )
-            
+
+            # Add category
+            if letter.category:
+                message += f"\n<b>Category:</b> {letter.category.name}"
+
+            # Add assigned by
+            if letter.created_by:
+                message += f"\n<b>Assigned by:</b> {letter.created_by.get_full_name() or letter.created_by.username}"
+
+            # Add contact info
             if contact_info:
-                message += f"\n{contact_info}"
-            
+                message += f"\n<b>{contact_info}</b>"
+
+            # Add date info
+            if letter.date:
+                message += f"\n<b>Date:</b> {letter.date.strftime('%Y-%m-%d')}"
+                if letter.ethiopian_date:
+                    message += f" ({letter.ethiopian_date})"
+
+            # Add due date
+            if letter.due_date:
+                message += f"\n<b>Due:</b> {letter.due_date.strftime('%Y-%m-%d')}"
+                if letter.ethiopian_due_date:
+                    message += f" ({letter.ethiopian_due_date})"
+                if letter.is_overdue:
+                    message += " ⚠️ OVERDUE"
+
             # Add letter link
-            letter_url = f"https://lms.pro.et/letters/{letter.id}/"
-            message += f"\n\n<a href='{letter_url}'>View Letter</a>"
-            
+            from django.conf import settings
+            site_url = getattr(settings, 'SITE_URL', 'https://lms.pro.et')
+            letter_url = f"{site_url}{letter.get_short_url()}"
+            message += f"\n\n<a href='{letter_url}'>📎 View Letter</a>"
+
             send_telegram_message(profile.telegram_chat_id, message)
     except Exception as e:
         logger.error(f"Error sending Telegram notification for letter assignment: {e}")
@@ -262,7 +302,9 @@ def send_telegram_for_status_change(letter):
                         message += f"\n{contact_info}"
                     
                     # Add letter link
-                    letter_url = f"https://lms.pro.et/letters/{letter.id}/"
+                    from django.conf import settings
+                    site_url = getattr(settings, 'SITE_URL', 'https://lms.pro.et')
+                    letter_url = f"{site_url}{letter.get_short_url()}"
                     message += f"\n\n<a href='{letter_url}'>View Letter</a>"
                     
                     send_telegram_message(profile.telegram_chat_id, message)
@@ -278,17 +320,47 @@ def send_sms_for_letter_assignment(letter):
     try:
         profile = getattr(letter.assigned_person, 'profile', None)
         if profile and profile.phone_number and profile.sms_notifications:
-            direction_label = "Incoming" if letter.direction == 'INCOMING' else "Outgoing"
+            direction_label = "IN" if letter.direction == 'INCOMING' else "OUT"
+
+            # Priority indicator
+            priority_indicators = {
+                'URGENT': '!',
+                'CONFIDENTIAL': '#',
+                'NORMAL': ''
+            }
+            priority_indicator = priority_indicators.get(letter.priority, '')
 
             sms_text = (
-                f"AE LMS: New {direction_label} letter assigned\n"
+                f"AE LMS: New {direction_label} letter {priority_indicator}\n"
                 f"Ref: {letter.reference_no}\n"
-                f"Subject: {letter.subject}\n"
-                f"Priority: {letter.get_priority_display()}"
+                f"Subj: {letter.subject[:50]}"
             )
 
+            # Add priority
+            sms_text += f"\nPrio: {letter.get_priority_display()}"
+
+            # Add sender/recipient
+            if letter.direction == 'INCOMING' and letter.sender:
+                sms_text += f"\nFrom: {letter.sender[:30]}"
+            elif letter.direction == 'OUTGOING' and letter.recipient:
+                sms_text += f"\nTo: {letter.recipient[:30]}"
+
+            # Add due date
             if letter.due_date:
                 sms_text += f"\nDue: {letter.due_date.strftime('%Y-%m-%d')}"
+                if letter.is_overdue:
+                    sms_text += " OVERDUE"
+
+            # Add assigned by
+            if letter.created_by:
+                assigned_by = letter.created_by.get_full_name() or letter.created_by.username
+                sms_text += f"\nBy: {assigned_by[:20]}"
+
+            # Add letter detail link
+            from django.conf import settings
+            site_url = getattr(settings, 'SITE_URL', 'https://lms.pro.et')
+            letter_url = f"{site_url}{letter.get_short_url()}"
+            sms_text += f"\n{letter_url}"
 
             send_sms_notification(letter.assigned_person, 'New Letter Assigned', sms_text)
     except Exception as e:
@@ -314,6 +386,12 @@ def send_sms_for_status_change(letter):
                         f"Status: {old_status} > {letter.status}\n"
                         f"Subject: {letter.subject[:50]}"
                     )
+
+                    # Add letter detail link
+                    from django.conf import settings
+                    site_url = getattr(settings, 'SITE_URL', 'https://lms.pro.et')
+                    letter_url = f"{site_url}{letter.get_short_url()}"
+                    sms_text += f"\n{letter_url}"
 
                     send_sms_notification(letter.created_by, 'Status Update', sms_text)
         except Exception as e:
