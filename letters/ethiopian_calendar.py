@@ -263,7 +263,7 @@ def parse_ethiopian_date(date_str: str) -> Optional[date]:
             y = int(tokens[2])
             return ethiopian_to_gregorian(y, m, d)
 
-    raise ValueError(f"Cannot parse '{date_str}' as a valid Ethiopian date.")
+    return None
 
 
 # ---------------------------------------------------------------------------

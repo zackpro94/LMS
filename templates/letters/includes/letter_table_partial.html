@@ -1,0 +1,218 @@
+{% load static %}
+{% load ethiopian_date_tags %}
+
+<div class="table-responsive">
+  <table class="table table-hover letter-table align-middle mb-0">
+    <thead>
+      <tr>
+        <th style="width: 38px;" class="text-center">
+          <input type="checkbox" class="form-check-input" id="select-all" title="Select all letters">
+        </th>
+        <th style="min-width: 110px;">Ref #</th>
+        <th style="min-width: 80px;">Direction</th>
+        <th style="min-width: 85px;">Type</th>
+        <th style="min-width: 140px;">From / To</th>
+        <th style="min-width: 220px;">Subject</th>
+        <th style="min-width: 105px;">Category</th>
+        <th style="min-width: 85px;">Priority</th>
+        <th style="min-width: 95px;">Status</th>
+        <th style="min-width: 100px;">Dept</th>
+        <th style="min-width: 130px;">Date (G.C. / E.C.)</th>
+        <th style="min-width: 120px;">Due Date</th>
+        <th style="min-width: 100px;" class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for letter in letters %}
+      <tr class="cursor-pointer" onclick="window.location='{{ letter.get_absolute_url }}'">
+        <!-- Checkbox -->
+        <td class="text-center" onclick="event.stopPropagation()">
+          <input type="checkbox" class="form-check-input letter-checkbox" name="letter_ids" value="{{ letter.pk }}">
+        </td>
+
+        <!-- 1. Ref # -->
+        <td class="text-nowrap">
+          {% if letter.reference_no %}
+          <a href="{{ letter.get_absolute_url }}" class="ref-badge" title="View Letter {{ letter.reference_no }}">
+            <code>{{ letter.reference_no }}</code>
+          </a>
+          {% else %}
+          <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+
+        <!-- 2. Direction -->
+        <td class="text-nowrap">
+          {% include 'includes/badge_direction.html' with direction=letter.direction %}
+        </td>
+
+        <!-- 3. Type -->
+        <td class="text-nowrap">
+          {% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type %}
+        </td>
+
+        <!-- 4. From / To -->
+        <td>
+          <span class="d-inline-block text-truncate fw-medium" style="max-width: 170px;" title="{% if letter.direction == 'INCOMING' %}{{ letter.sender|default:'—' }}{% else %}{{ letter.recipient|default:'—' }}{% endif %}">
+            {% if letter.direction == 'INCOMING' %}
+              {{ letter.sender|default:"—" }}
+            {% else %}
+              {{ letter.recipient|default:"—" }}
+            {% endif %}
+          </span>
+        </td>
+
+        <!-- 5. Subject -->
+        <td>
+          <div class="letter-subject-cell" style="min-width: 180px; max-width: 320px;">
+            <a href="{{ letter.get_absolute_url }}" class="letter-subject-link" title="{{ letter.subject }}">
+              {{ letter.subject }}
+            </a>
+            {% if letter.attention_to %}
+            <small class="text-muted d-block text-truncate mt-1" style="font-size: 0.71rem;" title="Attention: {{ letter.attention_to }}">
+              <i class="bi bi-at text-secondary me-0"></i>{{ letter.attention_to }}
+            </small>
+            {% endif %}
+          </div>
+        </td>
+
+        <!-- 6. Category -->
+        <td class="text-nowrap">
+          {% if letter.category %}
+          <span class="badge bg-light text-dark border fw-normal" title="{{ letter.category.name }}">
+            <i class="bi bi-tag text-muted me-1"></i>{{ letter.category.name|truncatechars:18 }}
+          </span>
+          {% else %}
+          <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+
+        <!-- 7. Priority -->
+        <td class="text-nowrap">
+          {% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}
+        </td>
+
+        <!-- 8. Status -->
+        <td class="text-nowrap">
+          {% include 'includes/badge_status.html' with status=letter.status label=letter.get_status_display %}
+        </td>
+
+        <!-- 9. Dept -->
+        <td class="text-nowrap">
+          {% if letter.assigned_department %}
+          <span class="badge bg-secondary-subtle text-secondary fw-medium" title="{{ letter.assigned_department.name }}">
+            <i class="bi bi-building me-1 opacity-75"></i>{{ letter.assigned_department.code|default:letter.assigned_department.name }}
+          </span>
+          {% else %}
+          <span class="text-muted small">—</span>
+          {% endif %}
+          {% if letter.assigned_person %}
+          <small class="text-muted d-block text-truncate mt-1" style="max-width: 110px; font-size: 0.71rem;" title="Assigned to: {{ letter.assigned_person.get_full_name|default:letter.assigned_person.username }}">
+            <i class="bi bi-person me-1"></i>{{ letter.assigned_person.first_name|default:letter.assigned_person.username }}
+          </small>
+          {% endif %}
+        </td>
+
+        <!-- 10. Date (G.C. / E.C.) -->
+        <td class="text-nowrap">
+          <div class="d-flex flex-column">
+            <span class="fw-semibold text-dark" style="font-size: 0.82rem;">{{ letter.date|date:"d M Y" }}</span>
+            <small class="text-primary d-inline-flex align-items-center gap-1" style="font-size: 0.72rem;" title="{{ letter.ethiopian_date_amharic|default:'' }}">
+              <i class="bi bi-calendar2-event opacity-75" style="font-size: 0.65rem;"></i>{{ letter.ethiopian_date }}
+            </small>
+          </div>
+        </td>
+
+        <!-- 11. Due Date -->
+        <td class="text-nowrap">
+          {% if letter.is_overdue %}
+            <div class="d-flex flex-column">
+              <span class="text-danger fw-bold d-inline-flex align-items-center gap-1" style="font-size: 0.82rem;">
+                <i class="bi bi-exclamation-triangle-fill"></i> {{ letter.due_date|date:"d M Y" }}
+              </span>
+              <small class="text-danger" style="font-size: 0.71rem;">{{ letter.ethiopian_due_date }}</small>
+              {% if letter.days_until_due is not None %}
+              <span class="badge bg-danger-subtle text-danger py-0 px-1 mt-1" style="font-size: 0.66rem; width: fit-content;">
+                {{ letter.days_until_due|cut:"-" }}d overdue
+              </span>
+              {% endif %}
+            </div>
+          {% elif letter.due_date %}
+            <div class="d-flex flex-column">
+              <span class="text-dark small" style="font-size: 0.82rem;">{{ letter.due_date|date:"d M Y" }}</span>
+              <small class="text-muted" style="font-size: 0.71rem;">{{ letter.ethiopian_due_date }}</small>
+            </div>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+
+        <!-- 12. Actions -->
+        <td class="text-nowrap text-end" onclick="event.stopPropagation()">
+          <div class="btn-group btn-group-sm">
+            <a href="{{ letter.get_absolute_url }}" class="btn btn-outline-primary btn-sm px-2 py-1" title="View Letter Details">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-outline-secondary btn-sm px-2 py-1" title="Edit Letter">
+              <i class="bi bi-pencil"></i>
+            </a>
+            {% if request.user.is_superuser %}
+            <a href="{% url 'letters:letter_delete' letter.pk %}" class="btn btn-outline-danger btn-sm px-2 py-1" title="Delete Letter" onclick="return confirm('Are you sure you want to delete this letter?');">
+              <i class="bi bi-trash"></i>
+            </a>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="13" class="empty-state py-5">
+          <div class="text-center py-4">
+            <div class="mb-3">
+              <i class="bi bi-inbox text-muted" style="font-size: 2.8rem; opacity: 0.5;"></i>
+            </div>
+            <h6 class="fw-semibold text-secondary mb-1">No letters match your search criteria</h6>
+            <p class="text-muted small mb-3">Try adjusting your filters, clearing search terms, or registering a new letter.</p>
+            <div class="d-flex justify-content-center gap-2">
+              <a href="{{ list_clear_url|default:request.path }}" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Filters
+              </a>
+              <a href="{% url 'letters:letter_create' %}" class="btn btn-sm btn-primary">
+                <i class="bi bi-plus-circle me-1"></i>Register Letter
+              </a>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Floating Bulk Actions Bar -->
+<div class="bulk-floating-bar d-none" id="bulk-actions-bar">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div class="d-flex align-items-center gap-2">
+      <i class="bi bi-check2-circle text-primary fs-5"></i>
+      <span class="fw-semibold"><span id="selected-count">0</span> letter(s) selected</span>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <select name="action" class="form-select form-select-sm bg-dark text-white border-secondary" style="width: auto;" required>
+        <option value="">Choose bulk action...</option>
+        <option value="archive">Archive Selected</option>
+        <option value="reopen">Reopen Selected</option>
+        {% if request.user.is_superuser %}
+        <option value="delete" class="text-danger">Delete Selected</option>
+        {% endif %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary px-3">
+        <i class="bi bi-play-fill me-1"></i>Apply
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-light" id="clear-selection">
+        <i class="bi bi-x me-1"></i>Cancel
+      </button>
+    </div>
+  </div>
+</div>
+
+{% include 'includes/pagination.html' %}

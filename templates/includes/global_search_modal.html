@@ -1,0 +1,110 @@
+<!-- Global Realtime Search Modal (Command Palette / Spotlight) -->
+<div class="modal fade" id="globalSearchModal" tabindex="-1" aria-labelledby="globalSearchModalLabel" aria-hidden="true" data-bs-backdrop="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-search-dialog">
+    <div class="modal-content global-search-content shadow-lg border-0">
+      
+      <!-- Search Input Header -->
+      <div class="global-search-header p-3 pb-2 border-bottom">
+        <div class="input-group input-group-lg search-input-group">
+          <span class="input-group-text bg-transparent border-0 text-muted ps-2 pe-2">
+            <i class="bi bi-search fs-5 text-primary"></i>
+          </span>
+          <input type="text" class="form-control bg-transparent border-0 shadow-none fs-6" 
+                 id="globalSearchInput" 
+                 placeholder="Search by reference #, subject, organization, Ethiopian date..." 
+                 autocomplete="off" 
+                 spellcheck="false">
+          
+          <!-- Loading Spinner -->
+          <span class="input-group-text bg-transparent border-0 d-none" id="globalSearchSpinner">
+            <span class="spinner-border spinner-border-sm text-primary" role="status">
+              <span class="visually-hidden">Loading...</span>
+            </span>
+          </span>
+
+          <!-- Clear Button -->
+          <button type="button" class="btn btn-link text-muted border-0 p-1 d-none text-decoration-none" id="globalSearchClearBtn" title="Clear search">
+            <i class="bi bi-x-circle-fill fs-5"></i>
+          </button>
+
+          <!-- ESC Key Badge -->
+          <span class="input-group-text bg-transparent border-0 pe-2 d-none d-sm-flex">
+            <kbd class="global-search-kbd">ESC</kbd>
+          </span>
+        </div>
+
+        <!-- Filter Chips -->
+        <div class="d-flex align-items-center gap-1 mt-2 pt-1 flex-wrap" id="globalSearchFilters">
+          <button type="button" class="btn btn-sm global-filter-chip active" data-type="ALL">
+            <i class="bi bi-collection me-1"></i>All Letters
+          </button>
+          <button type="button" class="btn btn-sm global-filter-chip" data-type="INCOMING">
+            <i class="bi bi-arrow-down-left-circle text-info me-1"></i>Incoming
+          </button>
+          <button type="button" class="btn btn-sm global-filter-chip" data-type="OUTGOING">
+            <i class="bi bi-arrow-up-right-circle text-warning me-1"></i>Outgoing
+          </button>
+          <button type="button" class="btn btn-sm global-filter-chip" data-type="ARCHIVE">
+            <i class="bi bi-archive-fill text-secondary me-1"></i>Paper Archive
+          </button>
+          <span class="ms-auto text-muted small pe-1 d-none" id="globalSearchResultCount">0 results</span>
+        </div>
+      </div>
+
+      <!-- Results Body -->
+      <div class="modal-body p-0 global-search-body">
+        
+        <!-- Initial Blank State -->
+        <div class="p-4 text-center text-muted" id="globalSearchInitialState">
+          <div class="mb-2">
+            <i class="bi bi-lightning-charge text-warning" style="font-size: 2rem;"></i>
+          </div>
+          <h6 class="fw-semibold mb-1">Instant Realtime Search</h6>
+          <p class="small mb-3 text-secondary" style="max-width: 440px; margin: 0 auto;">
+            Search immediately as you type by reference number, subject, organization, department, or Ethiopian date (e.g., <em>2018</em>, <em>Hidar</em>, <em>መስከረም</em>).
+          </p>
+          <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <span class="badge bg-light text-dark border">
+              <i class="bi bi-keyboard me-1 text-primary"></i>Shortcuts: <kbd>Ctrl</kbd> + <kbd>K</kbd> or <kbd>/</kbd>
+            </span>
+            <span class="badge bg-light text-dark border">
+              <i class="bi bi-calendar2 me-1 text-success"></i>Dual Calendar search
+            </span>
+          </div>
+        </div>
+
+        <!-- No Results State -->
+        <div class="p-4 text-center text-muted d-none" id="globalSearchEmptyState">
+          <div class="mb-2">
+            <i class="bi bi-search text-muted opacity-50" style="font-size: 2.2rem;"></i>
+          </div>
+          <h6 class="fw-semibold mb-1">No matching letters found</h6>
+          <p class="small mb-0 text-secondary" id="globalSearchEmptyQueryText">
+            No results match your search keywords.
+          </p>
+        </div>
+
+        <!-- Results List -->
+        <div class="list-group list-group-flush global-search-results-list d-none" id="globalSearchResultsList">
+          <!-- Dynamically populated via JS -->
+        </div>
+
+      </div>
+
+      <!-- Footer Bar -->
+      <div class="modal-footer global-search-footer py-2 px-3 justify-content-between border-top">
+        <div class="d-flex align-items-center gap-3 small text-muted">
+          <span><kbd class="global-search-kbd">↑</kbd> <kbd class="global-search-kbd">↓</kbd> navigate</span>
+          <span><kbd class="global-search-kbd">↵</kbd> select</span>
+          <span><kbd class="global-search-kbd">esc</kbd> close</span>
+        </div>
+        <div id="globalSearchViewAllWrapper" class="d-none">
+          <a href="#" id="globalSearchViewAllLink" class="btn btn-sm btn-link text-primary text-decoration-none p-0 fw-semibold">
+            View all in letter list <i class="bi bi-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>

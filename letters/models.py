@@ -181,6 +181,14 @@ class Letter(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    is_old_archive = models.BooleanField(
+        default=False,
+        help_text='Marks letters registered from old paper archives',
+    )
+    archive_notes = models.TextField(
+        blank=True,
+        help_text='Notes about the original paper letter (e.g. file location, condition)',
+    )
 
     class Meta:
         ordering = ['-created_at']

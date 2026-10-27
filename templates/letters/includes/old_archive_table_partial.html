@@ -1,0 +1,155 @@
+{% load static %}
+{% load ethiopian_date_tags %}
+
+<div class="table-responsive">
+  <table class="table letter-table table-hover align-middle mb-0">
+    <thead>
+      <tr>
+        <th style="width: 140px;">Paper Ref No</th>
+        <th style="width: 140px;">Original Date</th>
+        {% if archive_direction == 'incoming' %}
+          <th style="width: 180px;">Sender / Attention</th>
+        {% else %}
+          <th style="width: 180px;">Recipient / Attention</th>
+        {% endif %}
+        <th>Subject</th>
+        <th style="width: 130px;">Department</th>
+        <th style="width: 170px;">Physical Location</th>
+        <th style="width: 90px;" class="text-center">Scan</th>
+        <th style="width: 110px;" class="text-end">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for letter in letters %}
+      <tr>
+        <!-- Reference No -->
+        <td>
+          <a href="{% url 'letters:letter_detail' letter.pk %}" class="ref-badge" title="View details">
+            <i class="bi bi-file-earmark-text"></i>
+            {{ letter.reference_no|default:"No Ref" }}
+          </a>
+        </td>
+
+        <!-- Date -->
+        <td>
+          <div class="fw-semibold">{{ letter.date|date:"d M Y"|default:"—" }}</div>
+          {% if letter.ethiopian_date %}
+          <small class="text-muted d-block" style="font-size: 0.72rem;">
+            <i class="bi bi-calendar2 me-1"></i>{{ letter.ethiopian_date }}
+          </small>
+          {% endif %}
+        </td>
+
+        <!-- Sender or Recipient -->
+        <td>
+          {% if archive_direction == 'incoming' %}
+            <div class="fw-semibold text-truncate" style="max-width: 180px;" title="{{ letter.sender }}">
+              <i class="bi bi-person-circle text-info me-1"></i>{{ letter.sender|default:"—" }}
+            </div>
+          {% else %}
+            <div class="fw-semibold text-truncate" style="max-width: 180px;" title="{{ letter.recipient }}">
+              <i class="bi bi-person-check text-warning me-1"></i>{{ letter.recipient|default:"—" }}
+            </div>
+          {% endif %}
+          {% if letter.attention_to %}
+            <small class="text-muted d-block text-truncate" style="max-width: 180px;" title="Attention: {{ letter.attention_to }}">
+              <i class="bi bi-at"></i>{{ letter.attention_to }}
+            </small>
+          {% endif %}
+        </td>
+
+        <!-- Subject -->
+        <td>
+          <a href="{% url 'letters:letter_detail' letter.pk %}" class="letter-subject-link">
+            {{ letter.subject }}
+          </a>
+          <div class="mt-1 d-flex gap-1 flex-wrap">
+            {% if letter.category %}
+              <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle" style="font-size: 0.68rem;">
+                {{ letter.category.name }}
+              </span>
+            {% endif %}
+            {% if letter.priority and letter.priority != 'NORMAL' %}
+              {% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display %}
+            {% endif %}
+          </div>
+        </td>
+
+        <!-- Department -->
+        <td>
+          <span class="text-muted small">
+            {{ letter.assigned_department.name|default:"—" }}
+          </span>
+        </td>
+
+        <!-- Physical Location / Archive Notes -->
+        <td>
+          {% if letter.archive_notes %}
+            <span class="archive-storage-pill" title="{{ letter.archive_notes }}">
+              <i class="bi bi-folder2 text-warning"></i>
+              {{ letter.archive_notes|truncatechars:26 }}
+            </span>
+          {% else %}
+            <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+
+        <!-- Scanned Copy Indicator -->
+        <td class="text-center">
+          {% if letter.attachments.count > 0 %}
+            <a href="{% url 'letters:letter_detail' letter.pk %}#attachments-tab" class="badge bg-success-subtle text-success border border-success-subtle text-decoration-none" title="{{ letter.attachments.count }} attachment{{ letter.attachments.count|pluralize }}">
+              <i class="bi bi-paperclip me-1"></i>{{ letter.attachments.count }}
+            </a>
+          {% else %}
+            <span class="text-muted small" title="No scanned file attached">&ndash;</span>
+          {% endif %}
+        </td>
+
+        <!-- Actions -->
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <a href="{% url 'letters:letter_detail' letter.pk %}" class="btn btn-outline-secondary" title="View details">
+              <i class="bi bi-eye"></i>
+            </a>
+            <a href="{% url 'letters:add_attachment' letter.pk %}" class="btn btn-outline-secondary" title="Add scanned document">
+              <i class="bi bi-paperclip"></i>
+            </a>
+            <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-outline-secondary" title="Edit">
+              <i class="bi bi-pencil"></i>
+            </a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="8" class="text-center py-5">
+          <div class="py-4">
+            <div class="rounded-circle bg-warning bg-opacity-10 d-inline-flex align-items-center justify-content-center p-4 mb-3">
+              <i class="bi bi-archive text-warning fs-1"></i>
+            </div>
+            <h6 class="fw-bold">No Archived Letters Found</h6>
+            <p class="text-muted small mb-3" style="max-width: 360px; margin: 0 auto;">
+              {% if request.GET.search or request.GET.category or request.GET.priority %}
+                No letters matched your search criteria. Try clearing filters.
+              {% else %}
+                No paper letters have been registered into this archive yet. Start by cataloging old paper documents.
+              {% endif %}
+            </p>
+            <div class="d-flex justify-content-center gap-2">
+              <a href="{{ create_url }}" class="btn btn-primary btn-sm fw-bold">
+                <i class="bi bi-plus-circle me-1"></i> Register Single Letter
+              </a>
+              <a href="{% if archive_direction == 'incoming' %}{% url 'letters:old_archive_incoming_import' %}{% else %}{% url 'letters:old_archive_outgoing_import' %}{% endif %}" class="btn btn-outline-success btn-sm fw-bold">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i> Bulk Import from Excel
+              </a>
+            </div>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- Pagination -->
+{% include 'includes/pagination.html' %}

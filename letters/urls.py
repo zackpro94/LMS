@@ -23,6 +23,15 @@ urlpatterns = [
     path('api/letters/search/', views.LetterSearchView.as_view(), name='letter_search'),
     path('api/letters/related-search/', views.LetterSearchView.as_view(), name='related_letter_search'),
     path('api/letters/ocr-extract/', views.OcrExtractView.as_view(), name='ocr_extract'),
+
+    # Old Archive
+    path('archive/incoming/', views.OldArchiveIncomingListView.as_view(), name='old_archive_incoming_list'),
+    path('archive/outgoing/', views.OldArchiveOutgoingListView.as_view(), name='old_archive_outgoing_list'),
+    path('archive/incoming/create/', views.OldArchiveIncomingCreateView.as_view(), name='old_archive_incoming_create'),
+    path('archive/outgoing/create/', views.OldArchiveOutgoingCreateView.as_view(), name='old_archive_outgoing_create'),
+    path('archive/incoming/import/', views.OldArchiveImportView.as_view(direction='INCOMING'), name='old_archive_incoming_import'),
+    path('archive/outgoing/import/', views.OldArchiveImportView.as_view(direction='OUTGOING'), name='old_archive_outgoing_import'),
+    path('archive/template/download/', views.OldArchiveTemplateDownloadView.as_view(), name='old_archive_template_download'),
     
     # Saved searches
     path('letters/search/save/', views.SaveSearchView.as_view(), name='save_search'),

@@ -1,0 +1,318 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Import Old Archive Letters from Excel" }}{% endblock %}
+{% block page_title %}{{ page_title|default:"Import Old Archive Letters from Excel" }}{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1">
+  <span class="badge bg-warning-subtle text-warning border border-warning-subtle me-1">
+    <i class="bi bi-file-earmark-excel-fill me-1"></i>Excel Batch Import
+  </span>
+  Bulk catalog paper correspondence into the digital archive
+</p>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .import-card {
+    border-radius: 18px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  .import-card-header {
+    padding: 1.25rem 1.6rem;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.09) 0%, rgba(37, 99, 235, 0.04) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .import-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+
+  .format-preview-table {
+    font-size: 0.83rem;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .format-preview-table th {
+    background: #0f172a;
+    color: #f8fafc;
+    font-size: 0.73rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .format-preview-table td {
+    padding: 0.6rem 0.8rem;
+    background: var(--card-bg, #ffffff);
+  }
+
+  .dropzone-box {
+    border: 2px dashed rgba(212, 168, 67, 0.5);
+    border-radius: 14px;
+    padding: 2.2rem 1.5rem;
+    text-align: center;
+    background: rgba(212, 168, 67, 0.03);
+    cursor: pointer;
+    transition: all 0.25s ease;
+  }
+
+  .dropzone-box:hover {
+    border-color: #b45309;
+    background: rgba(212, 168, 67, 0.07);
+  }
+
+  .submit-actions-bar {
+    padding: 1.25rem 1.6rem;
+    background: var(--card-bg, #ffffff);
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  /* Dark Mode Enhancements */
+  [data-bs-theme="dark"] .import-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .import-card-header {
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .format-preview-table td {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f1f5f9;
+  }
+
+  [data-bs-theme="dark"] .format-preview-table th {
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .dropzone-box {
+    background: rgba(212, 168, 67, 0.05);
+    border-color: rgba(212, 168, 67, 0.35);
+  }
+
+  [data-bs-theme="dark"] .submit-actions-bar {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .import-card .form-control,
+  [data-bs-theme="dark"] .import-card .form-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-10">
+
+    <!-- Instructions & Column Mapping Card -->
+    <div class="card card-glass mb-4 border-0 shadow-sm" style="border-radius: 16px;">
+      <div class="card-body p-4">
+        <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+          <div>
+            <h6 class="fw-bold mb-1">
+              <i class="bi bi-table text-primary me-2"></i>Recognized Excel Columns
+            </h6>
+            <p class="text-muted small mb-0">
+              Your spreadsheet should include these headers (order does not matter):
+            </p>
+          </div>
+          <div>
+            <a href="{{ template_download_url }}" class="btn btn-sm btn-outline-success fw-bold shadow-sm">
+              <i class="bi bi-file-earmark-excel me-1"></i> Download Sample Excel Template
+            </a>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table format-preview-table table-bordered mb-0">
+            <thead>
+              <tr>
+                <th style="background:#b45309;">Ref. No.</th>
+                <th style="background:#b45309;">Organizations</th>
+                <th style="background:#b45309;">Subject</th>
+                <th style="background:#b45309;">Date</th>
+                <th>Department <small class="fw-normal opacity-75">(Optional)</small></th>
+                <th>Archive Notes <small class="fw-normal opacity-75">(Optional)</small></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>MOF/1998/142</code></td>
+                <td>Ministry of Finance</td>
+                <td>Budget Allocation and Grant Approval for Fiscal Year</td>
+                <td><code>2015-04-10</code></td>
+                <td>Finance</td>
+                <td>Cabinet A, Shelf 2, Box 15</td>
+              </tr>
+              <tr>
+                <td><code>MOT/2001/089</code></td>
+                <td>Ministry of Trade</td>
+                <td>Export License Renewal Notification</td>
+                <td><code>2018-11-22</code></td>
+                <td>Legal</td>
+                <td>Cabinet B, Folder 1999</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Form Card -->
+    <form method="post" enctype="multipart/form-data" novalidate id="import-form">
+      {% csrf_token %}
+
+      <div class="import-card shadow-sm">
+        <div class="import-card-header">
+          <div class="d-flex align-items-center gap-3">
+            <div class="import-card-icon">
+              <i class="bi bi-cloud-arrow-up-fill"></i>
+            </div>
+            <div>
+              <h5 class="mb-0 fw-bold">Upload Spreadsheet</h5>
+              <small class="text-muted">Target archive: <strong>{{ direction_display }} Archive</strong></small>
+            </div>
+          </div>
+          <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-2">
+            Target: {{ direction_display }}
+          </span>
+        </div>
+
+        <div class="card-body p-4">
+
+          <!-- Dropzone file picker -->
+          <div class="mb-4">
+            <label class="form-label fw-bold">
+              <i class="bi bi-file-earmark-spreadsheet text-success me-1"></i>Select Excel File (.xlsx, .xls) <span class="text-danger">*</span>
+            </label>
+            <div class="dropzone-box" onclick="document.getElementById('{{ form.excel_file.id_for_label }}').click();">
+              <i class="bi bi-file-earmark-excel text-success display-5 d-block mb-2"></i>
+              <div class="fw-semibold fs-6" id="file-chosen-text">Click or drag & drop your Excel file here</div>
+              <div class="text-muted small mt-1">Supports Microsoft Excel .xlsx and .xls spreadsheets</div>
+              <div class="d-none">
+                {{ form.excel_file }}
+              </div>
+            </div>
+            {% for error in form.excel_file.errors %}
+              <div class="text-danger small mt-1">{{ error }}</div>
+            {% endfor %}
+          </div>
+
+          <div class="row g-3">
+            <!-- Date Mode -->
+            <div class="col-md-6">
+              <label for="{{ form.date_mode.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-calendar3 text-primary me-1"></i>Date Format in Spreadsheet
+              </label>
+              {{ form.date_mode }}
+              <div class="form-text small">Select whether dates in the sheet are Gregorian (G.C.) or Ethiopian Calendar (E.C.).</div>
+              {% for error in form.date_mode.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Default Department -->
+            <div class="col-md-6">
+              <label for="{{ form.assigned_department.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-building text-info me-1"></i>Default Custodian Department
+              </label>
+              {{ form.assigned_department }}
+              <div class="form-text small">Applied if a row doesn't specify a department.</div>
+              {% for error in form.assigned_department.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Default Category -->
+            <div class="col-md-6">
+              <label for="{{ form.category.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-tag text-secondary me-1"></i>Default Category
+              </label>
+              {{ form.category }}
+              <div class="form-text small">Applied if a row doesn't specify a category.</div>
+              {% for error in form.category.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Default Archive Notes -->
+            <div class="col-md-6">
+              <label for="{{ form.archive_notes.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-folder text-warning me-1"></i>Batch Physical Storage Notes
+              </label>
+              {{ form.archive_notes }}
+              <div class="form-text small">e.g. "Imported from Ledger 1998, Cabinet B"</div>
+              {% for error in form.archive_notes.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+        </div>
+
+        <div class="submit-actions-bar">
+          <a href="{{ cancel_url }}" class="btn btn-outline-secondary px-4">
+            Cancel
+          </a>
+          <button type="submit" class="btn btn-success px-4 fw-bold shadow-sm" id="btn-submit-import">
+            <i class="bi bi-cloud-arrow-up-fill me-1"></i> Import Excel File
+          </button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('{{ form.excel_file.id_for_label }}');
+    const chosenText = document.getElementById('file-chosen-text');
+
+    if (fileInput && chosenText) {
+      fileInput.addEventListener('change', function() {
+        if (this.files && this.files.length > 0) {
+          chosenText.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill me-1"></i> Selected: ' + this.files[0].name + ' (' + (this.files[0].size / 1024).toFixed(1) + ' KB)</span>';
+        }
+      });
+    }
+
+    const form = document.getElementById('import-form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        const btn = document.getElementById('btn-submit-import');
+        if (btn && fileInput.files.length > 0) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Importing...';
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

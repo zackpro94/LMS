@@ -149,15 +149,16 @@ class LetterForm(forms.ModelForm):
                 except (ValueError, TypeError):
                     pass
 
-        if related_pks:
-            self.fields['related_letter'].queryset = Letter.objects.filter(pk__in=related_pks)
-        else:
-            self.fields['related_letter'].queryset = Letter.objects.none()
+        if 'related_letter' in self.fields:
+            if related_pks:
+                self.fields['related_letter'].queryset = Letter.objects.filter(pk__in=related_pks)
+            else:
+                self.fields['related_letter'].queryset = Letter.objects.none()
 
         # If user is not admin/superuser, restrict status choices for Front Desk
         if user and not user.is_superuser:
             is_admin = user.groups.filter(name='Admin').exists()
-            if not is_admin:
+            if not is_admin and 'status' in self.fields:
                 # Front Desk users cannot set ARCHIVED or CLOSED directly
                 restricted = [
                     (val, label) for val, label in Letter.STATUS_CHOICES
@@ -792,6 +793,166 @@ class CustomPasswordChangeForm(DjangoPasswordChangeForm):
         )
 
 
+# ---------------------------------------------------------------------------
+# Old Archive Forms (simplified for paper letter registration)
+# ---------------------------------------------------------------------------
+class OldArchiveIncomingForm(LetterForm):
+    """Simplified form for registering old incoming paper letters into the archive."""
+
+    scanned_copy = forms.FileField(
+        required=False,
+        label='Scanned Copy (PDF / Image)',
+        help_text='Optional digital scan or photo of the physical paper letter',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.webp,.tiff'}),
+    )
+
+    class Meta:
+        model = Letter
+        fields = [
+            'reference_no', 'direction', 'letter_type', 'date', 'sender',
+            'attention_to', 'subject', 'category', 'priority',
+            'assigned_department', 'archive_notes',
+        ]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
+            'archive_notes': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'form-control',
+                'placeholder': 'e.g. Cabinet A, Shelf 2, Box 15, Folder 1998 — Original paper letter with seal',
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        # Remove fields not needed for archive
+        for field_name in ['recipient', 'assigned_person', 'status', 'related_letter', 'due_date', 'ethiopian_due_date']:
+            if field_name in self.fields:
+                del self.fields[field_name]
+
+        # Direction is fixed
+        if 'direction' in self.fields:
+            self.fields['direction'].initial = Letter.INCOMING
+            self.fields['direction'].widget = forms.HiddenInput()
+
+        # Letter type defaults to HARDCOPY for paper archives
+        if 'letter_type' in self.fields:
+            self.fields['letter_type'].initial = 'HARDCOPY'
+
+        # Reference is optional for paper archive
+        if 'reference_no' in self.fields:
+            self.fields['reference_no'].required = False
+            self.fields['reference_no'].help_text = 'Original reference number from the physical paper letter (leave blank to auto-generate)'
+            if 'readonly' in self.fields['reference_no'].widget.attrs:
+                del self.fields['reference_no'].widget.attrs['readonly']
+
+        # Sender required
+        if 'sender' in self.fields:
+            self.fields['sender'].required = True
+
+        # Archive notes label
+        if 'archive_notes' in self.fields:
+            self.fields['archive_notes'].label = 'Physical Location & Notes'
+
+
+class OldArchiveOutgoingForm(LetterForm):
+    """Simplified form for registering old outgoing paper letters into the archive."""
+
+    scanned_copy = forms.FileField(
+        required=False,
+        label='Scanned Copy (PDF / Image)',
+        help_text='Optional digital scan or photo of the physical paper letter',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.webp,.tiff'}),
+    )
+
+    class Meta:
+        model = Letter
+        fields = [
+            'reference_no', 'direction', 'letter_type', 'date', 'recipient',
+            'attention_to', 'subject', 'category', 'priority',
+            'assigned_department', 'archive_notes',
+        ]
+        widgets = {
+            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
+            'archive_notes': forms.Textarea(attrs={
+                'rows': 3,
+                'class': 'form-control',
+                'placeholder': 'e.g. Cabinet B, Shelf 1, Outgoing Binder 1999 — Original copy with stamp',
+            }),
+        }
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        # Remove fields not needed for archive
+        for field_name in ['sender', 'assigned_person', 'status', 'related_letter', 'due_date', 'ethiopian_due_date']:
+            if field_name in self.fields:
+                del self.fields[field_name]
+
+        # Direction is fixed
+        if 'direction' in self.fields:
+            self.fields['direction'].initial = Letter.OUTGOING
+            self.fields['direction'].widget = forms.HiddenInput()
+
+        # Letter type defaults to HARDCOPY for paper archives
+        if 'letter_type' in self.fields:
+            self.fields['letter_type'].initial = 'HARDCOPY'
+
+        # Reference is optional
+        if 'reference_no' in self.fields:
+            self.fields['reference_no'].required = False
+            self.fields['reference_no'].help_text = 'Original reference number from the physical paper letter (leave blank to auto-generate)'
+            if 'readonly' in self.fields['reference_no'].widget.attrs:
+                del self.fields['reference_no'].widget.attrs['readonly']
+
+        # Recipient required
+        if 'recipient' in self.fields:
+            self.fields['recipient'].required = True
+
+        # Archive notes label
+        if 'archive_notes' in self.fields:
+            self.fields['archive_notes'].label = 'Physical Location & Notes'
+
+
+class OldArchiveExcelImportForm(forms.Form):
+    """Form for uploading an Excel spreadsheet to bulk-import historical paper letters."""
+
+    excel_file = forms.FileField(
+        label='Excel Spreadsheet (.xlsx, .xls)',
+        help_text='Upload the spreadsheet containing Ref. No., Organizations, Subject, Date',
+        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.xlsx,.xls'}),
+    )
+    date_mode = forms.ChoiceField(
+        choices=[
+            ('AUTO', 'Auto-Detect (Smart Detection)'),
+            ('GREGORIAN', 'Gregorian Calendar (G.C.)'),
+            ('ETHIOPIAN', 'Ethiopian Calendar (E.C. / ዓ.ም.)'),
+        ],
+        initial='AUTO',
+        label='Date Format in Spreadsheet',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    assigned_department = forms.ModelChoiceField(
+        queryset=Department.objects.all(),
+        required=False,
+        empty_label='— Auto from file or none —',
+        label='Default Department (Optional)',
+        help_text='Applied if the row does not specify a department',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    category = forms.ModelChoiceField(
+        queryset=Category.objects.all(),
+        required=False,
+        empty_label='— Auto from file or none —',
+        label='Default Category (Optional)',
+        widget=forms.Select(attrs={'class': 'form-select'}),
+    )
+    archive_notes = forms.CharField(
+        required=False,
+        label='Default Physical Location & Notes (Optional)',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'e.g. Batch Import: Cabinet A, Shelf 2',
+        }),
+    )
 
 
 

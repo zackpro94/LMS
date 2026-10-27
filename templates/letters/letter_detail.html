@@ -125,6 +125,11 @@
           </div>
         </div>
         <div class="d-flex flex-wrap gap-2 align-items-start">
+          {% if letter.is_old_archive %}
+          <span class="badge bg-warning-subtle text-warning border border-warning fs-6">
+            <i class="bi bi-archive-fill me-1"></i>Paper Archive
+          </span>
+          {% endif %}
           {% include 'includes/badge_direction.html' with direction=letter.direction size='fs-6' %}
           {% include 'includes/badge_letter_type.html' with letter_type=letter.letter_type size='fs-6' %}
           {% include 'includes/badge_priority.html' with priority=letter.priority label=letter.get_priority_display size='fs-6' %}
@@ -225,6 +230,20 @@
             </div>
           </div>
         </div>
+
+        {% if letter.archive_notes or letter.is_old_archive %}
+        <div class="row mt-3">
+          <div class="col-12">
+            <div class="p-3 rounded-3 border" style="background: rgba(212, 168, 67, 0.08); border-color: rgba(212, 168, 67, 0.3) !important;">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <i class="bi bi-archive-fill text-warning fs-5"></i>
+                <strong class="fw-bold">Physical Paper Archive Location & Notes</strong>
+              </div>
+              <p class="mb-0" style="white-space: pre-line;">{{ letter.archive_notes|default:"Registered as historical paper letter in archive." }}</p>
+            </div>
+          </div>
+        </div>
+        {% endif %}
 
         {% if action_logs %}
         <hr class="my-4">

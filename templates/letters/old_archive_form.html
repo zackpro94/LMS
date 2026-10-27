@@ -1,0 +1,390 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ form_title|default:"Register Old Paper Letter" }}{% endblock %}
+{% block page_title %}{{ form_title|default:"Register Old Paper Letter" }}{% endblock %}
+{% block page_subtitle %}
+<p class="text-muted small mb-0 mt-1">
+  <span class="badge bg-warning-subtle text-warning border border-warning-subtle me-1">
+    <i class="bi bi-archive-fill me-1"></i>Old Paper Archive
+  </span>
+  Catalog historical paper records into the digital archive
+</p>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ===== Old Archive Form Modern Styles ===== */
+  .archive-card {
+    border-radius: 18px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border-color, #e2e8f0);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+  }
+
+  .archive-card-header {
+    padding: 1.25rem 1.6rem;
+    border-bottom: 1px solid var(--border-color, #e2e8f0);
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.08) 0%, rgba(15, 23, 42, 0.02) 100%);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+
+  .archive-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(212, 168, 67, 0.15);
+    color: #b45309;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+  }
+
+  .archive-card-body {
+    padding: 1.6rem;
+  }
+
+  .archive-info-box {
+    background: rgba(212, 168, 67, 0.08);
+    border: 1px solid rgba(212, 168, 67, 0.25);
+    border-radius: 12px;
+    padding: 0.9rem 1.2rem;
+    margin-bottom: 1.6rem;
+    font-size: 0.86rem;
+  }
+
+  .archive-form-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary, #0f172a);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px dashed var(--border-color, #e2e8f0);
+  }
+
+  .archive-form-section-title i {
+    color: #b45309;
+  }
+
+  .scan-upload-zone {
+    border: 2px dashed rgba(212, 168, 67, 0.4);
+    border-radius: 12px;
+    padding: 1.4rem;
+    text-align: center;
+    background: rgba(212, 168, 67, 0.03);
+    transition: all 0.25s ease;
+  }
+
+  .scan-upload-zone:hover {
+    border-color: rgba(212, 168, 67, 0.8);
+    background: rgba(212, 168, 67, 0.06);
+  }
+
+  .submit-actions-bar {
+    padding: 1.25rem 1.6rem;
+    background: var(--card-bg, #ffffff);
+    border-top: 1px solid var(--border-color, #e2e8f0);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+  }
+
+  /* Dark Mode Enhancements */
+  [data-bs-theme="dark"] .archive-card {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .archive-card-header {
+    background: linear-gradient(135deg, rgba(212, 168, 67, 0.12) 0%, rgba(15, 23, 42, 0.6) 100%);
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .archive-info-box {
+    background: rgba(212, 168, 67, 0.12);
+    border-color: rgba(212, 168, 67, 0.35);
+    color: #f1f5f9;
+  }
+
+  [data-bs-theme="dark"] .archive-form-section-title {
+    color: #f1f5f9;
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .scan-upload-zone {
+    border-color: rgba(212, 168, 67, 0.4);
+    background: rgba(212, 168, 67, 0.05);
+  }
+
+  [data-bs-theme="dark"] .submit-actions-bar {
+    background: #1e293b;
+    border-color: #334155;
+  }
+
+  [data-bs-theme="dark"] .archive-card .form-control,
+  [data-bs-theme="dark"] .archive-card .form-select {
+    background: #0f172a;
+    border-color: #334155;
+    color: #f8fafc;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-12 col-xl-10">
+
+    <!-- Notice Box -->
+    <div class="archive-info-box d-flex align-items-center gap-3">
+      <i class="bi bi-info-circle-fill fs-4 text-warning"></i>
+      <div>
+        <strong>Historical Paper Registry:</strong> Letters registered here are cataloged as
+        <span class="badge bg-secondary">ARCHIVED</span> historical records. They will appear in the
+        <strong>Old Archive</strong> section and won't crowd active operational task lists.
+      </div>
+    </div>
+
+    <!-- Form Errors -->
+    {% if form.errors %}
+    <div class="alert alert-danger alert-dismissible fade show mb-4 shadow-sm" role="alert" style="border-radius:14px;">
+      <div class="d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-exclamation-triangle-fill fs-5 text-danger"></i>
+        <strong class="fs-6">Please check the required fields</strong>
+      </div>
+      <ul class="mb-0 small ps-3">
+        {% for field, errors in form.errors.items %}
+          {% for err in errors %}
+            <li><strong>{{ field|title }}:</strong> {{ err }}</li>
+          {% endfor %}
+        {% endfor %}
+      </ul>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" novalidate id="old-archive-form">
+      {% csrf_token %}
+      {{ form.direction }}
+
+      <div class="archive-card shadow-sm">
+        <div class="archive-card-header">
+          <div class="archive-card-icon">
+            <i class="bi bi-archive-fill"></i>
+          </div>
+          <div>
+            <h5 class="mb-0 fw-bold">{{ form_title|default:"Register Old Paper Letter" }}</h5>
+            <small class="text-muted">Enter original details as they appear on the paper document</small>
+          </div>
+        </div>
+
+        <div class="archive-card-body">
+
+          <!-- SECTION 1: Document Details & Original Date -->
+          <div class="archive-form-section-title">
+            <i class="bi bi-1-circle-fill"></i> Document Details & Original Date
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- Paper Reference Number -->
+            <div class="col-md-6">
+              <label for="{{ form.reference_no.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-hash text-warning me-1"></i>Original Paper Reference No
+              </label>
+              {{ form.reference_no }}
+              <div class="form-text small">Enter reference from physical letter (or leave blank to auto-generate).</div>
+              {% for error in form.reference_no.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Letter Type -->
+            <div class="col-md-6">
+              <label for="{{ form.letter_type.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-card-text text-info me-1"></i>Letter Type <span class="text-danger">*</span>
+              </label>
+              {{ form.letter_type }}
+              {% for error in form.letter_type.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Category -->
+            <div class="col-md-6">
+              <label for="{{ form.category.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-tag text-secondary me-1"></i>Category
+              </label>
+              {{ form.category }}
+              {% for error in form.category.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Priority -->
+            <div class="col-md-6">
+              <label for="{{ form.priority.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-flag text-warning me-1"></i>Priority <span class="text-danger">*</span>
+              </label>
+              {{ form.priority }}
+              {% for error in form.priority.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Gregorian Date -->
+            <div class="col-md-6">
+              <label for="{{ form.date.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-calendar3 text-primary me-1"></i>Original Date (Gregorian / G.C.) <span class="text-danger">*</span>
+              </label>
+              {{ form.date }}
+              <div class="form-text small">The original date the paper letter was written or received.</div>
+              {% for error in form.date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Ethiopian Date -->
+            <div class="col-md-6">
+              <label for="{{ form.ethiopian_date.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-calendar2-week text-success me-1"></i>Original Date (Ethiopian / ዓ.ም.)
+              </label>
+              {{ form.ethiopian_date }}
+              <div id="eth-date-preview-badge" class="mt-1 small" style="min-height: 20px;"></div>
+              {% for error in form.ethiopian_date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+
+          <!-- SECTION 2: Parties & Document Subject -->
+          <div class="archive-form-section-title">
+            <i class="bi bi-2-circle-fill"></i> Parties & Document Subject
+          </div>
+
+          <div class="row g-3 mb-4">
+            <!-- Sender (if Incoming) -->
+            {% if form.sender %}
+            <div class="col-md-6">
+              <label for="{{ form.sender.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-person-circle text-info me-1"></i>Original Sender <span class="text-danger">*</span>
+              </label>
+              {{ form.sender }}
+              <div class="form-text small">Organization or person who issued the paper letter.</div>
+              {% for error in form.sender.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Recipient (if Outgoing) -->
+            {% if form.recipient %}
+            <div class="col-md-6">
+              <label for="{{ form.recipient.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-person-check text-warning me-1"></i>Original Recipient <span class="text-danger">*</span>
+              </label>
+              {{ form.recipient }}
+              <div class="form-text small">Organization or person the paper letter was sent to.</div>
+              {% for error in form.recipient.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Attention To -->
+            <div class="col-md-6">
+              <label for="{{ form.attention_to.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-at text-secondary me-1"></i>Attention To
+              </label>
+              {{ form.attention_to }}
+              <div class="form-text small">Specific officer, department, or individual mentioned.</div>
+              {% for error in form.attention_to.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Subject -->
+            <div class="col-12">
+              <label for="{{ form.subject.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-chat-left-text text-primary me-1"></i>Subject / Summary <span class="text-danger">*</span>
+              </label>
+              {{ form.subject }}
+              <div class="form-text small">Concise subject title or summary of the physical letter.</div>
+              {% for error in form.subject.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+
+          <!-- SECTION 3: Physical Storage Location & Digital Copy -->
+          <div class="archive-form-section-title">
+            <i class="bi bi-3-circle-fill"></i> Physical Storage Location & Digital Copy
+          </div>
+
+          <div class="row g-3">
+            <!-- Custodian Department -->
+            <div class="col-md-6">
+              <label for="{{ form.assigned_department.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-building text-primary me-1"></i>Custodian Department
+              </label>
+              {{ form.assigned_department }}
+              <div class="form-text small">Department responsible for the physical archive file.</div>
+              {% for error in form.assigned_department.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Scanned Copy Upload -->
+            <div class="col-md-6">
+              <label for="{{ form.scanned_copy.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-file-earmark-pdf text-danger me-1"></i>Upload Scanned Copy (PDF / Image)
+              </label>
+              <div class="scan-upload-zone py-2">
+                {{ form.scanned_copy }}
+                <div class="text-muted small mt-1">Optional PDF scan or document photo (up to 25MB)</div>
+              </div>
+              {% for error in form.scanned_copy.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+
+            <!-- Physical Location Notes -->
+            <div class="col-12">
+              <label for="{{ form.archive_notes.id_for_label }}" class="form-label fw-semibold">
+                <i class="bi bi-folder-fill text-warning me-1"></i>Physical Filing Location & Archive Notes
+              </label>
+              {{ form.archive_notes }}
+              <div class="form-text small">Where the original paper document is physically stored (e.g., Cabinet A, Shelf 3, Folder 1998, Document #42) and physical condition.</div>
+              {% for error in form.archive_notes.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Submit Bar -->
+        <div class="submit-actions-bar">
+          <a href="{% if form.instance.direction == 'OUTGOING' %}{% url 'letters:old_archive_outgoing_list' %}{% else %}{% url 'letters:old_archive_incoming_list' %}{% endif %}" class="btn btn-outline-secondary px-4">
+            <i class="bi bi-x-circle me-1"></i> Cancel
+          </a>
+          <button type="submit" class="btn btn-primary px-4 fw-bold">
+            <i class="bi bi-archive-fill me-1"></i> Save to Paper Archive
+          </button>
+        </div>
+      </div>
+    </form>
+
+  </div>
+</div>
+
+<!-- Autocomplete Lists -->
+<datalist id="common-senders-list">
+  {% for s in common_senders %}<option value="{{ s }}">{% endfor %}
+</datalist>
+<datalist id="common-recipients-list">
+  {% for r in common_recipients %}<option value="{{ r }}">{% endfor %}
+</datalist>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'js/ethiopian_calendar.js' %}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Add form-control class to all inputs & selects
+    const form = document.getElementById('old-archive-form');
+    if (form) {
+      form.querySelectorAll('input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea').forEach(el => {
+        if (!el.classList.contains('form-control') && !el.classList.contains('form-select')) {
+          el.classList.add(el.tagName.toLowerCase() === 'select' ? 'form-select' : 'form-control');
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

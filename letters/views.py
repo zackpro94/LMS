@@ -11,7 +11,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
-from django.http import JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponseRedirect, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views import View
@@ -20,7 +20,7 @@ from django.utils.decorators import method_decorator
 from django.urls import reverse, reverse_lazy
 from django.contrib.auth.models import User, Group
 from django.views.generic import (
-    CreateView, DetailView, ListView, TemplateView, UpdateView, DeleteView
+    CreateView, DetailView, ListView, TemplateView, UpdateView, DeleteView, FormView
 )
 from django_filters.views import FilterView
 from django.db import models
@@ -31,6 +31,7 @@ from .filters import LetterFilter
 from .forms import (
     ActionLogForm, AttachmentForm, LetterForm, DepartmentForm, CategoryForm, StaffForm,
     IncomingLetterForm, OutgoingLetterForm, UserProfileForm, UserPreferencesForm, CustomPasswordChangeForm,
+    OldArchiveIncomingForm, OldArchiveOutgoingForm, OldArchiveExcelImportForm,
 )
 from .models import (
     ActionLog, Attachment, AttachmentView, Department, Letter, Category, SavedSearch,
@@ -42,6 +43,7 @@ from .permissions import (
     CanViewLetterMixin, SuperuserOrAdminRequiredMixin, SuperuserRequiredMixin,
 )
 from .export_utils import export_letters_to_excel, export_letters_to_pdf
+from .archive_import import import_archive_letters_from_excel, generate_sample_archive_excel
 from .email_utils import (
     send_overdue_notification, send_status_change_notification,
     send_assignment_notification, send_new_action_notification
@@ -82,41 +84,6 @@ def create_notification(recipient, notification_type, title, message, related_le
     send_telegram_notification(recipient, title, message, url)
 
 
-# ---------------------------------------------------------------------------
-# Letter Search API for autocomplete
-# ---------------------------------------------------------------------------
-class LetterSearchView(LoginRequiredMixin, View):
-    """API endpoint for searching letters (used for related letter autocomplete)."""
-    def get(self, request):
-        query = request.GET.get('q', '')
-        if not query or len(query) < 2:
-            return JsonResponse({'results': []})
-        
-        letters_qs = get_user_letter_queryset(request.user)
-        
-        # Search by reference_no, sender, recipient, subject, department
-        letters = letters_qs.filter(
-            Q(reference_no__icontains=query) |
-            Q(sender__icontains=query) |
-            Q(recipient__icontains=query) |
-            Q(subject__icontains=query) |
-            Q(assigned_department__name__icontains=query)
-        )[:10]  # Limit to 10 results
-        
-        results = []
-        for letter in letters:
-            results.append({
-                'id': letter.pk,
-                'text': f"{letter.reference_no} - {letter.subject[:50]}{'...' if len(letter.subject) > 50 else ''}",
-                'reference_no': letter.reference_no,
-                'subject': letter.subject,
-                'sender': letter.sender or '',
-                'recipient': letter.recipient or '',
-            })
-        
-        return JsonResponse({'results': results})
-
-
 def get_user_letter_queryset(user, qs=None):
     """Filters a letter queryset based on the user's role and assigned department."""
     if qs is None:
@@ -131,6 +98,134 @@ def get_user_letter_queryset(user, qs=None):
     return qs
 
 
+def build_letter_search_query(search_term):
+    """Builds Q objects for searching letters by reference_no, subject, parties, departments, and Ethiopian/Gregorian dates."""
+    if not search_term:
+        return Q()
+
+    search = str(search_term).strip()
+    search_q = (
+        Q(subject__icontains=search)
+        | Q(sender__icontains=search)
+        | Q(recipient__icontains=search)
+        | Q(reference_no__icontains=search)
+        | Q(attention_to__icontains=search)
+        | Q(assigned_department__name__icontains=search)
+        | Q(assigned_department__code__icontains=search)
+        | Q(archive_notes__icontains=search)
+    )
+
+    try:
+        from .ethiopian_calendar import (
+            parse_ethiopian_date, ethiopian_year_gregorian_range,
+            ETHIOPIAN_MONTH_MAP, ethiopian_month_gregorian_range, gregorian_to_ethiopian
+        )
+        # Exact date check
+        parsed_eth_date = parse_ethiopian_date(search)
+        if parsed_eth_date:
+            search_q |= Q(date=parsed_eth_date)
+
+        # Year check (e.g. "2018" or "2017")
+        if search.isdigit() and 1900 <= int(search) <= 2150:
+            y_start, y_end = ethiopian_year_gregorian_range(int(search))
+            search_q |= Q(date__range=(y_start, y_end))
+
+        # Month name check (e.g. "Nehase" or "ነሐሴ")
+        clean_term = search.lower()
+        if clean_term in ETHIOPIAN_MONTH_MAP or search in ETHIOPIAN_MONTH_MAP:
+            m_idx = ETHIOPIAN_MONTH_MAP.get(clean_term) or ETHIOPIAN_MONTH_MAP.get(search)
+            cur_ey, _, _ = gregorian_to_ethiopian(timezone.now().date())
+            for ey in range(cur_ey - 3, cur_ey + 2):
+                m_start, m_end = ethiopian_month_gregorian_range(ey, m_idx)
+                search_q |= Q(date__range=(m_start, m_end))
+    except Exception as e:
+        logger.debug("Failed parsing Ethiopian date for query '%s': %s", search, e)
+
+    return search_q
+
+
+class AjaxListMixin:
+    """Mixin to return rendered HTML partial for AJAX requests in list views."""
+    ajax_partial_template_name = None
+
+    def render_to_response(self, context, **response_kwargs):
+        if (self.request.headers.get('x-requested-with') == 'XMLHttpRequest' or 
+            self.request.GET.get('ajax') == '1') and self.ajax_partial_template_name:
+            from django.template.loader import render_to_string
+            table_html = render_to_string(self.ajax_partial_template_name, context, request=self.request)
+            count = context['paginator'].count if context.get('is_paginated') else len(context.get('letters', []))
+            return JsonResponse({
+                'table_html': table_html,
+                'count': count,
+                'count_text': f"{count} letter{'s' if count != 1 else ''} found"
+            })
+        return super().render_to_response(context, **response_kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Letter Search API (Autocomplete & Realtime Global Command Palette)
+# ---------------------------------------------------------------------------
+class LetterSearchView(LoginRequiredMixin, View):
+    """API endpoint for realtime global search and related letter autocomplete."""
+    def get(self, request):
+        query = request.GET.get('q', '').strip()
+        if not query:
+            return JsonResponse({'results': [], 'count': 0})
+        
+        filter_type = request.GET.get('type', 'ALL').upper()
+        limit = min(int(request.GET.get('limit', 15)), 50)
+        
+        letters_qs = get_user_letter_queryset(request.user)
+        
+        if filter_type == 'INCOMING':
+            letters_qs = letters_qs.filter(direction='INCOMING', is_old_archive=False)
+        elif filter_type == 'OUTGOING':
+            letters_qs = letters_qs.filter(direction='OUTGOING', is_old_archive=False)
+        elif filter_type == 'ARCHIVE':
+            letters_qs = letters_qs.filter(is_old_archive=True)
+        
+        search_q = build_letter_search_query(query)
+        letters_qs = letters_qs.filter(search_q).select_related(
+            'assigned_department', 'assigned_person', 'category'
+        ).order_by('-date', '-created_at')
+        
+        total_count = letters_qs.count()
+        letters = letters_qs[:limit]
+        
+        results = []
+        for letter in letters:
+            party = letter.sender if letter.direction == 'INCOMING' else letter.recipient
+            results.append({
+                'id': letter.pk,
+                'text': f"{letter.reference_no} - {letter.subject[:50]}{'...' if len(letter.subject) > 50 else ''}",
+                'reference_no': letter.reference_no or '—',
+                'subject': letter.subject or '',
+                'direction': letter.direction,
+                'direction_display': letter.get_direction_display(),
+                'letter_type': letter.letter_type,
+                'letter_type_display': letter.get_letter_type_display(),
+                'status': letter.status,
+                'status_display': letter.get_status_display(),
+                'priority': letter.priority,
+                'priority_display': letter.get_priority_display(),
+                'sender': letter.sender or '',
+                'recipient': letter.recipient or '',
+                'party': party or '',
+                'attention_to': letter.attention_to or '',
+                'department': (letter.assigned_department.code or letter.assigned_department.name) if letter.assigned_department else '',
+                'date': letter.date.strftime('%d %b %Y') if letter.date else '',
+                'ethiopian_date': letter.ethiopian_date or '',
+                'is_overdue': getattr(letter, 'is_overdue', False),
+                'is_old_archive': letter.is_old_archive,
+                'url': letter.get_absolute_url(),
+            })
+        
+        return JsonResponse({
+            'results': results,
+            'count': total_count
+        })
+
+
 # ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
@@ -142,7 +237,7 @@ class DashboardView(LoginRequiredMixin, TemplateView):
         today = timezone.now().date()
         user = self.request.user
 
-        letters_qs = get_user_letter_queryset(user)
+        letters_qs = get_user_letter_queryset(user).filter(is_old_archive=False)
         ctx['total_letters'] = letters_qs.count()
         ctx['incoming_count'] = letters_qs.filter(direction='INCOMING').count()
         ctx['outgoing_count'] = letters_qs.filter(direction='OUTGOING').count()
@@ -183,54 +278,23 @@ class DashboardView(LoginRequiredMixin, TemplateView):
 # ---------------------------------------------------------------------------
 # Letter list (filterable)
 # ---------------------------------------------------------------------------
-class LetterListView(LoginRequiredMixin, FilterView):
+class LetterListView(LoginRequiredMixin, AjaxListMixin, FilterView):
     model = Letter
     template_name = 'letters/letter_list.html'
     context_object_name = 'letters'
     filterset_class = LetterFilter
     paginate_by = 20
+    ajax_partial_template_name = 'letters/includes/letter_table_partial.html'
 
     def get_queryset(self):
-        qs = super().get_queryset()
+        qs = super().get_queryset().filter(is_old_archive=False)
         qs = get_user_letter_queryset(self.request.user, qs)
         qs = qs.select_related(
             'assigned_department', 'assigned_person', 'created_by', 'category',
         )
         search = self.request.GET.get('search', '').strip()
         if search:
-            search_q = (
-                Q(subject__icontains=search)
-                | Q(sender__icontains=search)
-                | Q(recipient__icontains=search)
-                | Q(reference_no__icontains=search)
-            )
-
-            # Try parsing search as an Ethiopian date
-            try:
-                from .ethiopian_calendar import parse_ethiopian_date, ethiopian_year_gregorian_range, ETHIOPIAN_MONTH_MAP, ethiopian_month_gregorian_range, gregorian_to_ethiopian
-                # Exact date check
-                parsed_eth_date = parse_ethiopian_date(search)
-                if parsed_eth_date:
-                    search_q |= Q(date=parsed_date)
-
-                # Year check (e.g. "2018" or "2017")
-                if search.isdigit() and 1900 <= int(search) <= 2150:
-                    y_start, y_end = ethiopian_year_gregorian_range(int(search))
-                    search_q |= Q(date__range=(y_start, y_end))
-
-                # Month name check (e.g. "Nehase" or "ነሐሴ")
-                clean_term = search.lower()
-                if clean_term in ETHIOPIAN_MONTH_MAP or search in ETHIOPIAN_MONTH_MAP:
-                    m_idx = ETHIOPIAN_MONTH_MAP.get(clean_term) or ETHIOPIAN_MONTH_MAP.get(search)
-                    cur_ey, _, _ = gregorian_to_ethiopian(timezone.now().date())
-                    # Match this month across current and past 3 Ethiopian years
-                    for ey in range(cur_ey - 3, cur_ey + 2):
-                        m_start, m_end = ethiopian_month_gregorian_range(ey, m_idx)
-                        search_q |= Q(date__range=(m_start, m_end))
-            except Exception:
-                pass
-
-            qs = qs.filter(search_q)
+            qs = qs.filter(build_letter_search_query(search))
         return qs
 
     def get_context_data(self, **kwargs):
@@ -294,6 +358,259 @@ class IncomingLetterListView(LetterListView):
             elif export_format == 'pdf':
                 return export_letters_to_pdf(queryset, 'Incoming_Letters')
         return super().get(request, *args, **kwargs)
+
+
+# ---------------------------------------------------------------------------
+# Old Archive views
+# ---------------------------------------------------------------------------
+class OldArchiveIncomingListView(LoginRequiredMixin, AjaxListMixin, FilterView):
+    """List view for old archived incoming letters."""
+    model = Letter
+    template_name = 'letters/old_archive_list.html'
+    context_object_name = 'letters'
+    filterset_class = LetterFilter
+    paginate_by = 20
+    ajax_partial_template_name = 'letters/includes/old_archive_table_partial.html'
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_old_archive=True, direction='INCOMING')
+        qs = get_user_letter_queryset(self.request.user, qs)
+        qs = qs.select_related('assigned_department', 'created_by', 'category')
+        search = self.request.GET.get('search', '').strip()
+        if search:
+            qs = qs.filter(build_letter_search_query(search))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['list_title'] = 'Old Archive — Incoming'
+        ctx['archive_direction'] = 'incoming'
+        ctx['create_url'] = reverse_lazy('letters:old_archive_incoming_create')
+        return ctx
+
+    def get(self, request, *args, **kwargs):
+        export_format = request.GET.get('export')
+        if export_format in ('excel', 'pdf'):
+            queryset = self.get_queryset()
+            if export_format == 'excel':
+                return export_letters_to_excel(queryset, 'Old_Archive_Incoming')
+            elif export_format == 'pdf':
+                return export_letters_to_pdf(queryset, 'Old_Archive_Incoming')
+        return super().get(request, *args, **kwargs)
+
+
+class OldArchiveOutgoingListView(LoginRequiredMixin, AjaxListMixin, FilterView):
+    """List view for old archived outgoing letters."""
+    model = Letter
+    template_name = 'letters/old_archive_list.html'
+    context_object_name = 'letters'
+    filterset_class = LetterFilter
+    paginate_by = 20
+    ajax_partial_template_name = 'letters/includes/old_archive_table_partial.html'
+
+    def get_queryset(self):
+        qs = super().get_queryset().filter(is_old_archive=True, direction='OUTGOING')
+        qs = get_user_letter_queryset(self.request.user, qs)
+        qs = qs.select_related('assigned_department', 'created_by', 'category')
+        search = self.request.GET.get('search', '').strip()
+        if search:
+            qs = qs.filter(build_letter_search_query(search))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['list_title'] = 'Old Archive — Outgoing'
+        ctx['archive_direction'] = 'outgoing'
+        ctx['create_url'] = reverse_lazy('letters:old_archive_outgoing_create')
+        return ctx
+
+    def get(self, request, *args, **kwargs):
+        export_format = request.GET.get('export')
+        if export_format in ('excel', 'pdf'):
+            queryset = self.get_queryset()
+            if export_format == 'excel':
+                return export_letters_to_excel(queryset, 'Old_Archive_Outgoing')
+            elif export_format == 'pdf':
+                return export_letters_to_pdf(queryset, 'Old_Archive_Outgoing')
+        return super().get(request, *args, **kwargs)
+
+
+class OldArchiveIncomingCreateView(LoginRequiredMixin, CreateView):
+    """Create view for registering an old incoming paper letter."""
+    model = Letter
+    form_class = OldArchiveIncomingForm
+    template_name = 'letters/old_archive_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['user'] = self.request.user
+        return kw
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.is_old_archive = True
+        form.instance.status = Letter.ARCHIVED
+        response = super().form_valid(form)
+
+        # Handle optional scanned document
+        scanned_file = self.request.FILES.get('scanned_copy')
+        if scanned_file:
+            Attachment.objects.create(
+                letter=self.object,
+                file=scanned_file,
+                uploaded_by=self.request.user,
+            )
+
+        ActionLog.objects.create(
+            letter=self.object,
+            action='Old archive paper letter registered (Incoming)',
+            action_by=self.request.user,
+        )
+        messages.success(
+            self.request,
+            f'Paper archive letter "{self.object.subject[:50]}" registered successfully.',
+        )
+        return response
+
+    def get_success_url(self):
+        return reverse('letters:letter_detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['form_title'] = 'Register Old Incoming Paper Letter'
+        ctx['is_old_archive'] = True
+        try:
+            ctx['common_senders'] = list(
+                Letter.objects.exclude(sender='').values_list('sender', flat=True).distinct()[:30]
+            )
+        except Exception:
+            ctx['common_senders'] = []
+        ctx['common_recipients'] = []
+        return ctx
+
+
+class OldArchiveOutgoingCreateView(LoginRequiredMixin, CreateView):
+    """Create view for registering an old outgoing paper letter."""
+    model = Letter
+    form_class = OldArchiveOutgoingForm
+    template_name = 'letters/old_archive_form.html'
+
+    def get_form_kwargs(self):
+        kw = super().get_form_kwargs()
+        kw['user'] = self.request.user
+        return kw
+
+    def form_valid(self, form):
+        form.instance.created_by = self.request.user
+        form.instance.is_old_archive = True
+        form.instance.status = Letter.ARCHIVED
+        response = super().form_valid(form)
+
+        # Handle optional scanned document
+        scanned_file = self.request.FILES.get('scanned_copy')
+        if scanned_file:
+            Attachment.objects.create(
+                letter=self.object,
+                file=scanned_file,
+                uploaded_by=self.request.user,
+            )
+
+        ActionLog.objects.create(
+            letter=self.object,
+            action='Old archive paper letter registered (Outgoing)',
+            action_by=self.request.user,
+        )
+        messages.success(
+            self.request,
+            f'Paper archive letter "{self.object.subject[:50]}" registered successfully.',
+        )
+        return response
+
+    def get_success_url(self):
+        return reverse('letters:letter_detail', kwargs={'pk': self.object.pk})
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['form_title'] = 'Register Old Outgoing Paper Letter'
+        ctx['is_old_archive'] = True
+        ctx['common_senders'] = []
+        try:
+            ctx['common_recipients'] = list(
+                Letter.objects.exclude(recipient='').values_list('recipient', flat=True).distinct()[:30]
+            )
+        except Exception:
+            ctx['common_recipients'] = []
+        return ctx
+
+
+class OldArchiveImportView(LoginRequiredMixin, FormView):
+    """View to bulk import old archived letters from an Excel file."""
+    form_class = OldArchiveExcelImportForm
+    template_name = 'letters/old_archive_import.html'
+    direction = 'INCOMING'
+
+    def get_direction(self):
+        dir_param = self.kwargs.get('direction') or self.request.GET.get('direction')
+        if dir_param and dir_param.upper() in ('INCOMING', 'OUTGOING'):
+            return dir_param.upper()
+        return self.direction
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        cur_dir = self.get_direction()
+        ctx['direction'] = cur_dir
+        ctx['direction_display'] = 'Incoming' if cur_dir == 'INCOMING' else 'Outgoing'
+        ctx['page_title'] = f'Import Old {ctx["direction_display"]} Paper Letters from Excel'
+        ctx['cancel_url'] = reverse('letters:old_archive_incoming_list') if cur_dir == 'INCOMING' else reverse('letters:old_archive_outgoing_list')
+        ctx['template_download_url'] = reverse('letters:old_archive_template_download') + f'?direction={cur_dir}'
+        return ctx
+
+    def form_valid(self, form):
+        excel_file = form.cleaned_data['excel_file']
+        date_mode = form.cleaned_data.get('date_mode', 'AUTO')
+        assigned_dept = form.cleaned_data.get('assigned_department')
+        category = form.cleaned_data.get('category')
+        archive_notes = form.cleaned_data.get('archive_notes', '')
+        direction = self.get_direction()
+
+        result = import_archive_letters_from_excel(
+            file_obj=excel_file,
+            user=self.request.user,
+            direction=direction,
+            default_dept=assigned_dept,
+            default_cat=category,
+            default_notes=archive_notes,
+            date_mode=date_mode,
+        )
+
+        if result['success']:
+            msg = f"Successfully imported {result['imported_count']} {direction.lower()} paper letter(s) into the archive!"
+            if result['skipped_count']:
+                msg += f" ({result['skipped_count']} empty row(s) skipped)."
+            messages.success(self.request, msg)
+            if direction == 'INCOMING':
+                return redirect('letters:old_archive_incoming_list')
+            return redirect('letters:old_archive_outgoing_list')
+        else:
+            for err in result['errors']:
+                messages.error(self.request, err)
+            return self.form_invalid(form)
+
+
+class OldArchiveTemplateDownloadView(LoginRequiredMixin, View):
+    """Download a pre-formatted sample Excel template for old paper archive imports."""
+    def get(self, request, *args, **kwargs):
+        direction = request.GET.get('direction', 'INCOMING').upper()
+        if direction not in ('INCOMING', 'OUTGOING'):
+            direction = 'INCOMING'
+        excel_stream = generate_sample_archive_excel(direction=direction)
+        filename = f"old_archive_{direction.lower()}_template.xlsx"
+        response = HttpResponse(
+            excel_stream.getvalue(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        )
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
 
 
 # ---------------------------------------------------------------------------
