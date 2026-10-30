@@ -111,10 +111,10 @@
             <a href="{% url 'letters:letter_detail' letter.pk %}" class="btn btn-outline-secondary" title="View details">
               <i class="bi bi-eye"></i>
             </a>
-            <a href="{% url 'letters:add_attachment' letter.pk %}" class="btn btn-outline-secondary" title="Add scanned document">
+            <a href="{% url 'letters:letter_detail' letter.pk %}#attachment-form" class="btn btn-outline-secondary" title="Add scanned document">
               <i class="bi bi-paperclip"></i>
             </a>
-            <a href="{% url 'letters:letter_edit' letter.pk %}" class="btn btn-outline-secondary" title="Edit">
+            <a href="{% url 'letters:letter_edit' letter.pk %}{% if request.get_full_path %}?next={{ request.get_full_path|urlencode }}{% endif %}" class="btn btn-outline-secondary" title="Edit">
               <i class="bi bi-pencil"></i>
             </a>
           </div>
@@ -136,7 +136,7 @@
               {% endif %}
             </p>
             <div class="d-flex justify-content-center gap-2">
-              <a href="{{ create_url }}" class="btn btn-primary btn-sm fw-bold">
+              <a href="{{ create_url }}{% if request.get_full_path %}?next={{ request.get_full_path|urlencode }}{% endif %}" class="btn btn-primary btn-sm fw-bold">
                 <i class="bi bi-plus-circle me-1"></i> Register Single Letter
               </a>
               <a href="{% if archive_direction == 'incoming' %}{% url 'letters:old_archive_incoming_import' %}{% else %}{% url 'letters:old_archive_outgoing_import' %}{% endif %}" class="btn btn-outline-success btn-sm fw-bold">

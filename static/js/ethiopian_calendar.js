@@ -126,11 +126,49 @@
     return num < 10 ? '0' + num : '' + num;
   }
 
+  function parseGregorianInput(str) {
+    if (!str) return null;
+    const clean = str.trim();
+
+    // 1. Check DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
+    const dmy = clean.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+    if (dmy) {
+      const d = parseInt(dmy[1], 10);
+      const m = parseInt(dmy[2], 10);
+      const y = parseInt(dmy[3], 10);
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1) {
+        const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        if (d <= dim) {
+          return { year: y, month: m, day: d };
+        }
+      }
+    }
+
+    // 2. Check YYYY-MM-DD or YYYY/MM/DD
+    const ymd = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+    if (ymd) {
+      const y = parseInt(ymd[1], 10);
+      const m = parseInt(ymd[2], 10);
+      const d = parseInt(ymd[3], 10);
+      if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1) {
+        const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+        if (d <= dim) {
+          return { year: y, month: m, day: d };
+        }
+      }
+    }
+
+    return null;
+  }
+
   // Bind live two-way synchronization between a Gregorian date input and an Ethiopian date input
   function bindDualDatePicker(gregId, ethId, badgeId) {
     const gregInput = document.getElementById(gregId);
     const ethInput = document.getElementById(ethId);
     if (!gregInput || !ethInput) return;
+
+    // Skip if input uses manual DD/MM/YYYY format — page-level sync handles it
+    if (gregInput.getAttribute('data-date-format') === 'dd/mm/yyyy') return;
 
     let badgeEl = document.getElementById(badgeId);
     if (!badgeEl) {
@@ -141,18 +179,23 @@
       ethInput.parentNode.appendChild(badgeEl);
     }
 
+    function isGregInputDmy() {
+      return (
+        gregInput.getAttribute('data-date-format') === 'dd/mm/yyyy' ||
+        gregInput.classList.contains('manual-dmy-date') ||
+        (gregInput.type !== 'date' && gregInput.placeholder && gregInput.placeholder.includes('DD/MM/YYYY'))
+      );
+    }
+
     function updateFromGregorian() {
       const val = gregInput.value;
       if (!val) {
         badgeEl.innerHTML = '';
         return;
       }
-      const parts = val.split('-');
-      if (parts.length === 3) {
-        const gy = parseInt(parts[0], 10);
-        const gm = parseInt(parts[1], 10);
-        const gd = parseInt(parts[2], 10);
-        const eth = gregorianToEthiopian(gy, gm, gd);
+      const greg = parseGregorianInput(val);
+      if (greg) {
+        const eth = gregorianToEthiopian(greg.year, greg.month, greg.day);
         if (eth) {
           ethInput.value = `${eth.year}-${pad(eth.month)}-${pad(eth.day)}`;
           badgeEl.innerHTML = `<i class="bi bi-calendar2-check text-success"></i> <strong>${formatEthiopianString(eth)}</strong>`;
@@ -170,7 +213,11 @@
       if (eth) {
         const greg = ethiopianToGregorian(eth.year, eth.month, eth.day);
         if (greg) {
-          gregInput.value = `${greg.year}-${pad(greg.month)}-${pad(greg.day)}`;
+          if (isGregInputDmy()) {
+            gregInput.value = `${pad(greg.day)}/${pad(greg.month)}/${greg.year}`;
+          } else {
+            gregInput.value = `${greg.year}-${pad(greg.month)}-${pad(greg.day)}`;
+          }
           badgeEl.innerHTML = `<i class="bi bi-calendar2-check text-success"></i> <strong>${formatEthiopianString(eth)}</strong>`;
         } else {
           badgeEl.innerHTML = `<span class="text-danger"><i class="bi bi-exclamation-circle"></i> Invalid day for ${ETHIOPIAN_MONTHS_EN[eth.month - 1] || eth.month} ${eth.year}</span>`;
@@ -203,6 +250,7 @@
     ethiopianToGregorian: ethiopianToGregorian,
     formatEthiopianString: formatEthiopianString,
     parseEthiopianInput: parseEthiopianInput,
+    parseGregorianInput: parseGregorianInput,
     bindDualDatePicker: bindDualDatePicker
   };
 })();

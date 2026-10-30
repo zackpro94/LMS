@@ -796,8 +796,30 @@ class CustomPasswordChangeForm(DjangoPasswordChangeForm):
 # ---------------------------------------------------------------------------
 # Old Archive Forms (simplified for paper letter registration)
 # ---------------------------------------------------------------------------
-class OldArchiveIncomingForm(LetterForm):
-    """Simplified form for registering old incoming paper letters into the archive."""
+class BaseOldArchiveForm(LetterForm):
+    """Base form for registering old paper letters into archive with manual DD/MM/YYYY date input."""
+
+    date = forms.DateField(
+        required=True,
+        label='Original Date (Gregorian / G.C.)',
+        input_formats=['%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y-%m-%d', '%d/%m/%y'],
+        widget=forms.DateInput(
+            format='%d/%m/%Y',
+            attrs={
+                'type': 'text',
+                'class': 'form-control greg-date-input manual-dmy-date',
+                'placeholder': 'DD/MM/YYYY (e.g. 25/12/1998)',
+                'autocomplete': 'off',
+                'inputmode': 'numeric',
+                'data-date-format': 'dd/mm/yyyy',
+            }
+        ),
+        help_text='Enter original Gregorian date in DD/MM/YYYY format (e.g. 25/12/1998)',
+        error_messages={
+            'invalid': 'Enter a valid date in DD/MM/YYYY format (e.g. 25/12/1998).',
+            'required': 'Original Date (Gregorian / G.C.) is required in DD/MM/YYYY format.',
+        }
+    )
 
     scanned_copy = forms.FileField(
         required=False,
@@ -805,6 +827,43 @@ class OldArchiveIncomingForm(LetterForm):
         help_text='Optional digital scan or photo of the physical paper letter',
         widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.webp,.tiff'}),
     )
+
+    def __init__(self, *args, user=None, **kwargs):
+        super().__init__(*args, user=user, **kwargs)
+        # Ensure manual input with dd/mm/yyyy format
+        if 'date' in self.fields:
+            self.fields['date'].required = False  # Allows clean() to handle either Gregorian date or fallback Ethiopian date
+            self.fields['date'].input_formats = ['%d/%m/%Y', '%d-%m-%Y', '%d.%m.%Y', '%Y-%m-%d', '%d/%m/%y']
+            self.fields['date'].widget.format = '%d/%m/%Y'
+            if self.instance and self.instance.pk and self.instance.date:
+                self.initial['date'] = self.instance.date.strftime('%d/%m/%Y')
+
+    def clean(self):
+        # Capture raw date parsed by DateField.to_python before LetterForm.clean might alter it
+        raw_greg_date = self.cleaned_data.get('date')
+        cleaned_data = super().clean()
+        eth_date_str = cleaned_data.get('ethiopian_date')
+
+        # In old archive registration form, Gregorian date is the primary manual input (DD/MM/YYYY)
+        if raw_greg_date:
+            cleaned_data['date'] = raw_greg_date
+            cleaned_data['ethiopian_date'] = format_ethiopian_date(raw_greg_date, fmt='iso')
+        elif eth_date_str and not cleaned_data.get('date'):
+            try:
+                parsed_date = parse_ethiopian_date(eth_date_str)
+                if parsed_date:
+                    cleaned_data['date'] = parsed_date
+            except Exception as e:
+                self.add_error('ethiopian_date', f'Invalid Ethiopian date: {str(e)}')
+
+        if not cleaned_data.get('date'):
+            self.add_error('date', 'Original Date (Gregorian / G.C.) is required in DD/MM/YYYY format.')
+
+        return cleaned_data
+
+
+class OldArchiveIncomingForm(BaseOldArchiveForm):
+    """Simplified form for registering old incoming paper letters into the archive."""
 
     class Meta:
         model = Letter
@@ -814,7 +873,6 @@ class OldArchiveIncomingForm(LetterForm):
             'assigned_department', 'archive_notes',
         ]
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
             'archive_notes': forms.Textarea(attrs={
                 'rows': 3,
                 'class': 'form-control',
@@ -854,15 +912,8 @@ class OldArchiveIncomingForm(LetterForm):
             self.fields['archive_notes'].label = 'Physical Location & Notes'
 
 
-class OldArchiveOutgoingForm(LetterForm):
+class OldArchiveOutgoingForm(BaseOldArchiveForm):
     """Simplified form for registering old outgoing paper letters into the archive."""
-
-    scanned_copy = forms.FileField(
-        required=False,
-        label='Scanned Copy (PDF / Image)',
-        help_text='Optional digital scan or photo of the physical paper letter',
-        widget=forms.ClearableFileInput(attrs={'class': 'form-control', 'accept': '.pdf,.png,.jpg,.jpeg,.webp,.tiff'}),
-    )
 
     class Meta:
         model = Letter
@@ -872,7 +923,6 @@ class OldArchiveOutgoingForm(LetterForm):
             'assigned_department', 'archive_notes',
         ]
         widgets = {
-            'date': forms.DateInput(attrs={'type': 'date', 'class': 'greg-date-input form-control'}),
             'archive_notes': forms.Textarea(attrs={
                 'rows': 3,
                 'class': 'form-control',

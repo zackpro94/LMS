@@ -363,6 +363,20 @@ class IncomingLetterListView(LetterListView):
 # ---------------------------------------------------------------------------
 # Old Archive views
 # ---------------------------------------------------------------------------
+def clean_archive_url(url):
+    """Strip ajax parameter and normalize URL for clean browser redirects."""
+    if not url:
+        return ''
+    import urllib.parse
+    parsed = urllib.parse.urlparse(url)
+    qd = urllib.parse.parse_qs(parsed.query)
+    qd.pop('ajax', None)
+    clean_query = urllib.parse.urlencode(qd, doseq=True)
+    if clean_query:
+        return f"{parsed.path}?{clean_query}"
+    return parsed.path
+
+
 class OldArchiveIncomingListView(LoginRequiredMixin, AjaxListMixin, FilterView):
     """List view for old archived incoming letters."""
     model = Letter
@@ -389,6 +403,9 @@ class OldArchiveIncomingListView(LoginRequiredMixin, AjaxListMixin, FilterView):
         return ctx
 
     def get(self, request, *args, **kwargs):
+        clean_url = clean_archive_url(request.get_full_path())
+        request.session['last_old_archive_url'] = clean_url
+        request.session['last_old_archive_incoming_url'] = clean_url
         export_format = request.GET.get('export')
         if export_format in ('excel', 'pdf'):
             queryset = self.get_queryset()
@@ -425,6 +442,9 @@ class OldArchiveOutgoingListView(LoginRequiredMixin, AjaxListMixin, FilterView):
         return ctx
 
     def get(self, request, *args, **kwargs):
+        clean_url = clean_archive_url(request.get_full_path())
+        request.session['last_old_archive_url'] = clean_url
+        request.session['last_old_archive_outgoing_url'] = clean_url
         export_format = request.GET.get('export')
         if export_format in ('excel', 'pdf'):
             queryset = self.get_queryset()
@@ -473,12 +493,23 @@ class OldArchiveIncomingCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse('letters:letter_detail', kwargs={'pk': self.object.pk})
+        next_url = clean_archive_url(self.request.POST.get('next') or self.request.GET.get('next'))
+        if next_url and next_url.startswith('/'):
+            return next_url
+        session_url = self.request.session.get('last_old_archive_incoming_url') or self.request.session.get('last_old_archive_url')
+        if session_url and session_url.startswith('/'):
+            return session_url
+        return reverse('letters:old_archive_incoming_list')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['form_title'] = 'Register Old Incoming Paper Letter'
         ctx['is_old_archive'] = True
+        next_url = clean_archive_url(self.request.GET.get('next') or self.request.POST.get('next'))
+        if not next_url:
+            next_url = self.request.session.get('last_old_archive_incoming_url') or reverse('letters:old_archive_incoming_list')
+        ctx['next_url'] = next_url
+        ctx['cancel_url'] = next_url
         try:
             ctx['common_senders'] = list(
                 Letter.objects.exclude(sender='').values_list('sender', flat=True).distinct()[:30]
@@ -527,12 +558,23 @@ class OldArchiveOutgoingCreateView(LoginRequiredMixin, CreateView):
         return response
 
     def get_success_url(self):
-        return reverse('letters:letter_detail', kwargs={'pk': self.object.pk})
+        next_url = clean_archive_url(self.request.POST.get('next') or self.request.GET.get('next'))
+        if next_url and next_url.startswith('/'):
+            return next_url
+        session_url = self.request.session.get('last_old_archive_outgoing_url') or self.request.session.get('last_old_archive_url')
+        if session_url and session_url.startswith('/'):
+            return session_url
+        return reverse('letters:old_archive_outgoing_list')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['form_title'] = 'Register Old Outgoing Paper Letter'
         ctx['is_old_archive'] = True
+        next_url = clean_archive_url(self.request.GET.get('next') or self.request.POST.get('next'))
+        if not next_url:
+            next_url = self.request.session.get('last_old_archive_outgoing_url') or reverse('letters:old_archive_outgoing_list')
+        ctx['next_url'] = next_url
+        ctx['cancel_url'] = next_url
         ctx['common_senders'] = []
         try:
             ctx['common_recipients'] = list(
@@ -659,7 +701,14 @@ class LetterDetailView(LoginRequiredMixin, CanViewLetterMixin, DetailView):
         else:
             ctx['status_flow'] = Letter.STATUS_CHOICES
 
-        if letter.direction == Letter.INCOMING:
+        if getattr(letter, 'is_old_archive', False):
+            if letter.direction == Letter.INCOMING:
+                ctx['back_url'] = reverse('letters:old_archive_incoming_list')
+                ctx['back_label'] = 'Old Archive — Incoming'
+            else:
+                ctx['back_url'] = reverse('letters:old_archive_outgoing_list')
+                ctx['back_label'] = 'Old Archive — Outgoing'
+        elif letter.direction == Letter.INCOMING:
             ctx['back_url'] = reverse('letters:incoming_letter_list')
             ctx['back_label'] = 'Incoming Letters'
         elif letter.direction == Letter.OUTGOING:
@@ -768,12 +817,21 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
     template_name = 'letters/letter_form.html'
 
     def get_form_class(self):
-        """Use appropriate form based on letter direction."""
+        """Use appropriate form based on letter direction and archive status."""
+        if getattr(self.object, 'is_old_archive', False):
+            if self.object.direction == Letter.OUTGOING:
+                return OldArchiveOutgoingForm
+            return OldArchiveIncomingForm
         if self.object.direction == Letter.INCOMING:
             return IncomingLetterForm
         elif self.object.direction == Letter.OUTGOING:
             return OutgoingLetterForm
         return LetterForm
+
+    def get_template_names(self):
+        if getattr(self.object, 'is_old_archive', False):
+            return ['letters/old_archive_form.html']
+        return [self.template_name]
 
     def get_form_kwargs(self):
         kw = super().get_form_kwargs()
@@ -781,16 +839,41 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
         return kw
 
     def form_valid(self, form):
+        is_archive = getattr(self.object, 'is_old_archive', False)
+        if is_archive:
+            form.instance.is_old_archive = True
+            form.instance.status = Letter.ARCHIVED
+
         old_assigned_person = self.object.assigned_person
         old_status = self.object.status
-        
+
         response = super().form_valid(form)
+
+        if is_archive:
+            scanned_file = self.request.FILES.get('scanned_copy')
+            if scanned_file:
+                Attachment.objects.create(
+                    letter=self.object,
+                    file=scanned_file,
+                    uploaded_by=self.request.user,
+                )
+            ActionLog.objects.create(
+                letter=self.object,
+                action='Paper archive letter updated',
+                action_by=self.request.user,
+            )
+            messages.success(
+                self.request,
+                f'Paper archive letter "{self.object.subject[:50]}" updated successfully.',
+            )
+            return response
+
         ActionLog.objects.create(
             letter=self.object,
             action='Letter details updated',
             action_by=self.request.user,
         )
-        
+
         # Send assignment notification if assigned person changed
         if self.object.assigned_person and self.object.assigned_person != old_assigned_person:
             send_assignment_notification(self.object)
@@ -802,7 +885,7 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
                 message=f'You have been assigned to letter "{self.object.subject}"',
                 related_letter=self.object
             )
-        
+
         # Send status change notification if status changed
         if self.object.status != old_status:
             send_status_change_notification(self.object, old_status, self.object.status)
@@ -815,7 +898,7 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
                     message=f'Letter status changed from {old_status} to {self.object.status}',
                     related_letter=self.object
                 )
-        
+
         messages.success(
             self.request,
             f'Letter {self.object.reference_no} updated.',
@@ -823,11 +906,40 @@ class LetterUpdateView(LoginRequiredMixin, CanViewLetterMixin, UpdateView):
         return response
 
     def get_success_url(self):
+        next_url = clean_archive_url(self.request.POST.get('next') or self.request.GET.get('next'))
+        if next_url and next_url.startswith('/'):
+            return next_url
+
+        if getattr(self.object, 'is_old_archive', False):
+            if self.object.direction == Letter.OUTGOING:
+                session_url = self.request.session.get('last_old_archive_outgoing_url') or self.request.session.get('last_old_archive_url')
+                if session_url and session_url.startswith('/'):
+                    return session_url
+                return reverse('letters:old_archive_outgoing_list')
+            else:
+                session_url = self.request.session.get('last_old_archive_incoming_url') or self.request.session.get('last_old_archive_url')
+                if session_url and session_url.startswith('/'):
+                    return session_url
+                return reverse('letters:old_archive_incoming_list')
+
         return self.object.get_absolute_url()
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['form_title'] = f'Edit: {self.object.reference_no}'
+        if getattr(self.object, 'is_old_archive', False):
+            ctx['is_old_archive'] = True
+            direction_label = 'Incoming' if self.object.direction == Letter.INCOMING else 'Outgoing'
+            ctx['form_title'] = f'Edit Old Archive {direction_label} Letter'
+            next_url = clean_archive_url(self.request.GET.get('next') or self.request.POST.get('next'))
+            if not next_url:
+                if self.object.direction == Letter.OUTGOING:
+                    next_url = self.request.session.get('last_old_archive_outgoing_url') or reverse('letters:old_archive_outgoing_list')
+                else:
+                    next_url = self.request.session.get('last_old_archive_incoming_url') or reverse('letters:old_archive_incoming_list')
+            ctx['next_url'] = next_url
+            ctx['cancel_url'] = next_url
+        else:
+            ctx['form_title'] = f'Edit: {self.object.reference_no}'
         try:
             ctx['common_senders'] = list(
                 Letter.objects.exclude(sender='').values_list('sender', flat=True).distinct()[:30]
@@ -941,6 +1053,11 @@ class AddActionView(LoginRequiredMixin, View):
 # Attachment upload (POST from detail page)
 # ---------------------------------------------------------------------------
 class AddAttachmentView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        letters_qs = get_user_letter_queryset(request.user)
+        letter = get_object_or_404(letters_qs, pk=pk)
+        return redirect(f"{letter.get_absolute_url()}#attachment-form")
+
     def post(self, request, pk):
         letters_qs = get_user_letter_queryset(request.user)
         letter = get_object_or_404(letters_qs, pk=pk)

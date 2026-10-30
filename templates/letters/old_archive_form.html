@@ -175,6 +175,9 @@
     <form method="post" enctype="multipart/form-data" novalidate id="old-archive-form">
       {% csrf_token %}
       {{ form.direction }}
+      {% if next_url %}
+        <input type="hidden" name="next" value="{{ next_url }}">
+      {% endif %}
 
       <div class="archive-card shadow-sm">
         <div class="archive-card-header">
@@ -238,7 +241,7 @@
                 <i class="bi bi-calendar3 text-primary me-1"></i>Original Date (Gregorian / G.C.) <span class="text-danger">*</span>
               </label>
               {{ form.date }}
-              <div class="form-text small">The original date the paper letter was written or received.</div>
+              <div class="form-text small">Enter original date manually in <strong>dd/mm/yyyy</strong> format (e.g. <code>25/12/1998</code>).</div>
               {% for error in form.date.errors %}<div class="text-danger small">{{ error }}</div>{% endfor %}
             </div>
 
@@ -349,11 +352,15 @@
 
         <!-- Submit Bar -->
         <div class="submit-actions-bar">
-          <a href="{% if form.instance.direction == 'OUTGOING' %}{% url 'letters:old_archive_outgoing_list' %}{% else %}{% url 'letters:old_archive_incoming_list' %}{% endif %}" class="btn btn-outline-secondary px-4">
+          <a href="{% if cancel_url %}{{ cancel_url }}{% elif form.instance.direction == 'OUTGOING' %}{% url 'letters:old_archive_outgoing_list' %}{% else %}{% url 'letters:old_archive_incoming_list' %}{% endif %}" class="btn btn-outline-secondary px-4">
             <i class="bi bi-x-circle me-1"></i> Cancel
           </a>
           <button type="submit" class="btn btn-primary px-4 fw-bold">
-            <i class="bi bi-archive-fill me-1"></i> Save to Paper Archive
+            {% if form.instance.pk %}
+              <i class="bi bi-check-circle-fill me-1"></i> Save Changes
+            {% else %}
+              <i class="bi bi-archive-fill me-1"></i> Save to Paper Archive
+            {% endif %}
           </button>
         </div>
       </div>
@@ -373,7 +380,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'js/ethiopian_calendar.js' %}"></script>
+<script src="{% static 'js/ethiopian_calendar.js' %}?v=20261030c"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Add form-control class to all inputs & selects
@@ -384,6 +391,176 @@
           el.classList.add(el.tagName.toLowerCase() === 'select' ? 'form-select' : 'form-control');
         }
       });
+    }
+
+    // ── DD/MM/YYYY Manual date input with auto-format + live GC↔EC sync ──
+    const gregDateInput = document.getElementById('id_date');
+    const ethDateInput  = document.getElementById('id_ethiopian_date');
+    const badgeEl       = document.getElementById('eth-date-preview-badge');
+
+    if (gregDateInput && (gregDateInput.getAttribute('data-date-format') === 'dd/mm/yyyy' || gregDateInput.classList.contains('manual-dmy-date'))) {
+
+      let isDeleting = false;
+
+      // Track backspace / delete to prevent fighting the user
+      gregDateInput.addEventListener('keydown', function(e) {
+        isDeleting = (e.key === 'Backspace' || e.key === 'Delete');
+        const allowed = ['Backspace', 'Delete', 'Tab', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Enter', 'Escape', '/', '-', '.'];
+        if (!allowed.includes(e.key) && !/^\d$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+        }
+      });
+
+      // Format DD/MM/YYYY nicely as user types without double-slashes or trapping backspace
+      function formatDmy(val, deleting) {
+        if (!val) return '';
+        // Clean characters: keep digits and slashes only, collapse multiple slashes
+        let clean = val.replace(/[^0-9/]/g, '').replace(/\/+/g, '/');
+
+        // Handle ISO paste (YYYY-MM-DD or YYYY/MM/DD)
+        const isoMatch = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+        if (isoMatch) {
+          const pad = n => n.length === 1 ? '0' + n : n;
+          return pad(isoMatch[3]) + '/' + pad(isoMatch[2]) + '/' + isoMatch[1];
+        }
+
+        const digits = clean.replace(/\//g, '');
+        if (digits.length === 0) return '';
+        if (digits.length <= 2) {
+          if (digits.length === 2 && !deleting && (clean.includes('/') || clean.length === 2)) {
+            return digits + '/';
+          }
+          return digits;
+        }
+        if (digits.length <= 4) {
+          const d = digits.slice(0, 2);
+          const m = digits.slice(2);
+          if (m.length === 2 && !deleting && (clean.endsWith('/') || clean.split('/').length >= 2)) {
+            return d + '/' + m + '/';
+          }
+          return d + '/' + m;
+        }
+        // 5 to 8 digits (DD/MM/YYYY)
+        const d = digits.slice(0, 2);
+        const m = digits.slice(2, 4);
+        const y = digits.slice(4, 8);
+        return d + '/' + m + '/' + y;
+      }
+
+      // Robust self-contained Gregorian date parser (DD/MM/YYYY or YYYY-MM-DD)
+      function parseGregDate(val) {
+        if (!val) return null;
+        const clean = String(val).trim();
+        // 1. DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
+        const dmy = clean.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+        if (dmy) {
+          const d = parseInt(dmy[1], 10);
+          const m = parseInt(dmy[2], 10);
+          const y = parseInt(dmy[3], 10);
+          if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1) {
+            const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+            if (d <= dim) {
+              return { year: y, month: m, day: d };
+            }
+          }
+        }
+        // 2. YYYY-MM-DD
+        const ymd = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+        if (ymd) {
+          const y = parseInt(ymd[1], 10);
+          const m = parseInt(ymd[2], 10);
+          const d = parseInt(ymd[3], 10);
+          if (m >= 1 && m <= 12 && d >= 1 && d <= 31 && y >= 1) {
+            const dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+            if (d <= dim) {
+              return { year: y, month: m, day: d };
+            }
+          }
+        }
+        return null;
+      }
+
+      // Live sync: GC → EC conversion
+      function syncGregToEthiopian() {
+        if (!window.EthiopianCalendar) return;
+        const val = gregDateInput.value;
+        if (!val || !val.trim()) {
+          if (ethDateInput) ethDateInput.value = '';
+          if (badgeEl) badgeEl.innerHTML = '';
+          return;
+        }
+        const greg = parseGregDate(val);
+        if (greg) {
+          const eth = window.EthiopianCalendar.gregorianToEthiopian(greg.year, greg.month, greg.day);
+          if (eth) {
+            const pad = n => n < 10 ? '0' + n : '' + n;
+            if (ethDateInput) ethDateInput.value = `${eth.year}-${pad(eth.month)}-${pad(eth.day)}`;
+            if (badgeEl) badgeEl.innerHTML = `<i class="bi bi-calendar2-check text-success"></i> <strong>${window.EthiopianCalendar.formatEthiopianString(eth)}</strong>`;
+          } else {
+            if (badgeEl) badgeEl.innerHTML = `<span class="text-danger small"><i class="bi bi-exclamation-circle"></i> Invalid date</span>`;
+          }
+        } else {
+          // If 10 characters entered but date is invalid (e.g. 31/02/2023)
+          if (val.length >= 10 && badgeEl) {
+            badgeEl.innerHTML = `<span class="text-danger small"><i class="bi bi-exclamation-circle"></i> Invalid date (day does not exist in month)</span>`;
+          } else if (badgeEl) {
+            badgeEl.innerHTML = '';
+          }
+        }
+      }
+
+      // Live sync: EC → GC conversion
+      function syncEthToGregorian() {
+        if (!window.EthiopianCalendar) return;
+        const val = ethDateInput.value;
+        if (!val || !val.trim()) {
+          gregDateInput.value = '';
+          if (badgeEl) badgeEl.innerHTML = '';
+          return;
+        }
+        const eth = window.EthiopianCalendar.parseEthiopianInput(val);
+        if (eth) {
+          const greg = window.EthiopianCalendar.ethiopianToGregorian(eth.year, eth.month, eth.day);
+          if (greg) {
+            const pad = n => n < 10 ? '0' + n : '' + n;
+            gregDateInput.value = `${pad(greg.day)}/${pad(greg.month)}/${greg.year}`;
+            if (badgeEl) badgeEl.innerHTML = `<i class="bi bi-calendar2-check text-success"></i> <strong>${window.EthiopianCalendar.formatEthiopianString(eth)}</strong>`;
+          } else {
+            if (badgeEl) badgeEl.innerHTML = `<span class="text-danger small"><i class="bi bi-exclamation-circle"></i> Invalid Ethiopian date</span>`;
+          }
+        }
+      }
+
+      // Input event on Gregorian input
+      gregDateInput.addEventListener('input', function() {
+        this.value = formatDmy(this.value, isDeleting);
+        syncGregToEthiopian();
+      });
+
+      gregDateInput.addEventListener('change', function() {
+        this.value = formatDmy(this.value, false);
+        syncGregToEthiopian();
+      });
+
+      gregDateInput.addEventListener('paste', function() {
+        setTimeout(function() {
+          gregDateInput.value = formatDmy(gregDateInput.value, false);
+          syncGregToEthiopian();
+        }, 10);
+      });
+
+      // Events on Ethiopian input
+      if (ethDateInput) {
+        ethDateInput.addEventListener('input', syncEthToGregorian);
+        ethDateInput.addEventListener('change', syncEthToGregorian);
+      }
+
+      // Initial sync on page load (for edit mode)
+      if (gregDateInput.value) {
+        syncGregToEthiopian();
+      } else if (ethDateInput && ethDateInput.value) {
+        syncEthToGregorian();
+      }
     }
   });
 </script>
